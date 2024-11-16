@@ -1,6 +1,6 @@
 # running the bot
 
-install dependencies first: `npm i`
+install dependencies first: run `npm i` in this folder.
 
 ## in dev mode
 make sure you have `npx` and `tsx` (`npm i -g tsx`) installed.
