@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@skyware/jetstream": "^0.2.0"
+  }
+}
