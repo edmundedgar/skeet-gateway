@@ -1,5 +1,6 @@
 import { Bot } from "@skyware/bot";
 import { Jetstream } from "@skyware/jetstream";
+import WebSocket from "ws";
 import 'dotenv/config';
     
 const BOT_DID = 'did:plc:2xetvg6kr7scf2abxg3q5rvv';
@@ -22,6 +23,7 @@ async function main() {
     console.log(`users: ${JSON.stringify(users, null, 2)}`);
     
     let jetstream = initJetstream(users);
+    //console.log(jetstream);
 
     bot.on('like', (event) => {
         if(event.subject.uri == SUBSCRIBE_POST_URI) {
@@ -58,13 +60,16 @@ async function getSubscribePostLikes(bot: Bot): Promise<did[]> {
 
 function initJetstream(users: did[]): Jetstream {
     let stream = new Jetstream({
+        ws: WebSocket,
         wantedDids: users,
         wantedCollections: ['app.bsky.feed.post'],
     });
     // TODO - make callback customizable / do real thing
     stream.onCreate('app.bsky.feed.post', (event) => {
-        console.log(`new post by ${event.did}`);
+        console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
     });
+
+    stream.start();
     return stream;
 }
 

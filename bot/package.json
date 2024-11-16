@@ -3,7 +3,8 @@
   "dependencies": {
     "@skyware/bot": "^0.3.7",
     "@skyware/jetstream": "^0.2.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0"
