@@ -39,9 +39,7 @@ function initJetstream(users: did[]): Jetstream {
         wantedCollections: ['app.bsky.feed.post'],
     });
     // TODO - make callback customizable / do real thing
-    stream.onCreate('app.bsky.feed.post', (event) => {
-        console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
-    });
+    stream.onCreate('app.bsky.feed.post', onUserPostCreation);
 
     stream.start();
     return stream;
