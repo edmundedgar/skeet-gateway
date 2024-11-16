@@ -9,7 +9,7 @@ import {console} from "forge-std/console.sol";
 
 contract SkeetGatewayTest is Test {
     SkeetGateway public gateway;
-    BBS public bbs;
+    BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
 
     function setUp() public {
         gateway = new SkeetGateway();
@@ -19,7 +19,7 @@ contract SkeetGatewayTest is Test {
     function testAddressRecovery() public {
 
         (address alice, uint256 alicePk) = makeAddrAndKey("alice");
-        bytes32 hash = keccak256("Signed by Alice");
+        bytes32 hash = sha256("Signed by Alice");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(alicePk, hash);
         address signer = ecrecover(hash, v, r, s);
         assertEq(alice, signer);
@@ -31,11 +31,15 @@ contract SkeetGatewayTest is Test {
     function test_Init() public {
         vm.recordLogs();
 
-        //string memory payload = string.concat('{"text": "', string(abi.encodePacked(address(bbs))), ' Hi from bsky later hopefully", "blah": "blah"}');
-        string memory payload = string.concat(string(abi.encodePacked(address(bbs))), ' Hi from bsky later hopefully');
+        string memory payload = '{"text": "0x2e234DAe75C793f67A35089C9d99245E1C58470b Hi from bsky later hopefully", "blah": "blah"}';
+        //string memory payload = string.concat('{"text": "Hi from bsky later hopefully", "blah": "blah"}');
+        // string memory payload = string.concat(string(abi.encodePacked(address(bbs))), ' Hi from bsky later hopefully');
+        uint256[] memory offsets = new uint256[](2);
+        offsets[0] = 10; // trims the stuff before the address
+        offsets[1] = 81; // trims the stuff from the end of the comment
 
         (address alice, uint256 alicePk) = makeAddrAndKey("alice");
-        bytes32 hash = keccak256(bytes(payload));
+        bytes32 hash = sha256(bytes(payload));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(alicePk, hash);
         address signer = ecrecover(hash, v, r, s);
         assertEq(alice, signer);
@@ -55,8 +59,6 @@ contract SkeetGatewayTest is Test {
         //bytes32 root = hash;
         bytes32[] memory proofHashes = new bytes32[](1);
         proofHashes[0] = hash; // should be the root hash
-
-        uint256[] memory offsets = new uint256[](3);
 
         assertNotEq(expectedSigner, address(0), "Signer not found");
         address expectedSafe = address(gateway.predictSafeAddress(hash, v, r, s));
@@ -78,7 +80,7 @@ contract SkeetGatewayTest is Test {
 
         assertEq(gateway.signerSafes(expectedSigner).owner(), address(gateway));
 
-        assertEq(bbs.messages(createdSafe), payload);
+        assertEq(bbs.messages(createdSafe), "Hi from bsky later hopefully");
         assertNotEq(bbs.messages(createdSafe), "oinK");
 
     }

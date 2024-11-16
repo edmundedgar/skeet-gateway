@@ -21,10 +21,45 @@ contract SkeetGateway {
         string payload
     );
 
-    function _parsePayload(string memory _payload) internal returns (address, uint256, bytes memory) {
-        address to = address(bytes20(bytes(_payload)));
-        // bytes memory data = bytes(_payload);
-        bytes memory data = abi.encodeWithSignature("postMessage(string)", _payload);
+    //event LogString(string mystr);
+
+    function _substring(string memory str, uint startIndex, uint endIndex) internal pure returns (string memory) {
+        bytes memory strBytes = bytes(str);
+        bytes memory result = new bytes(endIndex-startIndex);
+        for(uint i = startIndex; i < endIndex; i++) {
+            result[i-startIndex] = strBytes[i];
+        }
+        //emit LogString(string(result));
+        return string(result);
+    }
+
+    function hexCharToByte(bytes1 char) internal pure returns (uint8) {
+	uint8 byteValue = uint8(char);
+	if (byteValue >= uint8(bytes1('0')) && byteValue <= uint8(bytes1('9'))) {
+	    return byteValue - uint8(bytes1('0'));
+	} else if (byteValue >= uint8(bytes1('a')) && byteValue <= uint8(bytes1('f'))) {
+	    return 10 + byteValue - uint8(bytes1('a'));
+	} else if (byteValue >= uint8(bytes1('A')) && byteValue <= uint8(bytes1('F'))) {
+	    return 10 + byteValue - uint8(bytes1('A'));
+	}
+    }
+
+    function _stringToAddress(string memory str) internal pure returns (address) {
+        bytes memory strBytes = bytes(str);
+        require(strBytes.length == 42, "Invalid address length");
+        bytes memory addrBytes = new bytes(20);
+        for (uint i = 0; i < 20; i++) {
+            addrBytes[i] = bytes1(hexCharToByte(strBytes[2 + i * 2]) * 16 + hexCharToByte(strBytes[3 + i * 2]));
+        }
+        return address(uint160(bytes20(addrBytes)));
+    }
+
+    function _parsePayload(string memory _payload, uint256[] memory _offsets) internal returns (address, uint256, bytes memory) {
+        string memory main_part = _substring(_payload, _offsets[0], _offsets[1]);
+        address to = _stringToAddress(_substring(main_part, 0, 42));
+        // bytes memory data = bytes(payload);
+        string memory message = _substring(main_part, 43, bytes(main_part).length);
+        bytes memory data = abi.encodeWithSignature("postMessage(string)", message);
         return (to, 0, data);
     }
 
@@ -53,8 +88,8 @@ contract SkeetGateway {
         // This takes different parameters to ecrecover, we have to pass in the pubkey.
 
         // TODO I guess this is always sha256 even when the signing is done with k256
-        bytes32 sigHash = keccak256(abi.encodePacked(_payload));
-        // require(sigHash == _proofHashes[0], "payload hash does not match the hash of its leaf node");
+        bytes32 sigHash = sha256(abi.encodePacked(_payload));
+        require(sigHash == _proofHashes[0], "payload hash does not match the hash of its leaf node");
 
         address signer = ecrecover(sigHash, _v, _r, _s);
         require(signer != address(0), "Signer should not be empty");
@@ -65,7 +100,7 @@ contract SkeetGateway {
             emit LogCreateSignerSafe(signer, address(signerSafes[signer]));
         }
 
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(_payload);
+        (address to, uint256 value, bytes memory payloadData) = _parsePayload(_payload, _offsets);
         signerSafes[signer].executeOwnerCall(to, value, payloadData);
         emit LogExecutePayload(signer, to, value, payloadData, _payload);
     }
