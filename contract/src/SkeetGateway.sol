@@ -78,6 +78,9 @@ contract SkeetGateway {
         return ecrecover(sigHash, _v, _r, _s);
     }
 
+    function verifyMerkleProof(bytes32[] memory proofHashes) public {
+    }
+
     // Handles a skeet and 
     function handleSkeet(string memory _payload, uint256[] memory _offsets, bytes32[] memory _proofHashes, uint8 _v, bytes32 _r, bytes32 _s) external {
 
@@ -90,6 +93,8 @@ contract SkeetGateway {
         // TODO I guess this is always sha256 even when the signing is done with k256
         bytes32 sigHash = sha256(abi.encodePacked(_payload));
         require(sigHash == _proofHashes[0], "payload hash does not match the hash of its leaf node");
+
+        verifyMerkleProof(_proofHashes);
 
         address signer = ecrecover(sigHash, _v, _r, _s);
         require(signer != address(0), "Signer should not be empty");
