@@ -63,7 +63,9 @@ async function main() {
             if (!users.includes(event.user.did)) {
                 console.log(`new subscriber: ${event.user.did}`);
                 users.push(event.user.did);
+
                 // watching a different set of DIDs requires re-init
+                jetstream.close();
                 jetstream = initJetstream(users);
             }
         }
