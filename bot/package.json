@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@skyware/bot": "^0.3.7",
     "@skyware/jetstream": "^0.2.0"
   }
 }
