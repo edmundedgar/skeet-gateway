@@ -70,7 +70,7 @@ async function main() {
     });
     // TODO - handle unliking to stop listening to a user
 
-    console.log('listening for subscribers\' posts');
+    console.log('listening for users\' posts');
 }
 
 main();
