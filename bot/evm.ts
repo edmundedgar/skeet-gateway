@@ -42,9 +42,9 @@ async function sendSkeet(input: handleSkeetInput) {
         input.v,
         input.r,
         input.s
-      );
+    );
 
-      const receipt = await tx.wait();
-      console.log('Transaction successful:', receipt.transactionHash);
+    const receipt = await tx.wait();
+    console.log('Transaction:', receipt.transactionHash);
 }
 
