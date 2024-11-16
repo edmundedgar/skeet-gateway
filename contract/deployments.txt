@@ -1,0 +1,14 @@
+forge create SkeetGateway --rpc-url https://sepolia.drpc.org --private-key `cat ~/secrets/sepolia.sec`
+[⠊] Compiling...
+No files changed, compilation skipped
+Deployer: 0xcAf7B1375382CBe4113627053E8eC4632D3bCB52
+Deployed to: 0x2B95D0C4896b3b4b059DcEc005187eDcFf8ec0Ac
+Transaction hash: 0x9031d0a4b614c6ab44b035048cf5d30de3cf8a2accd92ff233e118ce369957b5
+
+forge create BBS --rpc-url https://sepolia.drpc.org --private-key `cat ~/secrets/sepolia.sec`
+[⠊] Compiling...
+No files changed, compilation skipped
+Deployer: 0xcAf7B1375382CBe4113627053E8eC4632D3bCB52
+Deployed to: 0x133b80cf22722561AbF837Ea841847AEEa6871Fb
+Transaction hash: 0x730b7941c4f355c7af90632f8b433dc654b0743bfdb89e33faa67b8251c93b1c
+
