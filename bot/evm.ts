@@ -20,19 +20,14 @@ type handleSkeetInput = {
     s: string, // sc_s in goeo rust
 }
 
-
-const RPC_URL = 'https://sepolia.drpc.org';
-const CHAIN_ID = 11155111; // sepolia
-
-const provider = new JsonRpcProvider(RPC_URL, CHAIN_ID);
+const provider = new JsonRpcProvider(process.env.RPC_URL, process.env.CHAIN_ID);
 const privateKey = process.env.EVM_PRIVKEY;
 const signer = new Wallet(privateKey, provider);
 
 const GATEWAY_JSON = JSON.parse(readFileSync('SkeetGateway.json', 'utf-8'));
 
 const GATEWAY_CONTRACT = new Contract(GATEWAY_ADDRESS, GATEWAY_JSON.abi, signer);
-//console.log(GATEWAY_CONTRACT);
-console.log(GATEWAY_CONTRACT.interface.fragments);
+//console.log(GATEWAY_CONTRACT.interface.fragments);
 
 async function sendSkeet(input: handleSkeetInput) {
     const tx = await GATEWAY_CONTRACT.handleSkeet(
