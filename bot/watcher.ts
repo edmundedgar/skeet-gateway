@@ -1,5 +1,5 @@
 import { Bot } from "@skyware/bot";
-import { Jetstream } from "@skyware/jetstream";
+import { CommitCreateEvent, Jetstream } from "@skyware/jetstream";
 import WebSocket from "ws";
 import 'dotenv/config';
     
@@ -47,6 +47,18 @@ function initJetstream(users: did[]): Jetstream {
     return stream;
 }
 
+function shouldPostMsgToChain(event: CommitCreateEvent<"app.bsky.feed.post">): boolean {
+    // TODO - real logic for determining whether user wants to upload
+    return event.commit.record.text.startsWith('skeetgate');
+}
+
+function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">) {
+    console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
+    if (shouldPostMsgToChain(event)) {
+        // TODO - upload to chain
+    }
+}
+
 async function main() {
     console.log('starting bluesky bot...');
 
@@ -55,7 +67,6 @@ async function main() {
     console.log(`users: ${JSON.stringify(users, null, 2)}`);
     
     let jetstream = initJetstream(users);
-    //console.log(jetstream);
 
     bot.on('like', (event) => {
         if(event.subject.uri == SUBSCRIBE_POST_URI) {
