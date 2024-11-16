@@ -15,24 +15,29 @@ async function initBot(): Promise<Bot> {
 }
 
 async function main() {
-    console.log('starting bot');
-    
+    console.log('starting bluesky bot...');
+
     let bot = await initBot();
     let users = await getSubscribePostLikes(bot);
+    console.log(`users: ${JSON.stringify(users, null, 2)}`);
+    
+    let jetstream = initJetstream(users);
+
     bot.on('like', (event) => {
         console.log(`bot post liked: ${event.subject.uri}`);
         if(event.subject.uri == SUBSCRIBE_POST_URI) {
-            users.push(event.user.did);
+            // TODO - linear scan for duplicate DIDs isn't efficient, optimize later
+            if (!users.includes(event.user.did)) {
+                console.log(`new subscriber: ${event.user.did}`);
+                users.push(event.user.did);
+                // watching a different set of DIDs requires re-init
+                jetstream = initJetstream(users);
+            }
         }
     });
     // TODO - handle unliking to stop listening to a user
-    console.log(`users: ${JSON.stringify(users, null, 2)}`);
 
-    let jetstream = initJetstream(users);
-
-    jetstream.onCreate("app.bsky.feed.post", (event) => {
-	    console.log(`new post by ${event.did}`);
-    });
+    console.log('bot started');
 }
 
 const SUB_POST_ID = '3lb2f6j5lom22';
@@ -52,11 +57,16 @@ async function getSubscribePostLikes(bot: Bot): Promise<did[]> {
     return postLikers.map((profile) => profile.did);
 }
 
-function initJetstream(subscribers: did[]): Jetstream {
-    return new Jetstream({
-        wantedDids: subscribers,
+function initJetstream(users: did[]): Jetstream {
+    let stream = new Jetstream({
+        wantedDids: users,
         wantedCollections: ['app.bsky.feed.post'],
     });
+    // TODO - make callback customizable / do real thing
+    stream.onCreate('app.bsky.feed.post', (event) => {
+        console.log(`new post by ${event.did}`);
+    });
+    return stream;
 }
 
 main();
