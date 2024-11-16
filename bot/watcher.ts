@@ -53,7 +53,8 @@ function shouldPostMsgToChain(event: CommitCreateEvent<"app.bsky.feed.post">): b
 function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">) {
     console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
     if (shouldPostMsgToChain(event)) {
-        // TODO - upload to chain
+        // TODO - upload to chain: 
+        // create payload and call sendSkeet()
     }
 }
 
