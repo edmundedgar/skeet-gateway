@@ -15,32 +15,6 @@ async function initBot(): Promise<Bot> {
     return bot;
 }
 
-async function main() {
-    console.log('starting bluesky bot...');
-
-    let bot = await initBot();
-    let users = await getSubscribePostLikes(bot);
-    console.log(`users: ${JSON.stringify(users, null, 2)}`);
-    
-    let jetstream = initJetstream(users);
-    //console.log(jetstream);
-
-    bot.on('like', (event) => {
-        if(event.subject.uri == SUBSCRIBE_POST_URI) {
-            // TODO - linear scan for duplicate DIDs isn't efficient, optimize later
-            if (!users.includes(event.user.did)) {
-                console.log(`new subscriber: ${event.user.did}`);
-                users.push(event.user.did);
-                // watching a different set of DIDs requires re-init
-                jetstream = initJetstream(users);
-            }
-        }
-    });
-    // TODO - handle unliking to stop listening to a user
-
-    console.log('bot started');
-}
-
 const SUB_POST_ID = '3lb2f6j5lom22';
 const SUBSCRIBE_POST_URI = `at://${BOT_DID}/app.bsky.feed.post/${SUB_POST_ID}`;
 // check for the current list of DIDs that have liked
@@ -71,6 +45,32 @@ function initJetstream(users: did[]): Jetstream {
 
     stream.start();
     return stream;
+}
+
+async function main() {
+    console.log('starting bluesky bot...');
+
+    let bot = await initBot();
+    let users = await getSubscribePostLikes(bot);
+    console.log(`users: ${JSON.stringify(users, null, 2)}`);
+    
+    let jetstream = initJetstream(users);
+    //console.log(jetstream);
+
+    bot.on('like', (event) => {
+        if(event.subject.uri == SUBSCRIBE_POST_URI) {
+            // TODO - linear scan for duplicate DIDs isn't efficient, optimize later
+            if (!users.includes(event.user.did)) {
+                console.log(`new subscriber: ${event.user.did}`);
+                users.push(event.user.did);
+                // watching a different set of DIDs requires re-init
+                jetstream = initJetstream(users);
+            }
+        }
+    });
+    // TODO - handle unliking to stop listening to a user
+
+    console.log('listening for subscribers\' posts');
 }
 
 main();
