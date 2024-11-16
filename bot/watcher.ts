@@ -24,7 +24,6 @@ async function main() {
     let jetstream = initJetstream(users);
 
     bot.on('like', (event) => {
-        console.log(`bot post liked: ${event.subject.uri}`);
         if(event.subject.uri == SUBSCRIBE_POST_URI) {
             // TODO - linear scan for duplicate DIDs isn't efficient, optimize later
             if (!users.includes(event.user.did)) {
