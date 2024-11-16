@@ -1,7 +1,7 @@
 import { Bot } from "@skyware/bot";
 import { Jetstream } from "@skyware/jetstream";
+import 'dotenv/config';
     
-
 const BOT_DID = 'did:plc:2xetvg6kr7scf2abxg3q5rvv';
 type did = string;
 
@@ -15,6 +15,8 @@ async function initBot(): Promise<Bot> {
 }
 
 async function main() {
+    console.log('starting bot');
+    
     let bot = await initBot();
     let users = await getSubscribePostLikes(bot);
     bot.on('like', (event) => {
