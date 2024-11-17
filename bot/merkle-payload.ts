@@ -66,7 +66,7 @@ export const fetchPayloadData = async (
   verificationMethod: DidDocument["verificationMethod"][number],
   agentOpts: AtpAgent | AtpAgentOptions | CredentialSession,
   queryParams: ComAtprotoSyncGetRecord.QueryParams,
-  callOpts: ComAtprotoSyncGetRecord.CallOptions
+  callOpts?: ComAtprotoSyncGetRecord.CallOptions
 ): Promise<PayloadData> => {
   const agent =
     agentOpts instanceof AtpAgent ? agentOpts : new AtpAgent(agentOpts);
