@@ -7,8 +7,6 @@ import {SkeetGateway} from "../src/SkeetGateway.sol";
 import {BBS} from "../src/BBS.sol";
 import {console} from "forge-std/console.sol";
 
-import {testData} from "./test_data.json";
-
 contract SkeetGatewayTest is Test {
     SkeetGateway public gateway;
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
