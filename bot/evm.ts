@@ -3,11 +3,6 @@ import { readFileSync } from "fs";
 import 'dotenv/config';
 import { MerkleSerialized } from "./merkle-payload.js";
 
-// function handleSkeet(
-//  string memory _payload, 
-//  uint256[2] memory _offsets, 
-//  bytes32[] memory _proofHashes, 
-//  uint8 _v, bytes32 _r, bytes32 _s)
 
 type handleSkeetInput = {
     data: MerkleSerialized,
