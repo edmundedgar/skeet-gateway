@@ -24,22 +24,22 @@ const isCommit3Lex = (c?: unknown): c is Commit | UnsignedCommit =>
 const isSignedCommit3Lex = (c?: unknown): c is Commit =>
   isCommit3Lex(c) && c["sig"] instanceof Uint8Array && c["sig"].length === 64;
 
-type MerkleData = {
-  rootSig: Commit['sig'];
+export type MerkleData = {
+  rootSig: Commit["sig"];
   rootCbor: Uint8Array;
   treeCids: CID[];
   treeCbors: Uint8Array[];
 };
 
-type MerkleSerialized = {
+export type MerkleSerialized = {
   /**  64-byte item */
-  rootSig: Uint8Array,
-   /** variable size */
-  rootCbor: Uint8Array,
-   /** variable array of 34-byte items */
-  treeCids: Uint8Array[],
-  /** variable array of variable items */;
-  treeCbors: Uint8Array[]
+  rootSig: Uint8Array;
+  /** variable size */
+  rootCbor: Uint8Array;
+  /** variable array of 34-byte items */
+  treeCids: Uint8Array[];
+  /** variable array of variable items */
+  treeCbors: Uint8Array[];
 };
 
 export const serializeMerkleData = ({
