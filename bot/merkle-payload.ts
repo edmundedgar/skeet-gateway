@@ -1,12 +1,5 @@
-import {
-  Agent,
-  AtpAgent,
-  AtpAgentOptions,
-  ComAtprotoSyncGetRecord,
-  CredentialSession,
-} from "@atproto/api";
+import { ComAtprotoSyncGetRecord } from "@atproto/api";
 import { cborEncode } from "@atproto/common";
-import { DidDocument } from "@atproto/identity";
 import {
   cborToLexRecord,
   Commit,
@@ -22,7 +15,8 @@ import { VerificationMethod } from "./watcher.js";
 const isCommit3Lex = (c?: unknown): c is Commit | UnsignedCommit =>
   c != null &&
   typeof c == "object" &&
-  c["data"] instanceof CID &&
+  typeof c["data"] === "object" &&
+  c["data"] != null &&
   c["version"] === 3 &&
   typeof c["did"] == "string" &&
   typeof c["rev"] == "string";
@@ -30,46 +24,40 @@ const isCommit3Lex = (c?: unknown): c is Commit | UnsignedCommit =>
 const isSignedCommit3Lex = (c?: unknown): c is Commit =>
   isCommit3Lex(c) && c["sig"] instanceof Uint8Array && c["sig"].length === 64;
 
-type PayloadData = {
+type MerkleData = {
   rootCid: CID;
   rootSig: Uint8Array;
   rootCbor: Uint8Array;
-  targetKey: string;
   treeCids: CID[];
   treeCbors: Uint8Array[];
 };
 
-type PayloadSerialized = {
-  rootCid: Uint8Array; // 36 bytes
-  rootSig: Uint8Array; // 64 bytes
-  rootCbor: Uint8Array; // 188 bytes? (possibly varying keys: did, rev)
-  targetKey: Uint8Array; // variable bytes
-  treeCids: Uint8Array[]; // variable array of 36 byte items 
-  treeCbors: Uint8Array[]; // variable array of variable items
+type MerkleSerialized = {
+  rootHash: Uint8Array /** 32 bytes */;
+  rootSig: Uint8Array /**  64 bytes */;
+  rootCbor: Uint8Array /** variable bytes */;
+  treeHashes: Uint8Array[] /** variable array of 32-byte items */;
+  treeCbors: Uint8Array[] /** variable array of variable items */;
 };
 
-export const serializePayload = ({
+export const serializeMerkleData = ({
   rootCid,
   rootSig,
   rootCbor,
-  targetKey,
   treeCids,
   treeCbors,
-}: PayloadData): PayloadSerialized => ({
-  rootCid: rootCid.bytes, // 36 bytes
-  rootSig, // 64 bytes
-  rootCbor, // 188? tis may be inconsistent
-  targetKey: new TextEncoder().encode(targetKey),
-  treeCids: treeCids.map((cid) => cid.bytes),
+}: MerkleData): MerkleSerialized => ({
+  rootHash: rootCid.multihash.digest,
+  rootSig,
+  rootCbor,
+  treeHashes: treeCids.map((cid) => cid.multihash.digest),
   treeCbors,
 });
 
-
-export const payloadFromPostRecord = async(
+export const payloadFromPostRecord = async (
   verificationMethod: VerificationMethod,
-  rkey: string,
-  syncGetRecord: ComAtprotoSyncGetRecord.Response, 
-): Promise<PayloadData> => {
+  syncGetRecord: ComAtprotoSyncGetRecord.Response
+): Promise<MerkleData> => {
   assert(
     syncGetRecord.success && syncGetRecord.data.length,
     util.inspect(syncGetRecord)
@@ -90,17 +78,15 @@ export const payloadFromPostRecord = async(
     .cids()
     .filter((cid) => String(cid) !== String(rootCid));
   const treeCbors = treeCids.map((cid) => blocks.get(cid)!);
-  const targetKey = `app.bsky.feed.post/${rkey}`;
 
   return {
     rootCid,
     rootSig,
     rootCbor,
-    targetKey,
     treeCids,
     treeCbors,
   };
-}
+};
 
 const assertBlockSignature = async (
   verificationMethod: VerificationMethod,
