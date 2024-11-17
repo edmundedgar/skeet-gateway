@@ -3,7 +3,6 @@ import { CommitCreateEvent, Jetstream } from "@skyware/jetstream";
 import WebSocket from "ws";
 import 'dotenv/config';
     
-const BOT_DID = process.env.BSKY_BOT_DID;
 type did = string;
 
 async function initBot(): Promise<Bot> {
@@ -15,8 +14,9 @@ async function initBot(): Promise<Bot> {
     return bot;
 }
 
-const SUB_POST_ID = '3lb2f6j5lom22';
-const SUBSCRIBE_POST_URI = `at://${BOT_DID}/app.bsky.feed.post/${SUB_POST_ID}`;
+const BOT_DID = process.env.BSKY_BOT_DID;
+const SUB_POST_KEY = process.env.BSKY_SUBSCRIBE_POST_KEY;
+const SUBSCRIBE_POST_URI = `at://${BOT_DID}/app.bsky.feed.post/${SUB_POST_KEY}`;
 // check for the current list of DIDs that have liked
 // the "like this post to subscribe" post
 async function getSubscribePostLikes(bot: Bot): Promise<did[]> {
