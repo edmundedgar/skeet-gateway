@@ -130,8 +130,9 @@ library CBORPrimitives {
             (dataStart, dataEnd) = parseString(encoding, cursor, shortCount);
         } else if (shortCount == 24) {
             cursor = cursor + 8;
+            uint8 nextByte = 32;
             dataStart = cursor + 1;
-            dataEnd = dataStart + 32;
+            dataEnd = dataStart + nextByte;
         }
 
         else
