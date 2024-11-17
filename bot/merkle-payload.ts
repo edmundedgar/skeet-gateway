@@ -28,12 +28,46 @@ const isCommit3Lex = (c?: unknown): c is Commit | UnsignedCommit =>
 const isSignedCommit3Lex = (c?: unknown): c is Commit =>
   isCommit3Lex(c) && c["sig"] instanceof Uint8Array && c["sig"].length === 64;
 
-export const fetchPayload = async (
+type PayloadData = {
+  rootCid: CID;
+  rootSig: Uint8Array;
+  rootCbor: Uint8Array;
+  targetKey: string;
+  treeCids: CID[];
+  treeCbors: Uint8Array[];
+};
+
+type PayloadSerialized = {
+  rootCid: Uint8Array;
+  rootSig: Uint8Array;
+  rootCbor: Uint8Array;
+  targetKey: Uint8Array;
+  treeCids: Uint8Array[];
+  treeCbors: Uint8Array[];
+};
+
+export const serializePayload = ({
+  rootCid,
+  rootSig,
+  rootCbor,
+  targetKey,
+  treeCids,
+  treeCbors,
+}: PayloadData): PayloadSerialized => ({
+  rootCid: rootCid.bytes,
+  rootSig,
+  rootCbor,
+  targetKey: new TextEncoder().encode(targetKey),
+  treeCids: treeCids.map((cid) => cid.bytes),
+  treeCbors,
+});
+
+export const fetchPayloadData = async (
   verificationMethod: DidDocument["verificationMethod"][number],
   agentOpts: AtpAgent | AtpAgentOptions | CredentialSession,
   queryParams: ComAtprotoSyncGetRecord.QueryParams,
   callOpts: ComAtprotoSyncGetRecord.CallOptions
-) => {
+): Promise<PayloadData> => {
   const agent =
     agentOpts instanceof AtpAgent ? agentOpts : new AtpAgent(agentOpts);
 
