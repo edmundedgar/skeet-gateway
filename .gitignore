@@ -4,6 +4,7 @@ cache/
 !out/BBS.sol
 !out/SignerSafe.sol
 out/*
+contract/out/*
 
 # Ignores development broadcast logs
 !/broadcast
@@ -21,3 +22,6 @@ docs/
 pnpm-lock.yaml
 
 chart.md
+
+#macos
+.DS_STORE
