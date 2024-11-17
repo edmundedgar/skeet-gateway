@@ -1,15 +1,14 @@
-import { Agent } from "@atproto/api";
-import { DidDocument, DidResolver } from "@atproto/identity";
-import { RepoRecord } from "@atproto/lexicon";
+import type { DidDocument } from "@atproto/identity";
+import type { RepoRecord } from "@atproto/lexicon";
 import {
-  BlockMap,
+  type BlockMap,
   cborToLexRecord,
   nodeDataDef,
   readCar,
   schema,
   verifyCommitSig,
 } from "@atproto/repo";
-import { CID } from "multiformats";
+import type { CID } from "multiformats";
 import assert from "node:assert";
 
 // TODO:
@@ -20,24 +19,14 @@ import assert from "node:assert";
 // - more efficient walk?
 // - don't walk all paths in parallel?
 
-const [
-  atUriArg = "at://did:plc:mtq3e4mgt7wyjhhaniezej67/app.bsky.feed.post/3laydu3mgac2v",
-  agentArg = "https://bsky.network",
-  plcUrl = "https://plc.directory",
-] = process.argv.slice(2);
-
-const [_, did, collection, rkey] = atUriArg.match(
-  /^at:\/\/(did:[\w\d]*:[\w\d]*)\/([\w\d\.]*)\/([\w\d]*)/
-);
-
-const debug = console.log;
+const debug = globalThis.__DEBUG__ ?? console.log;
 
 const td = new TextDecoder();
 
 const parseNodeData = (r: RepoRecord) => nodeDataDef.schema.parse(r);
 const parseCommitData = (r: RepoRecord) => schema.commit.parse(r);
 
-export async function validateInclusion(
+export async function validateMerkleInclusion(
   verificationMethod: DidDocument["verificationMethod"][number],
   { did, collection, rkey }: { did: string; collection: string; rkey: string },
   { roots: [root], blocks }: Awaited<ReturnType<typeof readCar>>
@@ -123,37 +112,3 @@ async function assertValidTarget(targetKey: string, v: CID, blocks: BlockMap) {
   debug("target hash ok");
   return cborToLexRecord(targetRecord);
 }
-
-async function main(agent: Agent, directory: DidResolver) {
-  const fetchVm = async () => {
-    const didDoc = await directory.resolve(did);
-    assert(
-      didDoc.verificationMethod.length,
-      "No verification methods available"
-    );
-    return didDoc.verificationMethod[0];
-  };
-
-  const fetchCar = async () => {
-    const { success, headers, data } = await agent.com.atproto.sync.getRecord({
-      did,
-      rkey,
-      collection,
-    });
-    assert(success, `Failed to fetch record. ${headers}`);
-    return data;
-  };
-
-  const vm = await fetchVm().catch(() => fetchVm());
-  const car = await fetchCar().catch(() => fetchCar());
-
-  const valid = await validateInclusion(
-    vm,
-    { did, collection, rkey },
-    await readCar(car)
-  );
-
-  console.log("Valid record:", valid);
-}
-
-main(new Agent(agentArg), new DidResolver({ plcUrl }));
