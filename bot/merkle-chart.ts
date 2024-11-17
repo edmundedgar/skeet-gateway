@@ -1,18 +1,12 @@
 import { AtpAgent } from "@atproto/api";
 import { DidResolver } from "@atproto/identity";
-import {
-  cborToLexRecord,
-  Commit,
-  readCar,
-  verifyCommitSig,
-} from "@atproto/repo";
 import { RepoRecord } from "@atproto/lexicon";
-import { CID } from "multiformats";
+import { cborToLexRecord, Commit, readCar } from "@atproto/repo";
 import base32 from "base32";
-import fs from "node:fs/promises";
+import { CID } from "multiformats";
 import assert from "node:assert";
+import fs from "node:fs/promises";
 import util, { CustomInspectFunction } from "node:util";
-import { base58btc } from "multiformats/bases/base58";
 
 const td = new TextDecoder();
 
@@ -38,15 +32,7 @@ Object.assign(CID.prototype, {
   } satisfies CustomInspectFunction,
 });
 
-const [
-  //did = "did:plc:ia76kvnndjutgedggx2ibrem",
-  //did = "did:plc:gk6f4hpeoaadwajauwrdlpih",
-  did = "did:plc:mtq3e4mgt7wyjhhaniezej67",
-  //rkey = "3kenlltlvus2u",
-  //rkey = "3layti325bk2d",
-  rkey = "3laydu3mgac2v",
-  collection = "app.bsky.feed.post",
-] = process.argv.slice(2);
+const [did, rkey, collection = "app.bsky.feed.post"] = process.argv.slice(2);
 
 const chartHead = [
   "```mermaid",
@@ -59,7 +45,6 @@ const chartHead = [
   "classDef _e fill:#0f0",
   "classDef _hash fill:#ddd",
 ];
-
 const chartEnd = ["```"];
 
 const agent = new AtpAgent({ service: "https://bsky.network" });
@@ -85,31 +70,6 @@ const cidStr = (it: CID): string => `${it}(${cidHash(it)})`;
 
 await graphPost(post.data);
 
-if (rootRecord && rootBlock && rootCid) {
-  const sig_r = rootRecord.sig.slice(0, 32);
-  const sig_s = rootRecord.sig.slice(32);
-  const key = base58btc.decode(vm!.publicKeyMultibase!);
-  console.log({ key: Buffer.from(key).toString("hex") });
-
-  console.log("verifying record", {
-    ...rootRecord,
-    sig: Buffer.from(rootRecord.sig).toString("hex"),
-  });
-
-  console.log({
-    rootCid: String(rootCid),
-    rootHash: Buffer.from(rootCid.multihash.digest).toString("hex"),
-    rootBlock: Buffer.from(rootBlock).toString("hex"),
-    rootRecord: { ...rootRecord, sig: undefined },
-  });
-  const verified = await verifyCommitSig(
-    rootRecord!,
-    `did:key:${vm!.publicKeyMultibase!}`
-  );
-
-  console.log({ verified });
-}
-
 async function graphPost(bin: Uint8Array) {
   const { roots, blocks } = await readCar(bin);
   assert(roots.length === 1);
@@ -126,8 +86,6 @@ async function graphPost(bin: Uint8Array) {
   const visited = new Set<string>();
 
   const queue = [rootRef];
-  const ts: string[] = [];
-  const vs: string[] = [];
   let i = 0;
   while (i < queue.length) {
     const cid = queue[i++];
@@ -169,7 +127,6 @@ async function graphPost(bin: Uint8Array) {
       let prevK: Uint8Array = new Uint8Array();
       const es = e.map(({ p, k, t, v }) => {
         if (v) {
-          vs.push(cidStr(v));
           if (blocks.has(v)) {
             console.log("v", cidStr(v));
             queue.push(v);
@@ -177,7 +134,6 @@ async function graphPost(bin: Uint8Array) {
           } else console.log("no v", cidStr(v));
         }
         if (t) {
-          ts.push(cidStr(t));
           if (blocks.has(t)) {
             console.log("t", cidStr(t));
             queue.push(t);
@@ -200,8 +156,6 @@ async function graphPost(bin: Uint8Array) {
     }
   }
 
-  //console.log({ vs, ts });
-
   await fs.writeFile(
     "chart.md",
     [
@@ -210,12 +164,4 @@ async function graphPost(bin: Uint8Array) {
       ...chartEnd,
     ].join("\n")
   );
-}
-
-async function printcar(bin: Uint8Array) {
-  const opencar = await readCar(bin);
-  for (const block of opencar.blocks.entries()) {
-    const record = cborToLexRecord(block.bytes);
-    console.log(block.cid, block.bytes.length, record);
-  }
 }
