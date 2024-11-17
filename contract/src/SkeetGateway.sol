@@ -82,7 +82,7 @@ contract SkeetGateway {
     }
 
     // Handles a skeet and 
-    function handleSkeet(string memory _payload, uint256[] memory _offsets, bytes32[] memory _proofHashes, uint8 _v, bytes32 _r, bytes32 _s) external {
+    function handleSkeet(uint8 _v, bytes32 _r, bytes32 _s, bytes memory rootCbor, bytes[] memory treeCids, bytes[] memory treeCbors, string rkey) external {
 
         // TODO: If the signature is p256 we need something like
         // https://github.com/daimo-eth/p256-verifier      
