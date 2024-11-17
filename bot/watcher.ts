@@ -51,7 +51,7 @@ function initJetstream(users: did[]): Jetstream {
 
 function shouldPostMsgToChain(event: CommitCreateEvent<"app.bsky.feed.post">): boolean {
     // TODO - real logic for determining whether user wants to upload
-    return event.commit.record.text.startsWith('skeetgate');
+    return event.commit.record.text.startsWith('@skeetgate.bsky.social');
 }
 
 const AGENT_OPTIONS: AtpAgentOptions = {
@@ -78,7 +78,7 @@ async function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">
             publicKeyMultibase: 'TODO',
         };
         const getRecordResponse = await callSyncGetRecord(event.did, event.commit.rkey);
-        const payload = await payloadFromPostRecord(verificationMethod, event.commit.rkey, getRecordResponse);
+        const payload = await payloadFromPostRecord(verificationMethod, getRecordResponse);
         // TODO - upload to chain by calling sendSkeet()
     }
 }
