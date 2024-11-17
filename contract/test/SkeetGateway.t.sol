@@ -16,6 +16,44 @@ contract SkeetGatewayTest is Test {
         bbs = new BBS();
     }
 
+    function testRealAddressRecovery() public {
+        // Address for edmundedgar.unconsensus.com, recovered earlier by signing a message with the private key then running ecrecover on it
+        address expect = address(0x69f2163DE8accd232bE4CD84559F823CdC808525);
+
+        // Prepared earlier by doing:
+        // bytes32 priv = // fill this from edmundedgar.unconsensus.com.sec
+        // bytes32 hash = sha256("Signed by Ed");
+        // (uint8 v, bytes32 r, bytes32 s) = vm.sign(uint256(priv), hash);
+
+        // cborSansSig is the data that the PDS signs.
+        // It's a CBOR representation of:
+        /*
+        rootRecordSansSig: {
+            did: 'did:plc:mtq3e4mgt7wyjhhaniezej67',
+            rev: '3laykltosp22q',
+            data: CID(bafyreidg3jtflp4nu6nwtkdsthhrod7nqsl7umczg6o4jkf74hrizk25sm),
+            prev: null,
+            version: 3
+        }
+        Once it has signed it will add the signature to its rootRecord.
+        We only care about the CID.
+        */
+
+        bytes memory cborSansSig = hex"a56364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f73703232716464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
+        bytes32 hash = sha256(cborSansSig);
+
+        // sig from car file was 'd395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf8363f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b',
+        // manually split it in half
+        bytes32 r = 0xd395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf83;
+        bytes32 s = 0x63f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b;
+
+        uint8 v = 28;
+        bool found = false;
+        // for(uint8 v=0; v<255; v++) { } // Earlier we had to try all possible v values to find the one they used
+        address signer = ecrecover(hash, v, r, s);
+        assertEq(expect,  signer, "should recover the same signer"); 
+    }
+
     function testAddressRecovery() public {
 
         (address alice, uint256 alicePk) = makeAddrAndKey("alice");
