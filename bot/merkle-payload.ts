@@ -1,10 +1,10 @@
 import { ComAtprotoSyncGetRecord } from "@atproto/api";
 import { cborEncode } from "@atproto/common";
+import { RepoRecord } from "@atproto/lexicon";
 import {
   cborToLexRecord,
-  Commit,
   readCar,
-  UnsignedCommit,
+  schema,
   verifyCommitSig,
 } from "@atproto/repo";
 import { CID } from "multiformats";
@@ -12,26 +12,9 @@ import assert from "node:assert";
 import util from "node:util";
 import { VerificationMethod } from "./watcher.js";
 
-const isCommit3Lex = (c?: unknown): c is Commit | UnsignedCommit =>
-  c != null &&
-  typeof c == "object" &&
-  typeof c["data"] === "object" &&
-  c["data"] != null &&
-  c["version"] === 3 &&
-  typeof c["did"] == "string" &&
-  typeof c["rev"] == "string";
-
-const isSignedCommit3Lex = (c?: unknown): c is Commit =>
-  isCommit3Lex(c) && c["sig"] instanceof Uint8Array && c["sig"].length === 64;
+const parseCommitData = (r: RepoRecord) => schema.commit.parse(r);
 
 export type MerkleData = {
-  rootSig: Commit["sig"];
-  rootCbor: Uint8Array;
-  treeCids: CID[];
-  treeCbors: Uint8Array[];
-};
-
-export type MerkleSerialized = {
   /**  64-byte item */
   rootSig: Uint8Array;
   /** variable size */
@@ -41,18 +24,6 @@ export type MerkleSerialized = {
   /** variable array of variable items */
   treeCbors: Uint8Array[];
 };
-
-export const serializeMerkleData = ({
-  rootSig,
-  rootCbor,
-  treeCids,
-  treeCbors,
-}: MerkleData): MerkleSerialized => ({
-  rootSig,
-  rootCbor,
-  treeCids: treeCids.map((cid) => cid.bytes),
-  treeCbors,
-});
 
 export const payloadFromPostRecord = async (
   verificationMethod: VerificationMethod,
@@ -80,7 +51,7 @@ export const payloadFromPostRecord = async (
   return {
     rootSig,
     rootCbor,
-    treeCids,
+    treeCids: treeCids.map((cid) => cid.bytes),
     treeCbors,
   };
 };
@@ -101,11 +72,15 @@ const assertBlockSignature = async (
     `Mismatched block checksum: ${blockSha} !== ${checkBlockSha}`
   );
 
-  const lexBlock = cborToLexRecord(signedBlock);
-  assert(isSignedCommit3Lex(lexBlock), "Block is not a signed commit");
+  const lexBlock = parseCommitData(cborToLexRecord(signedBlock));
 
-  const didKey = `did:key:${verificationMethod.publicKeyMultibase}`;
-  assert(await verifyCommitSig(lexBlock, didKey), "Invalid block signature");
+  assert(
+    await verifyCommitSig(
+      lexBlock,
+      `did:key:${verificationMethod.publicKeyMultibase}`
+    ),
+    "Invalid block signature"
+  );
 
   const { sig: blockSig, ...lexBlockUnsigned } = lexBlock;
 
