@@ -19,3 +19,5 @@ docs/
 #node
 **/node_modules
 pnpm-lock.yaml
+
+chart.md

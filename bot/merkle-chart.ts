@@ -77,6 +77,8 @@ async function graphPost(bin: Uint8Array) {
   rootBlock = blocks.get(rootCid)!;
   rootRecord = cborToLexRecord(rootBlock) as Commit;
 
+  console.log({ rootCid, rootBlock, rootRecord });
+
   blocks.delete(rootCid);
   const rootRef = rootRecord.data;
   chart.push(`${cidStr(rootRef)}:::_root`);

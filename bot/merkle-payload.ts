@@ -38,12 +38,12 @@ type PayloadData = {
 };
 
 type PayloadSerialized = {
-  rootCid: Uint8Array;
-  rootSig: Uint8Array;
-  rootCbor: Uint8Array;
-  targetKey: Uint8Array;
-  treeCids: Uint8Array[];
-  treeCbors: Uint8Array[];
+  rootCid: Uint8Array; // 36 bytes
+  rootSig: Uint8Array; // 64 bytes
+  rootCbor: Uint8Array; // 188 bytes? (possibly varying keys: did, rev)
+  targetKey: Uint8Array; // variable bytes
+  treeCids: Uint8Array[]; // variable array of 36 byte items 
+  treeCbors: Uint8Array[]; // variable array of variable items
 };
 
 export const serializePayload = ({
@@ -54,9 +54,9 @@ export const serializePayload = ({
   treeCids,
   treeCbors,
 }: PayloadData): PayloadSerialized => ({
-  rootCid: rootCid.bytes,
-  rootSig,
-  rootCbor,
+  rootCid: rootCid.bytes, // 36 bytes
+  rootSig, // 64 bytes
+  rootCbor, // 188? tis may be inconsistent
   targetKey: new TextEncoder().encode(targetKey),
   treeCids: treeCids.map((cid) => cid.bytes),
   treeCbors,
