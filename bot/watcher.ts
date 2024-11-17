@@ -3,7 +3,7 @@ import { CommitCreateEvent, Jetstream } from "@skyware/jetstream";
 import WebSocket from "ws";
 import 'dotenv/config';
     
-const BOT_DID = 'did:plc:2xetvg6kr7scf2abxg3q5rvv';
+const BOT_DID = process.env.BSKY_BOT_DID;
 type did = string;
 
 async function initBot(): Promise<Bot> {
