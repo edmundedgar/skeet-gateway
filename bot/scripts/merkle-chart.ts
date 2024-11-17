@@ -32,7 +32,13 @@ Object.assign(CID.prototype, {
   } satisfies CustomInspectFunction,
 });
 
-const [did, rkey, collection = "app.bsky.feed.post"] = process.argv.slice(2);
+const [atUrlArg] = process.argv.slice(2);
+
+const [sameUrlArg, did, collection, rkey] = atUrlArg.match(
+  /^at:\/\/(did:[\w\d]*:[\w\d]*)\/([\w\d\.]*)\/([\w\d]*)/
+);
+
+assert(atUrlArg === sameUrlArg && did && collection && rkey);
 
 const chartHead = [
   "```mermaid",
