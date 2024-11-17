@@ -1,4 +1,5 @@
 import {
+  Agent,
   AtpAgent,
   AtpAgentOptions,
   ComAtprotoSyncGetRecord,
@@ -16,6 +17,7 @@ import {
 import { CID } from "multiformats";
 import assert from "node:assert";
 import util from "node:util";
+import { VerificationMethod } from "./watcher.js";
 
 const isCommit3Lex = (c?: unknown): c is Commit | UnsignedCommit =>
   c != null &&
@@ -62,20 +64,12 @@ export const serializePayload = ({
   treeCbors,
 });
 
-export const fetchPayloadData = async (
-  verificationMethod: DidDocument["verificationMethod"][number],
-  agentOpts: AtpAgent | AtpAgentOptions | CredentialSession,
-  queryParams: ComAtprotoSyncGetRecord.QueryParams,
-  callOpts?: ComAtprotoSyncGetRecord.CallOptions
+
+export const payloadFromPostRecord = async(
+  verificationMethod: VerificationMethod,
+  rkey: string,
+  syncGetRecord: ComAtprotoSyncGetRecord.Response, 
 ): Promise<PayloadData> => {
-  const agent =
-    agentOpts instanceof AtpAgent ? agentOpts : new AtpAgent(agentOpts);
-
-  const syncGetRecord = await agent.com.atproto.sync.getRecord(
-    queryParams,
-    callOpts
-  );
-
   assert(
     syncGetRecord.success && syncGetRecord.data.length,
     util.inspect(syncGetRecord)
@@ -96,7 +90,7 @@ export const fetchPayloadData = async (
     .cids()
     .filter((cid) => String(cid) !== String(rootCid));
   const treeCbors = treeCids.map((cid) => blocks.get(cid)!);
-  const targetKey = `${queryParams.collection}/${queryParams.rkey}`;
+  const targetKey = `app.bsky.feed.post/${rkey}`;
 
   return {
     rootCid,
@@ -106,10 +100,10 @@ export const fetchPayloadData = async (
     treeCids,
     treeCbors,
   };
-};
+}
 
 const assertBlockSignature = async (
-  verificationMethod: DidDocument["verificationMethod"][number],
+  verificationMethod: VerificationMethod,
   blockCid: CID,
   signedBlock: Uint8Array
 ) => {
