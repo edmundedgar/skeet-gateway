@@ -92,10 +92,13 @@ const assertBlockSignature = async (
 ) => {
   assert(verificationMethod.publicKeyMultibase);
 
+  const blockSha = Buffer.from(blockCid.multihash.digest).toString("hex");
+  const checkBlockSha = Buffer.from(
+    await crypto.subtle.digest("SHA-256", signedBlock)
+  ).toString("hex");
   assert(
-    blockCid.multihash.digest ===
-      (await crypto.subtle.digest("SHA-256", signedBlock)),
-    "Mismatched block checksum"
+    blockSha === checkBlockSha,
+    `Mismatched block checksum: ${blockSha} !== ${checkBlockSha}`
   );
 
   const lexBlock = cborToLexRecord(signedBlock);
