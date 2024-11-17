@@ -5,6 +5,7 @@ import 'dotenv/config';
 import { AtpAgent, AtpAgentOptions, ComAtprotoSyncGetRecord } from "@atproto/api";
 import { payloadFromPostRecord } from "./merkle-payload.js";
 import { DidDocument } from "@atproto/common";
+import { getVerificationMethod } from "./didDocument.js";
     
 type did = string;
 export type VerificationMethod = DidDocument["verificationMethod"][number];
@@ -67,17 +68,11 @@ export const callSyncGetRecord = async (did: string, rkey: string): Promise<ComA
     });
 };
 
-
 async function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">) {
     console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
     if (shouldPostMsgToChain(event)) {
-        const verificationMethod: VerificationMethod = {
-            id: 'TODO',
-            type: 'Ed25519VerificationKey2018',
-            controller: event.did,
-            publicKeyMultibase: 'TODO',
-        };
         const getRecordResponse = await callSyncGetRecord(event.did, event.commit.rkey);
+        const verificationMethod = await getVerificationMethod(event.did);
         const payload = await payloadFromPostRecord(verificationMethod, getRecordResponse);
         // TODO - upload to chain by calling sendSkeet()
     }
