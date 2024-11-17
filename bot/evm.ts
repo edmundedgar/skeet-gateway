@@ -2,9 +2,6 @@ import { JsonRpcProvider, Wallet, Contract } from "ethers";
 import { readFileSync } from "fs";
 import 'dotenv/config';
 
-const GATEWAY_ADDRESS = '0x2B95D0C4896b3b4b059DcEc005187eDcFf8ec0Ac';
-const BBS_ADDRESS = '0x133b80cf22722561AbF837Ea841847AEEa6871Fb';
-
 // function handleSkeet(
 //  string memory _payload, 
 //  uint256[2] memory _offsets, 
@@ -26,7 +23,7 @@ const signer = new Wallet(privateKey, provider);
 
 const GATEWAY_JSON = JSON.parse(readFileSync('SkeetGateway.json', 'utf-8'));
 
-const GATEWAY_CONTRACT = new Contract(GATEWAY_ADDRESS, GATEWAY_JSON.abi, signer);
+const GATEWAY_CONTRACT = new Contract(process.env.GATEWAY_ADDRESS, GATEWAY_JSON.abi, signer);
 //console.log(GATEWAY_CONTRACT.interface.fragments);
 
 async function sendSkeet(input: handleSkeetInput) {
