@@ -25,32 +25,32 @@ const isSignedCommit3Lex = (c?: unknown): c is Commit =>
   isCommit3Lex(c) && c["sig"] instanceof Uint8Array && c["sig"].length === 64;
 
 type MerkleData = {
-  rootCid: CID;
-  rootSig: Uint8Array;
+  rootSig: Commit['sig'];
   rootCbor: Uint8Array;
   treeCids: CID[];
   treeCbors: Uint8Array[];
 };
 
 type MerkleSerialized = {
-  rootHash: Uint8Array /** 32 bytes */;
-  rootSig: Uint8Array /**  64 bytes */;
-  rootCbor: Uint8Array /** variable bytes */;
-  treeHashes: Uint8Array[] /** variable array of 32-byte items */;
-  treeCbors: Uint8Array[] /** variable array of variable items */;
+  /**  64-byte item */
+  rootSig: Uint8Array,
+   /** variable size */
+  rootCbor: Uint8Array,
+   /** variable array of 34-byte items */
+  treeCids: Uint8Array[],
+  /** variable array of variable items */;
+  treeCbors: Uint8Array[]
 };
 
 export const serializeMerkleData = ({
-  rootCid,
   rootSig,
   rootCbor,
   treeCids,
   treeCbors,
 }: MerkleData): MerkleSerialized => ({
-  rootHash: rootCid.multihash.digest,
   rootSig,
   rootCbor,
-  treeHashes: treeCids.map((cid) => cid.multihash.digest),
+  treeCids: treeCids.map((cid) => cid.bytes),
   treeCbors,
 });
 
@@ -74,13 +74,10 @@ export const payloadFromPostRecord = async (
   const { blockSig: rootSig, blockUnsigned: rootCbor } =
     await assertBlockSignature(verificationMethod, rootCid, rootBlock);
 
-  const treeCids = blocks
-    .cids()
-    .filter((cid) => String(cid) !== String(rootCid));
+  const treeCids = blocks.cids();
   const treeCbors = treeCids.map((cid) => blocks.get(cid)!);
 
   return {
-    rootCid,
     rootSig,
     rootCbor,
     treeCids,
