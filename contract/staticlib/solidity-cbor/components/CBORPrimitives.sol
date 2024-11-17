@@ -128,6 +128,10 @@ library CBORPrimitives {
             // Forward request to parseString (bignums are string-encoded)
             (, shortCount) = Utils.parseFieldEncoding(encoding[cursor]);
             (dataStart, dataEnd) = parseString(encoding, cursor, shortCount);
+        } else if (shortCount == 24) {
+            cursor = cursor + 8;
+            dataStart = cursor + 1;
+            dataEnd = dataStart + 32;
         }
 
         else
