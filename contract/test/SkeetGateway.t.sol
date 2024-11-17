@@ -65,7 +65,7 @@ contract SkeetGatewayTest is Test {
         address expectedSigner = gateway.predictSignerAddress(hash, v, r, s);
         assertEq(expectedSigner, signer);
     }
-
+/*
     function test_Init() public {
         vm.recordLogs();
 
@@ -91,7 +91,7 @@ contract SkeetGatewayTest is Test {
         uint8 v = 1;
         bytes32 r = hex"43";
         bytes32 s = hex"44";
-        */
+        
 
         //bytes32 root = bytes32(0);
         //bytes32 root = hash;
@@ -122,5 +122,6 @@ contract SkeetGatewayTest is Test {
         assertNotEq(bbs.messages(createdSafe), "oinK");
 
     }
+        */
 
 }

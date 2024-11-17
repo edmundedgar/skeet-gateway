@@ -82,7 +82,7 @@ contract SkeetGateway {
     }
 
     // Handles a skeet and 
-    function handleSkeet(uint8 _v, bytes32 _r, bytes32 _s, bytes memory rootCbor, bytes[] memory treeCids, bytes[] memory treeCbors, string rkey) external {
+    function handleSkeet(uint8 _v, bytes32 _r, bytes32 _s, bytes memory rootCbor, bytes[] memory treeCids, bytes[] memory treeCbors, string memory rkey) external {
 
         // TODO: If the signature is p256 we need something like
         // https://github.com/daimo-eth/p256-verifier      
@@ -91,12 +91,9 @@ contract SkeetGateway {
         // This takes different parameters to ecrecover, we have to pass in the pubkey.
 
         // TODO I guess this is always sha256 even when the signing is done with k256
-        bytes32 sigHash = sha256(abi.encodePacked(_payload));
-        require(sigHash == _proofHashes[0], "payload hash does not match the hash of its leaf node");
+        bytes32 rootCborHash = sha256(abi.encodePacked(rootCbor));
 
-        verifyMerkleProof(_proofHashes);
-
-        address signer = ecrecover(sigHash, _v, _r, _s);
+        address signer = ecrecover(rootCborHash, _v, _r, _s);
         require(signer != address(0), "Signer should not be empty");
         if (address(signerSafes[signer]) == address(0)) {
             bytes32 salt = bytes32(uint256(uint160(signer)));
@@ -105,9 +102,14 @@ contract SkeetGateway {
             emit LogCreateSignerSafe(signer, address(signerSafes[signer]));
         }
 
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(_payload, _offsets);
+        /*
+        string payload = 'replaceme';
+
+
+        (address to, uint256 value, bytes memory payloadData) = _parsePayload(payload, _offsets);
         signerSafes[signer].executeOwnerCall(to, value, payloadData);
         emit LogExecutePayload(signer, to, value, payloadData, _payload);
+        */
     }
     
 }
