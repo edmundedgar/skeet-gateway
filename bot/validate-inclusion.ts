@@ -102,6 +102,7 @@ const walkTree = async (
   }
 
   debug(depth, "passed node", hereId);
+  // throws on purpose if `walk` is empty
   return Promise.any(walk);
 };
 
