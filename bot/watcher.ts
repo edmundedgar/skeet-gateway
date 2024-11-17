@@ -2,8 +2,12 @@ import { Bot } from "@skyware/bot";
 import { CommitCreateEvent, Jetstream } from "@skyware/jetstream";
 import WebSocket from "ws";
 import 'dotenv/config';
+import { AtpAgent, AtpAgentOptions, ComAtprotoSyncGetRecord } from "@atproto/api";
+import { payloadFromPostRecord } from "./merkle-payload.js";
+import { DidDocument } from "@atproto/common";
     
 type did = string;
+export type VerificationMethod = DidDocument["verificationMethod"][number];
 
 async function initBot(): Promise<Bot> {
     const bot = new Bot();
@@ -50,11 +54,32 @@ function shouldPostMsgToChain(event: CommitCreateEvent<"app.bsky.feed.post">): b
     return event.commit.record.text.startsWith('skeetgate');
 }
 
-function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">) {
+const AGENT_OPTIONS: AtpAgentOptions = {
+    service: 'https://bsky.network',
+};
+const ATP_AGENT = new AtpAgent(AGENT_OPTIONS);
+
+export const callSyncGetRecord = async (did: string, rkey: string): Promise<ComAtprotoSyncGetRecord.Response> => {
+    return await ATP_AGENT.com.atproto.sync.getRecord({
+        did,
+        rkey,
+        collection: 'app.bsky.feed.post',
+    });
+};
+
+
+async function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">) {
     console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
     if (shouldPostMsgToChain(event)) {
-        // TODO - upload to chain: 
-        // create payload and call sendSkeet()
+        const verificationMethod: VerificationMethod = {
+            id: 'TODO',
+            type: 'Ed25519VerificationKey2018',
+            controller: event.did,
+            publicKeyMultibase: 'TODO',
+        };
+        const getRecordResponse = await callSyncGetRecord(event.did, event.commit.rkey);
+        const payload = await payloadFromPostRecord(verificationMethod, event.commit.rkey, getRecordResponse);
+        // TODO - upload to chain by calling sendSkeet()
     }
 }
 
