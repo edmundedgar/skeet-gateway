@@ -71,8 +71,10 @@ export const callSyncGetRecord = async (did: string, rkey: string): Promise<ComA
 async function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">) {
     console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
     if (shouldPostMsgToChain(event)) {
-        const getRecordResponse = await callSyncGetRecord(event.did, event.commit.rkey);
-        const verificationMethod = await getVerificationMethod(event.did);
+        const getRecordPromise = callSyncGetRecord(event.did, event.commit.rkey);
+        const verificationMethodPromise = getVerificationMethod(event.did);
+        const [getRecordResponse, verificationMethod] = await Promise.all([getRecordPromise, verificationMethodPromise]);
+
         const payload = await payloadFromPostRecord(verificationMethod, getRecordResponse);
         // TODO - upload to chain by calling sendSkeet()
     }
@@ -89,7 +91,6 @@ async function main() {
 
     bot.on('like', (event) => {
         if(event.subject.uri == SUBSCRIBE_POST_URI) {
-            // TODO - linear scan for duplicate DIDs isn't efficient, optimize later
             if (!users.includes(event.user.did)) {
                 console.log(`new subscriber: ${event.user.did}`);
                 users.push(event.user.did);
