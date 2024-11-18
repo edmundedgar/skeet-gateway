@@ -1,15 +1,15 @@
 import { JsonRpcProvider, Wallet, Contract } from "ethers";
 import { readFileSync } from "fs";
 import 'dotenv/config';
-import { MerkleSerialized } from "./merkle-payload.js";
+import { MerkleData } from "./merkle-payload.js";
 
 
 type handleSkeetInput = {
-    data: MerkleSerialized,
+    data: MerkleData,
     rkey: string
 }
 
-const provider = new JsonRpcProvider(process.env.RPC_URL, process.env.CHAIN_ID);
+const provider = new JsonRpcProvider(process.env.RPC_URL);
 const privateKey = process.env.EVM_PRIVKEY;
 const signer = new Wallet(privateKey, provider);
 
