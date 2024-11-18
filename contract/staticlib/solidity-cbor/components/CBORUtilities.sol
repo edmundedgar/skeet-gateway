@@ -54,7 +54,14 @@ library CBORUtilities {
 
         // Semantic Tags (Major Type: 6)
         else if (majorType == Spec.MajorType.Semantic)
-            (start, end) = Primitives.parseSemantic(encoding, cursor, shortCount);
+
+            if (shortCount == 24) {
+                uint8 nextByte = 32; //uint8(encoding[cursor+1]);
+                start = cursor + 1 + 8;
+                end = start + nextByte;
+            } else {
+                (start, end) = Primitives.parseSemantic(encoding, cursor, shortCount);
+            }
 
         // Special / Floats (Major Type: 7)
         else if (majorType == Spec.MajorType.Special)

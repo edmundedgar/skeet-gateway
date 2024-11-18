@@ -128,13 +128,7 @@ library CBORPrimitives {
             // Forward request to parseString (bignums are string-encoded)
             (, shortCount) = Utils.parseFieldEncoding(encoding[cursor]);
             (dataStart, dataEnd) = parseString(encoding, cursor, shortCount);
-        } else if (shortCount == 24) {
-            cursor = cursor + 8;
-            uint8 nextByte = 32;
-            dataStart = cursor + 1;
-            dataEnd = dataStart + nextByte;
-        }
-
+        } 
         else
             revert("Unsupported Tag Type!");
 
