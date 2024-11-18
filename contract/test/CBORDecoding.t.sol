@@ -36,9 +36,9 @@ contract CBORDecodingTest is Test {
         assertEq(string(abi.encodePacked(rev)), "3laykltosp22q");
 
         bytes memory data = CBORDecoding.decodeMappingGetValue(cborSansSig, bytes("data"));
-        bytes32 expected_data = 0x66da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d93;
-        assertEq(bytes32(data), expected_data);
-        assertEq(data.length, 32);
+        bytes memory expected_data = hex"0171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d93";
+        assertEq(data, expected_data);
+        assertEq(data.length, 36);
         /*
         bytes32 dataB32 = bytes32(data);
         assertEq(rootHash, sha256(abi.encodePacked(dataB32)));
