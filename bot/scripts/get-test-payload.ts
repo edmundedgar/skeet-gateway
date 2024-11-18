@@ -1,20 +1,14 @@
-import assert from "node:assert";
-import {
-  payloadFromPostRecord,
-  serializeMerkleData,
-} from "./merkle-payload.js";
-import { DidResolver } from "@atproto/identity";
 import { Agent } from "@atproto/api";
-
+import { DidResolver } from "@atproto/identity";
+import assert from "node:assert";
 import util from "node:util";
-
-const FgGreen = "\x1b[32m";
+import { payloadFromPostRecord } from "../merkle-payload.js";
 
 Object.assign(Uint8Array.prototype, {
   [util.inspect.custom]: function (
     this: Uint8Array,
-    depth: number,
-    options: util.InspectOptions
+    _depth: number,
+    _options: util.InspectOptions
   ) {
     return `\x1b[32m"${Buffer.from(this).toString("hex")}"\x1b[0m`;
   } satisfies util.CustomInspectFunction,
@@ -46,5 +40,5 @@ const merkleData = await payloadFromPostRecord(vm, postRecord);
 console.log({
   verificationMethod: vm,
   query: { did, collection, rkey },
-  merkleData: serializeMerkleData(merkleData),
+  merkleData: merkleData,
 });
