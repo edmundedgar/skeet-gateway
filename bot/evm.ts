@@ -20,9 +20,9 @@ const GATEWAY_CONTRACT = new Contract(process.env.GATEWAY_ADDRESS, GATEWAY_JSON.
 
 async function sendSkeet(input: handleSkeetInput) {
     const tx = await GATEWAY_CONTRACT.handleSkeet(
-        28, // v
-        input.data.rootSig.slice(0,32),
-        input.data.rootSig.slice(32),
+        28,                                 // v
+        input.data.rootSig.slice(0,32),     // r
+        input.data.rootSig.slice(32),       // s
         input.data.rootCbor,
         input.data.treeCids,
         input.data.treeCbors,
