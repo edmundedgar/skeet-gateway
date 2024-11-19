@@ -65,19 +65,14 @@ contract CBORDecodingTest is Test {
         bytes memory v1 = CBORDecoding.decodeMappingGetValue(c1, bytes("version"));
         assertEq(bytes1(v1), bytes1(uint8(3)));
 
-        // This one doesn't find a version key
-        // bytes memory v2 = CBORDecoding.decodeMappingGetValue(c2, bytes("version"));
-        // assertEq(bytes1(v2), bytes1(uint8(3)));
+        bytes memory v2 = CBORDecoding.decodeMappingGetValue(c2, bytes("e"));
+        assertGt(v2.length, 200);
 
-        //bytes memory v3 = CBORDecoding.decodeMappingGetValue(c3, bytes("version"));
-        //assertEq(bytes1(v3), bytes1(uint8(3)));
+        bytes memory v3 = CBORDecoding.decodeMappingGetValue(c3, bytes("e"));
+        assertGt(v3.length, 200);
 
-        //bytes memory v4 = CBORDecoding.decodeMappingGetValue(c4, bytes("version"));
-        //assertEq(bytes1(v4), bytes1(uint8(3)));
-
-
-
-
+        bytes memory v4 = CBORDecoding.decodeMappingGetValue(c4, bytes("e"));
+        assertGt(v4.length, 200);
 
     }
 
