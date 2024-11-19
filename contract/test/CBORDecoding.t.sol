@@ -65,14 +65,23 @@ contract CBORDecodingTest is Test {
         bytes memory v1 = CBORDecoding.decodeMappingGetValue(c1, bytes("version"));
         assertEq(bytes1(v1), bytes1(uint8(3)));
 
-        bytes memory v2 = CBORDecoding.decodeMappingGetValue(c2, bytes("e"));
-        assertGt(v2.length, 200);
+        bytes memory e2 = CBORDecoding.decodeMappingGetValue(c2, bytes("e"));
+        assertGt(e2.length, 200);
 
-        bytes memory v3 = CBORDecoding.decodeMappingGetValue(c3, bytes("e"));
-        assertGt(v3.length, 200);
+        bytes[] memory e2items = CBORDecoding.decodeArray(e2);
+        assertEq(e2items.length, 5);
 
-        bytes memory v4 = CBORDecoding.decodeMappingGetValue(c4, bytes("e"));
-        assertGt(v4.length, 200);
+        bytes memory e2item0k = CBORDecoding.decodeMappingGetValue(e2items[0], bytes("k"));
+        assertEq(e2item0k, bytes("app.bsky.graph.follow/3kwvu4sveds24"));
+
+        bytes memory e2item0t = CBORDecoding.decodeMappingGetValue(e2items[0], bytes("t"));
+        assertEq(e2item0t, hex"0001711220b000383f1466f65b0a02da763f46cf0e4510d832f6c609a9df56db73b8125937");
+
+        bytes memory e3 = CBORDecoding.decodeMappingGetValue(c3, bytes("e"));
+        assertGt(e3.length, 200);
+
+        bytes memory e4 = CBORDecoding.decodeMappingGetValue(c4, bytes("e"));
+        assertGt(e4.length, 200);
 
     }
 
