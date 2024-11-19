@@ -41,10 +41,6 @@ contract CBORDecodingTest is Test {
         assertEq(data, expected_data);
         assertEq(data.length, 37);
 
-        bytes memory expected_data = hex"0171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d93";
-        assertEq(data, expected_data);
-        assertEq(data.length, 36);
-
         bytes memory version = CBORDecoding.decodeMappingGetValue(cborSansSig, bytes("version"));
         assertEq(version.length, 1);
         assertEq(bytes1(version), bytes1(uint8(3)));
