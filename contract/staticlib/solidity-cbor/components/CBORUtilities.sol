@@ -56,10 +56,8 @@ library CBORUtilities {
         else if (majorType == Spec.MajorType.Semantic)
 
             if (shortCount == 24) {
-                uint8 nextByte = 36; //uint8(encoding[cursor+1]);
-                cursor = cursor + 4;
-                start = cursor + 1;
-                end = start + nextByte;
+                cursor = cursor + 2; // skip some mysterious byte
+                (start, end) = Primitives.parseString(encoding, cursor, shortCount);
             } else {
                 (start, end) = Primitives.parseSemantic(encoding, cursor, shortCount);
             }
