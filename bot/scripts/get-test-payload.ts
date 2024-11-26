@@ -1,7 +1,13 @@
-import { Agent } from "@atproto/api";
-import { DidResolver } from "@atproto/identity";
+import { getVerificationMaterial } from "@atproto/common";
+import { formatDataKey, parseDataKey } from "@atproto/repo";
+import { AtUri } from "@atproto/syntax";
 import assert from "node:assert";
 import util from "node:util";
+import { getDidDocument } from "../did-document.js";
+import { formatContractInput } from "../payload.js";
+import { syncGetRecord } from "../sync-repo.js";
+
+const debug = console.info;
 
 Object.assign(Uint8Array.prototype, {
   [util.inspect.custom]: function (
@@ -13,30 +19,30 @@ Object.assign(Uint8Array.prototype, {
   } satisfies util.CustomInspectFunction,
 });
 
-const postUrl =
-  "at://did:plc:mtq3e4mgt7wyjhhaniezej67/app.bsky.feed.post/3laydu3mgac2v";
+const [
+  postUrl = "at://did:plc:mtq3e4mgt7wyjhhaniezej67/app.bsky.feed.post/3laydu3mgac2v",
+] = process.argv.slice(2);
 
-const [_, did, collection, rkey] =
-  postUrl.match(/^at:\/\/(did:[\w\d]*:[\w\d]*)\/([\w\d\.]*)\/([\w\d]*)/) ?? [];
+await main(new AtUri(postUrl));
 
-const didRes = new DidResolver({});
-const didDoc = await didRes.resolve(did);
+async function main(atUri: AtUri) {
+  debug("atUri", atUri);
+  const did = atUri.host;
+  assert(did, "No DID in URI");
+  const { collection, rkey } = parseDataKey(atUri.pathname.slice(1));
 
-const [vm] = didDoc?.verificationMethod!;
-assert(vm);
+  const didDoc = await getDidDocument(did);
+  const vm = getVerificationMaterial(didDoc, "atproto");
+  assert(vm);
+  const postRecord = await syncGetRecord(didDoc, { collection, rkey });
 
-const postRecord = await new Agent(
-  "https://bsky.network"
-).com.atproto.sync.getRecord({
-  did,
-  rkey,
-  collection,
-});
-
-const merkleData = await payloadFromPostRecord(vm, postRecord);
-
-console.log({
-  verificationMethod: vm,
-  query: { did, collection, rkey },
-  merkleData,
-});
+  console.log({
+    verificationMaterial: vm,
+    query: { did, collection, rkey },
+    contractInput: await formatContractInput(
+      vm,
+      postRecord,
+      formatDataKey(collection, rkey)
+    ),
+  });
+}
