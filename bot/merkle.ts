@@ -177,7 +177,6 @@ export async function validateCommit(
   nodeRef: CID;
 }> {
   const didKey = `did:key:${publicKeyMultibase}`;
-  debug("Validating commit", signedCommitCid, "with", didKey);
 
   assert(
     compareBytes(
@@ -191,6 +190,8 @@ export async function validateCommit(
   const { sig, ...unsignedCommit } = parseCommitData(
     cborToLexRecord(signedCommitCbor)
   );
+
+  debug("Validating commit", { didKey, sig: Buffer.from(sig).toString("hex") });
 
   assert(
     await validateCommitSignature(didKey, unsignedCommit, sig),

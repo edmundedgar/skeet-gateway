@@ -4,6 +4,9 @@ pragma solidity ^0.8.13;
 import {console} from "forge-std/console.sol";
 import {SignerSafe} from "../src/SignerSafe.sol";
 import {BBS} from "../src/BBS.sol";
+import "../lib/solidity-bsky-cbor/src/TreeCbor.sol";
+import "../lib/solidity-bsky-cbor/src/CommitCbor.sol";
+import "../lib/solidity-bsky-cbor/src/CidCbor.sol";
 
 contract SkeetGateway {
     mapping(address => SignerSafe) public signerSafes;
@@ -14,72 +17,19 @@ contract SkeetGateway {
 
     //event LogString(string mystr);
 
-    function _substring(string memory str, uint256 startIndex, uint256 endIndex)
+    function checkSig_secp256k1(address signer, bytes memory message, bytes32 r, bytes32 s)
         internal
         pure
-        returns (string memory)
+        returns (bool)
     {
-        bytes memory strBytes = bytes(str);
-        bytes memory result = new bytes(endIndex - startIndex);
-        for (uint256 i = startIndex; i < endIndex; i++) {
-            result[i - startIndex] = strBytes[i];
-        }
-        //emit LogString(string(result));
-        return string(result);
+        return signer == ecrecover(sha256(message), 1 + 27, r, s);
     }
-
-    function hexCharToByte(bytes1 char) internal pure returns (uint8) {
-        uint8 byteValue = uint8(char);
-        if (byteValue >= uint8(bytes1("0")) && byteValue <= uint8(bytes1("9"))) {
-            return byteValue - uint8(bytes1("0"));
-        } else if (byteValue >= uint8(bytes1("a")) && byteValue <= uint8(bytes1("f"))) {
-            return 10 + byteValue - uint8(bytes1("a"));
-        } else if (byteValue >= uint8(bytes1("A")) && byteValue <= uint8(bytes1("F"))) {
-            return 10 + byteValue - uint8(bytes1("A"));
-        }
-    }
-
-    function _stringToAddress(string memory str) internal pure returns (address) {
-        bytes memory strBytes = bytes(str);
-        require(strBytes.length == 42, "Invalid address length");
-        bytes memory addrBytes = new bytes(20);
-        for (uint256 i = 0; i < 20; i++) {
-            addrBytes[i] = bytes1(hexCharToByte(strBytes[2 + i * 2]) * 16 + hexCharToByte(strBytes[3 + i * 2]));
-        }
-        return address(uint160(bytes20(addrBytes)));
-    }
-
-    function _parsePayload(string memory _payload, uint256[] memory _offsets)
-        internal
-        returns (address, uint256, bytes memory)
-    {
-        string memory main_part = _substring(_payload, _offsets[0], _offsets[1]);
-        address to = _stringToAddress(_substring(main_part, 0, 42));
-        // bytes memory data = bytes(payload);
-        string memory message = _substring(main_part, 43, bytes(main_part).length);
-        bytes memory data = abi.encodeWithSignature("postMessage(string)", message);
-        return (to, 0, data);
-    }
-
-    function predictSafeAddress(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s) external view returns (address) {
-        address signer = predictSignerAddress(sigHash, _v, _r, _s);
-        bytes32 salt = bytes32(uint256(uint160(signer)));
-        bytes32 hash =
-            keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(type(SignerSafe).creationCode)));
-        return address(uint160(uint256(hash)));
-    }
-
-    function predictSignerAddress(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s) public pure returns (address) {
-        return ecrecover(sigHash, _v, _r, _s);
-    }
-
-    function verifyMerkleProof(bytes32[] memory proofHashes) public {}
 
     // Handles a skeet and
     function handleSkeet(
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s,
+        address signer,
+        bytes32 r,
+        bytes32 s,
         bytes memory commit,
         bytes[] memory treeNodes,
         bytes memory target,
@@ -92,37 +42,26 @@ contract SkeetGateway {
         // https://ethereum-magicians.org/t/eip-7212-precompiled-for-secp256r1-curve-support/14789/15
         // This takes different parameters to ecrecover, we have to pass in the pubkey.
 
-        // TODO I guess this is always sha256 even when the signing is done with k256
-        bytes32 commitHash = sha256(abi.encodePacked(commit));
-
-        console.log(_v);
-        console.logBytes32(_r);
-        console.logBytes32(_s);
-        console.logBytes32(commitHash);
-        //console.logBytes(commit);
-        console.log(treeNodes.length);
-        //console.logBytes(target);
-        console.log(collection);
-        console.log(rkey);
-
-        /*
-        address signer = ecrecover(commitHash, _v, _r, _s);
+        address recover = ecrecover(sha256(commit), 1 + 27, r, s);
+        require(signer == recover);
 
         require(signer != address(0), "Signer should not be empty");
+
+        /*
         if (address(signerSafes[signer]) == address(0)) {
             bytes32 salt = bytes32(uint256(uint160(signer)));
             signerSafes[signer] = new SignerSafe{salt: salt}();
             require(address(signerSafes[signer]) != address(0), "Safe not created");
             emit LogCreateSignerSafe(signer, address(signerSafes[signer]));
         }
-
-        /*
-        string payload = 'replaceme';
-
-
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(payload, _offsets);
-        signerSafes[signer].executeOwnerCall(to, value, payloadData);
-        emit LogExecutePayload(signer, to, value, payloadData, _payload);
         */
+
+        TreeCbor.Tree memory tree = TreeCbor.readTree(treeNodes);
+        console.log(tree.nodes.length);
+
+        (CommitCbor.Commit memory rootCommit,) = CommitCbor.readCommit(commit, 0);
+        CidCbor.CidBytes32 rootCid = CidCbor.readCidBytes32(commit, rootCommit.data);
+
+        (TreeNodeCbor.TreeNode memory rootNode, uint256 nodeIndex) = TreeCbor.getCid(tree, rootCid);
     }
 }
