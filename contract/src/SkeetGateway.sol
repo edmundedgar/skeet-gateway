@@ -62,8 +62,6 @@ contract SkeetGateway {
         (CommitCbor.Commit memory rootCommit,) = CommitCbor.readCommit(commit, 0);
         CidCbor.CidBytes32 rootCid = CidCbor.readCidBytes32(commit, rootCommit.data);
 
-        (TreeNodeCbor.TreeNode memory rootNode,) = TreeCbor.getCid(tree, rootCid);
-
         string memory key = string.concat(collection, "/", rkey);
 
         TreeCbor.verifyInclusion(tree, treeNodes, rootCid, target, key);
