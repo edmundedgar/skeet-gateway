@@ -43,7 +43,7 @@ contract SkeetGateway {
         // This takes different parameters to ecrecover, we have to pass in the pubkey.
 
         address recover = ecrecover(sha256(commit), 1 + 27, r, s);
-        require(signer == recover);
+        require(signer == recover, "Invalid signature");
 
         require(signer != address(0), "Signer should not be empty");
 
@@ -57,13 +57,14 @@ contract SkeetGateway {
         */
 
         TreeCbor.Tree memory tree = TreeCbor.readTree(treeNodes);
-        console.log(tree.nodes.length);
 
         (CommitCbor.Commit memory rootCommit,) = CommitCbor.readCommit(commit, 0);
         CidCbor.Cid rootCid = rootCommit.data;
 
         string memory key = string.concat(collection, "/", rkey);
 
-        TreeCbor.verifyInclusion(tree, rootCid, target, key);
+        bool inclusion = TreeCbor.verifyInclusion(tree, rootCid, target, key);
+
+        console.log("Inclusion: %s", inclusion);
     }
 }

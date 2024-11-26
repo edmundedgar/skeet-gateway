@@ -33,6 +33,17 @@ contract SkeetGatewayTest is Test {
         )
     ];
 
+    bytes private constant cborSansSig =
+        hex"a56364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f73703232716464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
+
+    bytes32 private constant r = hex"d395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf83";
+    bytes32 private constant s = hex"63f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b";
+
+    bytes private constant target =
+        hex"a4647465787478196361722066696c65732063616e6e6f74206875727420796f75652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31312d31355431323a31303a33322e3031345a";
+
+    address private constant edmund = address(0x69f2163DE8accd232bE4CD84559F823CdC808525);
+
     function setUp() public {
         gateway = new SkeetGateway();
         bbs = new BBS();
@@ -43,19 +54,7 @@ contract SkeetGatewayTest is Test {
         rootCid = rootCommit.data;
     }
 
-    function testRealAddressRecovery() public {
-        // Address for edmundedgar.unconsensus.com, recovered earlier by signing a message with the private key then running ecrecover on it
-        address expect = address(0x69f2163DE8accd232bE4CD84559F823CdC808525);
-
-        bytes memory cborSansSig =
-            hex"a56364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f73703232716464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
-
-        bytes32 r = hex"d395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf83";
-        bytes32 s = hex"63f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b";
-
-        bytes memory target =
-            hex"a4647465787478196361722066696c65732063616e6e6f74206875727420796f75652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31312d31355431323a31303a33322e3031345a";
-
-        gateway.handleSkeet(expect, r, s, cborSansSig, nodeCbors, target, "", "");
+    function test_handleSkeet() public {
+        gateway.handleSkeet(edmund, r, s, cborSansSig, nodeCbors, target, "app.bsky.feed.post", "3laydu3mgac2v");
     }
 }
