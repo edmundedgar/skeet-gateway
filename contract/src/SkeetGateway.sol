@@ -60,10 +60,10 @@ contract SkeetGateway {
         console.log(tree.nodes.length);
 
         (CommitCbor.Commit memory rootCommit,) = CommitCbor.readCommit(commit, 0);
-        CidCbor.CidBytes32 rootCid = CidCbor.readCidBytes32(commit, rootCommit.data);
+        CidCbor.Cid rootCid = rootCommit.data;
 
         string memory key = string.concat(collection, "/", rkey);
 
-        TreeCbor.verifyInclusion(tree, treeNodes, rootCid, target, key);
+        TreeCbor.verifyInclusion(tree, rootCid, target, key);
     }
 }

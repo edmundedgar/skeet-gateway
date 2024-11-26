@@ -13,7 +13,7 @@ contract SkeetGatewayTest is Test {
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
 
     CommitCbor.Commit private rootCommit;
-    CidCbor.CidBytes32 private rootCid;
+    CidCbor.Cid private rootCid;
 
     bytes private constant rootCborWithoutSig =
         hex"A56364696478206469643A706C633A6D74713365346D67743777796A6868616E69657A656A3637637265766D336C61796B6C746F73703232716464617461D82A5825000171122066DA6655BF8DA79B69A87299CF170FED8497FA3059379DC4A8BFE1E28CAB5D936470726576F66776657273696F6E03";
@@ -40,7 +40,7 @@ contract SkeetGatewayTest is Test {
         uint256 byteIdx;
         (rootCommit, byteIdx) = CommitCbor.readCommit(rootCborWithoutSig, 0);
         require(byteIdx == rootCborWithoutSig.length, "expected to read all root commit bytes");
-        rootCid = CidCbor.readCidBytes32(rootCborWithoutSig, rootCommit.data);
+        rootCid = rootCommit.data;
     }
 
     function testRealAddressRecovery() public {
