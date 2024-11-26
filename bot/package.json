@@ -1,23 +1,23 @@
 {
   "type": "module",
   "dependencies": {
-    "@atproto/api": "^0.13.16",
+    "@atproto/api": "^0.13.18",
     "@atproto/common": "^0.4.4",
+    "@atproto/crypto": "^0.4.2",
     "@atproto/identity": "^0.4.3",
-    "@atproto/lexicon": "^0.4.3",
     "@atproto/repo": "^0.5.5",
-    "@did-plc/lib": "^0.0.4",
-    "@skyware/bot": "^0.3.7",
+    "@atproto/syntax": "^0.3.1",
+    "@skyware/bot": "^0.3.8",
     "@skyware/jetstream": "^0.2.0",
-    "base32": "^0.0.7",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.4",
     "multiformats": "^13.3.1",
-    "tsx": "^4.19.2",
-    "ws": "^8.18.0"
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
-    "@types/node": "^22.9.0",
+    "@tsconfig/strictest": "^2.0.5",
+    "@types/node": "^22.9.4",
     "@types/ws": "^8.5.13"
-  }
+  },
+  "packageManager": "pnpm@9.5.0-beta.0+sha512.c2e60e7ed04e459591c982f2760cd8f7d1f48fe1ca4d46ccbbf8377df1eb2d077ace1e9d334b06250dddf23c03b4562858f77992b9a3bb4a93355aefd173df32"
 }

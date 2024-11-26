@@ -1,28 +1,35 @@
-import { JsonRpcProvider, Wallet, Contract } from "ethers";
-import { readFileSync } from "fs";
-import 'dotenv/config';
-import { MerkleData } from "./merkle-payload.js";
+import "dotenv/config";
 
-const provider = new JsonRpcProvider(process.env.RPC_URL);
-const privateKey = process.env.EVM_PRIVKEY;
-const signer = new Wallet(privateKey, provider);
+import { Contract, JsonRpcProvider, Wallet } from "ethers";
+import { GATEWAY_ABI, GATEWAY_ADDRESS } from "./env/contract.js";
+import { EVM_PRIVKEY, EVM_RPC_URL } from "./env/evm.js";
+import { ContractInput } from "./payload.js";
 
-const GATEWAY_JSON = JSON.parse(readFileSync('SkeetGateway.json', 'utf-8'));
+const provider = new JsonRpcProvider(EVM_RPC_URL);
+const signer = new Wallet(EVM_PRIVKEY, provider);
 
-const GATEWAY_CONTRACT = new Contract(process.env.GATEWAY_ADDRESS, GATEWAY_JSON.abi, signer);
+const gatewayContract = new Contract(GATEWAY_ADDRESS, GATEWAY_ABI, signer);
 
-export async function sendSkeet(data: MerkleData, rkey: string) {
-    const tx = await GATEWAY_CONTRACT.handleSkeet(
-        28,                           // v
-        data.rootSig.slice(0,32),     // r
-        data.rootSig.slice(32),       // s
-        data.rootCbor,
-        data.treeCids,
-        data.treeCbors,
-        rkey
-    );
+export async function sendSkeet({
+  sig,
+  commit,
+  treeNodes,
+  target,
+  collection,
+  rkey,
+}: ContractInput) {
+  const handleSkeet = gatewayContract.getFunction("handleSkeet");
+  const tx = await handleSkeet(
+    28, // v
+    sig.slice(0, 32), // r
+    sig.slice(32), // s
+    commit,
+    treeNodes,
+    target,
+    collection,
+    rkey
+  );
 
-    const receipt = await tx.wait();
-    console.log('Transaction:', receipt.transactionHash);
+  const receipt = await tx.wait();
+  console.log("Transaction:", receipt.transactionHash);
 }
-

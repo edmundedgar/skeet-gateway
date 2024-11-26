@@ -1,109 +1,114 @@
+import "dotenv/config";
+
+import { getVerificationMaterial } from "@atproto/common";
+import { formatDataKey } from "@atproto/repo";
 import { Bot } from "@skyware/bot";
 import { CommitCreateEvent, Jetstream } from "@skyware/jetstream";
-import WebSocket from "ws";
-import 'dotenv/config';
-import { AtpAgent, AtpAgentOptions, ComAtprotoSyncGetRecord } from "@atproto/api";
-import { payloadFromPostRecord } from "./merkle-payload.js";
-import { DidDocument } from "@atproto/common";
-import { getVerificationMethod } from "./didDocument.js";
-    
-type did = string;
-export type VerificationMethod = DidDocument["verificationMethod"][number];
+import { getDidDocument } from "./did-document.js";
+import {
+  BOT_DID,
+  BSKY_PASSWORD,
+  BSKY_USERNAME,
+  SUB_POST_KEY,
+} from "./env/at.js";
+import { formatContractInput } from "./payload.js";
+import { syncGetRecord } from "./sync-repo.js";
 
 async function initBot(): Promise<Bot> {
-    const bot = new Bot();
-    await bot.login({
-        identifier: process.env.BSKY_USERNAME,
-        password: process.env.BSKY_PASSWORD,
-    });
-    return bot;
+  const bot = new Bot();
+  await bot.login({
+    identifier: BSKY_USERNAME,
+    password: BSKY_PASSWORD,
+  });
+  return bot;
 }
 
-const BOT_DID = process.env.BSKY_BOT_DID;
-const SUB_POST_KEY = process.env.BSKY_SUBSCRIBE_POST_KEY;
 const SUBSCRIBE_POST_URI = `at://${BOT_DID}/app.bsky.feed.post/${SUB_POST_KEY}`;
+
 // check for the current list of DIDs that have liked
 // the "like this post to subscribe" post
-async function getSubscribePostLikes(bot: Bot): Promise<did[]> {
-    const post = await bot.getPost(SUBSCRIBE_POST_URI);
-    let getLikesResponse = await post.getLikes();
-    let postLikers = getLikesResponse.likes;
+async function getSubscribePostLikes(bot: Bot) {
+  const post = await bot.getPost(SUBSCRIBE_POST_URI);
+  let getLikesResponse = await post.getLikes();
+  let likerDids = getLikesResponse.likes;
 
-    while (getLikesResponse.cursor) {
-        getLikesResponse = await post.getLikes(getLikesResponse.cursor);
-        postLikers.concat(getLikesResponse.likes);
-    }
+  while (getLikesResponse.cursor) {
+    getLikesResponse = await post.getLikes(getLikesResponse.cursor);
+    likerDids.concat(getLikesResponse.likes);
+  }
 
-    return postLikers.map((profile) => profile.did);
+  return likerDids.map((profile) => profile.did);
 }
 
-function initJetstream(users: did[]): Jetstream {
-    let stream = new Jetstream({
-        ws: WebSocket,
-        wantedDids: users,
-        wantedCollections: ['app.bsky.feed.post'],
+function initJetstream(userDids: string[]): Jetstream {
+  const stream = new Jetstream({
+    wantedDids: userDids,
+    wantedCollections: ["app.bsky.feed.post"],
+  });
+  // TODO - make callback customizable / do real thing
+  stream.onCreate("app.bsky.feed.post", onUserPostCreation);
+
+  stream.start();
+  return stream;
+}
+
+function shouldPostMsgToChain(
+  event: CommitCreateEvent<"app.bsky.feed.post">
+): boolean {
+  // TODO - real logic for determining whether user wants to upload
+  return event.commit.record.text.startsWith("@skeetgate.bsky.social");
+}
+
+async function onUserPostCreation(
+  event: CommitCreateEvent<"app.bsky.feed.post">
+) {
+  console.log("new post by", event.did, event.commit.record.text);
+  if (shouldPostMsgToChain(event)) {
+    const postRecord = syncGetRecord({
+      did: event.did,
+      collection: "app.bsky.feed.post",
+      rkey: event.commit.rkey,
     });
-    // TODO - make callback customizable / do real thing
-    stream.onCreate('app.bsky.feed.post', onUserPostCreation);
+    const verificationMaterial = getDidDocument(event.did).then(
+      (doc) => getVerificationMaterial(doc, "#atproto")!
+    );
 
-    stream.start();
-    return stream;
-}
+    const payload = await formatContractInput(
+      await verificationMaterial,
+      await postRecord,
+      formatDataKey(event.commit.collection, event.commit.rkey)
+    );
 
-function shouldPostMsgToChain(event: CommitCreateEvent<"app.bsky.feed.post">): boolean {
-    // TODO - real logic for determining whether user wants to upload
-    return event.commit.record.text.startsWith('@skeetgate.bsky.social');
-}
+    console.log("payload", payload);
 
-const AGENT_OPTIONS: AtpAgentOptions = {
-    service: 'https://bsky.network',
-};
-const ATP_AGENT = new AtpAgent(AGENT_OPTIONS);
-
-export const callSyncGetRecord = async (did: string, rkey: string): Promise<ComAtprotoSyncGetRecord.Response> => {
-    return await ATP_AGENT.com.atproto.sync.getRecord({
-        did,
-        rkey,
-        collection: 'app.bsky.feed.post',
-    });
-};
-
-async function onUserPostCreation(event: CommitCreateEvent<"app.bsky.feed.post">) {
-    console.log(`new post by ${event.did}\n  ${event.commit.record.text}`);
-    if (shouldPostMsgToChain(event)) {
-        const getRecordPromise = callSyncGetRecord(event.did, event.commit.rkey);
-        const verificationMethodPromise = getVerificationMethod(event.did);
-        const [getRecordResponse, verificationMethod] = await Promise.all([getRecordPromise, verificationMethodPromise]);
-
-        const payload = await payloadFromPostRecord(verificationMethod, getRecordResponse);
-        // TODO - upload to chain by calling sendSkeet()
-    }
+    // TODO - upload to chain by calling sendSkeet()
+  }
 }
 
 async function main() {
-    console.log('starting bluesky bot...');
+  console.log("starting bluesky bot...");
 
-    let bot = await initBot();
-    let users = await getSubscribePostLikes(bot);
-    console.log(`users: ${JSON.stringify(users, null, 2)}`);
-    
-    let jetstream = initJetstream(users);
+  let bot = await initBot();
+  let users = await getSubscribePostLikes(bot);
+  console.log(`users: ${JSON.stringify(users, null, 2)}`);
 
-    bot.on('like', (event) => {
-        if(event.subject.uri == SUBSCRIBE_POST_URI) {
-            if (!users.includes(event.user.did)) {
-                console.log(`new subscriber: ${event.user.did}`);
-                users.push(event.user.did);
+  let jetstream = initJetstream(users);
 
-                // watching a different set of DIDs requires re-init
-                jetstream.close();
-                jetstream = initJetstream(users);
-            }
-        }
-    });
-    // TODO - handle unliking to stop listening to a user
+  bot.on("like", (event) => {
+    if (event.subject.uri == SUBSCRIBE_POST_URI) {
+      if (!users.includes(event.user.did)) {
+        console.log(`new subscriber: ${event.user.did}`);
+        users.push(event.user.did);
 
-    console.log('listening for users\' posts');
+        // watching a different set of DIDs requires re-init
+        jetstream.close();
+        jetstream = initJetstream(users);
+      }
+    }
+  });
+  // TODO - handle unliking to stop listening to a user
+
+  console.log("listening for users' posts");
 }
 
 main();

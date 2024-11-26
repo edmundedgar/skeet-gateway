@@ -1,6 +1,8 @@
 {
-    "compilerOptions": {
-        "module": "node16",
-		"moduleResolution": "node16",
-	}
+  "extends": "@tsconfig/strictest",
+  "compilerOptions": {
+    "module": "nodenext",
+    "exactOptionalPropertyTypes": false,
+    "resolveJsonModule": true
+  }
 }
