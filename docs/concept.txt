@@ -1,0 +1,55 @@
+Skeet gateway concept
+Edmund Edgar, 2024-11-30
+
+Lots of people have Bluesky accounts. In theory these people may control their own keys, with self-hosted PDSes.
+
+
+There are lots of things we could do with this. Here are some of them:
+
+
+[Implemented as proof-of-concept]
+
+Alice wants to post on an on-chain BBS using their Bluesky account. 
+She looks up the Ethereum address of the BBS.
+She skeets, "hey" and it shows up in the BBS.
+The Ethereum address it posts from provably belongs to her. (See note 1 below.)
+
+
+[Payload parsing not yet implemented (but easy)]
+
+Alice wants to send Bob an NFT. Alice has an Ethereum account, but as far as she knows Bob doesn't. But Bob does have a Bluesky account, which means he can send skeets controlled by a private key. She goes to a dapp website and looks up the address that would correspond to Bob's Bluesky account. [See note 1.] She sends an NFT to that account using her Ethereum account. Later, when Bob wants to send the NFT to someone else, he skeets "Send NFT 0xabcd to 0xdeadbabe". The NFT is transferred to 0xdeadbabe.
+
+
+[Payload parsing not yet implemented (but easy), bot not yet implemented (but fairly easy)]
+
+Alice uses a Gnosis Safe for multisig. She'd like to add Bluesky 2FA, so she can confirm sending transactions by posting from Bluesky. She goes to a dapp website and looks up the address that would correspond to her Bluesky account. [See Note 1.] Then she adds that address as a signer in the Gnosis Safe UI.
+
+When she wants to send a transaction, she starts it in the Gnosis Safe. A bot account shows her a skeet telling her what transaction is proposed. She replies to it with "Do it". The transaction is completed. 
+
+
+[Payload parsing plus a bit more not yet implemented (but fairly easy)]
+
+Some friends on Bluesky want to do pool some funds for a cause they support. There are 3 of them, and they want any 2 to be able to spend the funds. Alice has the SignerSafe addresses of her friends Bob and Charlie. She sends a skeet addressed to a bot address saying something like "2/3 multisig me 0xBobAddress 0xCharlieAddress". When one of the 3 wants to spend money from the pool, they make a proposal by skeeting to the bot, "Send 1 ETH to 0xSomeGoodCause". If one of the other 2 agrees, they can reply to this with "Do it" and the transaction is completed.
+
+
+
+Implementation:
+
+We deploy a single SkeetGateway contract which will work for all users. This has a function called handleSkeet([various params]) which will accept the content of the skeet whose content it should execute, a signature, and intermediate data necessary to verify that the skeet whose content is being executed was posted by the user whose signature is provided.
+
+When the SkeetGateway gets a message, it verifies its merkle proof and extracts the Ethereum address corresponding to the key that signed the message. For its purposes, the key providing the signature uniquely identifies the user.
+
+The first time the SkeetGateway contract gets a message from a particular user, it deploys a contract (which we currently call the "SignerSafe") on their behalf. It keeps a record of Bluesky signer controls which SkeetGateway contract. (Keeping this record is not strictly necessary for the current functionality as the address of the SignerSafe created deterministically based on the Bluesky signer, so it could just check if it exists.)
+
+Each SignerSafe contract is uniquely assigned to one user. The SignerSafe knows that it is controlled by the SkeetGateway and executes instructions sent to it by the SkeetGateway. The SkeetGateway will always send instructions to the SignerSafe corresponding to the user who signed the message it has received. This means that if a given SignerSafe receives a message, it can be sure that it has been sent using its owner's key.
+
+The SignerSafe accepts arbitrary calldata and ETH transfer value from SkeetGateway and executes them. SkeetGateway is responsible for parsing the signed skeet it gets, and translating this into calldata. For example, if you tell it "0xBBSAddress Post Hey", it could call postMessage("Hey") against the contract at address 0xBBSAddress.
+
+TODO: Currently the implementation hard-codes treating a message as a BBS post. We will probably distinguish different actions by making bots with different names. We also talked about hard-coding the address of the BBS.
+
+
+Note: Getting the address of a SignerSafe
+
+There are two ways to find out the address of the SignerSafe that will be assigned to a particular Bluesky account before it has been created:
+ a) Get the proof for any existing skeet by that user and call the SkeetGateway predictSafeAddress function with its signature as a parameter [Contract function already implemented]
+ b) Look up the pubkey for the user from the did directory, and call the SkeetGateway predictSafeAddressFromPubKey function with the pubkey as a parameter [Contract function not yet implemented, could alternatively be done purely client-side]
