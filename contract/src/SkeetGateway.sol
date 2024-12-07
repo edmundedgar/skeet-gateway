@@ -94,25 +94,29 @@ contract SkeetGateway {
 
         string memory rkey;
 
-        (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, 0); // the mapping for the node
-        require(numEntries == 2, "Should be 2 entries in the mapping");
+        // (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, 0); // the mapping for the node
+        // require(numEntries == 2, "Should be 2 entries in the mapping");
+        cursor = cursor + 1;
 
-        (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e key
-        cursor = cursor + nextLen;
-        (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e array header
-        require(dataNodeEntryIdx < numEntries, "e index provided is past the end of the array");
+        //(, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e key
+        cursor = cursor + 2; // (e text)
+        // (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e array header
+        cursor = cursor + 1; // (array)
+        // require(dataNodeEntryIdx < numEntries, "e index provided is past the end of the array");
 
-        for(uint256 i=0; i<numEntries; i++) {
+        for(uint256 i=0; i<=dataNodeEntryIdx; i++) {
 
             // The mapping entries show up in pairs, and each entry hash its own header
             // The parseCborHeader will advance the cursor to the beginning of the item (key or value)
             // We then read the bytes ourselves if we need them and advance the cursor to the start of the next header
 
-            (, , cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // mapping header
+            // (, , cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // mapping header
+            cursor = cursor + 1; // a5 (map)
 
             // k
-            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
-            cursor = cursor + nextLen;
+            // (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+            cursor = cursor + 2; // 61 65 (text k)
+
             (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
             string memory kval = string(dataNode[cursor:cursor+nextLen]);
             cursor = cursor + nextLen;
@@ -121,7 +125,10 @@ contract SkeetGateway {
             (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
             bytes memory p = dataNode[cursor:cursor+nextLen];
             cursor = cursor + nextLen;
-            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+
+            // TODO: Check whether this may vary depending on the size of p
+            (, nextLen, ) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+            cursor = cursor + 1;
             uint8 pval = uint8(nextLen);
             //cursor = cursor + nextLen; // The cursor is already advanced
 
@@ -144,18 +151,22 @@ contract SkeetGateway {
                 // mystery d8 2a 58 then we get what we expect in 2500017
                 cursor = cursor + 3;
 
-                uint8 major;
-                (major, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+                // (, nextLen, ) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+                nextLen = 37;
+                cursor = cursor + 2;
 
                 cursor = cursor + nextLen;
             }
 
             // v 
-            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+            // (, , cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+            cursor = cursor + 1; // 61 76 (text v) TODO Check this
 
             // add mystery cid cursor
             cursor = cursor + 3;
-            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+            cursor = cursor + 2;
+            nextLen = 37;
+            // (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
 
             // If we're at the target dataNodeEntryIdx, read the value, check it and return the rkey
             // If we're not, skip it
