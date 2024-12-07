@@ -3,6 +3,8 @@ pragma solidity ^0.8.13;
 
 import {SignerSafe} from "../src/SignerSafe.sol";
 import {BBS} from "../src/BBS.sol";
+import {CBORDecoder} from "./CBORDecoder.sol";
+import {console} from "forge-std/console.sol";
 
 contract SkeetGateway {
 
@@ -78,11 +80,111 @@ contract SkeetGateway {
         return ecrecover(sigHash, _v, _r, _s);
     }
 
-    function verifyMerkleProof(bytes32[] memory proofHashes) public {
+    function merkleProvenSighash(bytes32[] calldata proofHashes) public returns (bytes32) {
+    }
+
+    function dataNodeRecordKeyForCID(bytes32 cid, bytes calldata dataNode, uint256 dataNodeEntryIdx) public returns (string memory) {
+
+        // TODO: See if it's expensive gas to pass dataNode all the time
+        // Maybe only pass the header, 2 bytes
+
+        uint256 cursor;
+        uint256 nextLen;
+        uint256 numEntries;
+
+        string memory rkey;
+
+        (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, 0); // the mapping for the node
+        require(numEntries == 2, "Should be 2 entries in the mapping");
+
+        (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e key
+        cursor = cursor + nextLen;
+        (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e array header
+        require(dataNodeEntryIdx < numEntries, "e index provided is past the end of the array");
+
+        for(uint256 i=0; i<numEntries; i++) {
+
+            // The mapping entries show up in pairs, and each entry hash its own header
+            // The parseCborHeader will advance the cursor to the beginning of the item (key or value)
+            // We then read the bytes ourselves if we need them and advance the cursor to the start of the next header
+
+            (, , cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // mapping header
+
+            // k
+            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+            cursor = cursor + nextLen;
+            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+            string memory kval = string(dataNode[cursor:cursor+nextLen]);
+            cursor = cursor + nextLen;
+
+            // p
+            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+            bytes memory p = dataNode[cursor:cursor+nextLen];
+            cursor = cursor + nextLen;
+            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+            uint8 pval = uint8(nextLen);
+            //cursor = cursor + nextLen; // The cursor is already advanced
+
+            // Take the first bytes specified by the partial from the existing rkey
+            // Then append the bytes found in kval
+            if (pval == 0) {
+                rkey = kval;
+            } else {
+                string memory oldr = _substring(rkey, 0, uint256(pval));
+                rkey = string.concat(oldr, kval);
+            }
+
+            // t
+            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+
+            if (CBORDecoder.isNullNext(dataNode, cursor+1)) {
+                cursor = cursor + 2;
+            } else {
+                //cursor = cursor + nextLen;
+                // mystery d8 2a 58 then we get what we expect in 2500017
+                cursor = cursor + 3;
+
+                uint8 major;
+                (major, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+
+                cursor = cursor + nextLen;
+            }
+
+            // v 
+            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+
+            // add mystery cid cursor
+            cursor = cursor + 3;
+            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+
+            // If we're at the target dataNodeEntryIdx, read the value, check it and return the rkey
+            // If we're not, skip it
+            if (i == dataNodeEntryIdx) {
+                require(keccak256(dataNode[cursor:cursor+nextLen]) == keccak256(bytes.concat(hex"0001711220", cid)), "Cid in data node did not match");
+                return rkey;
+            }
+            cursor = cursor + nextLen;
+        }
+
+        /*
+        No need to handle l
+        // skip l
+        (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
+        cursor = cursor + nextLen;
+        (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
+        cursor = cursor + nextLen;
+        */
+
+        revert("Entry not found in data node");
+
     }
 
     // Handles a skeet and 
-    function handleSkeet(uint8 _v, bytes32 _r, bytes32 _s, bytes memory rootCbor, bytes[] memory treeCids, bytes[] memory treeCbors, string memory rkey) external {
+    function handleSkeet(uint8 _v, bytes32 _r, bytes32 _s, bytes calldata rootCbor, bytes calldata dataCbor, uint256 dataNodeEntryIdx, bytes[] calldata treeCbors) external {
+
+
+
+
 
         // TODO: If the signature is p256 we need something like
         // https://github.com/daimo-eth/p256-verifier      
