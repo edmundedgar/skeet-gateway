@@ -14,46 +14,57 @@ contract SkeetGatewayTest is Test {
     struct SkeetProof {
         bytes commitNode;
         bytes content;
-        bytes dataNode;
-        uint256 dataNodeHint;
         string did;
+        uint256[] nodeHints;
+        bytes[] nodes;
         bytes32 r;
         string rkey;
         bytes32 s;
-        bytes[] treeNodes;
-        uint256[] treeNodesHints;
     }
 
     function setUp() public {
         gateway = new SkeetGateway();
         bbs = new BBS();
     }
-
-    function testDataNodeVerification() public {
-       bytes memory dataNode = hex"a261658da4616b58206170702e62736b792e666565642e706f73742f336c636375356e7836336b32346170006174f66176d82a58250001711220f6bc478455165728c96d44d9b1334e8333315871dd5e8eec11db7a2cfede9e8da4616b49796d326b67326332346170176174f66176d82a582500017112202af8915706461ab5f0d09955822f97df3d1b7a7b0f85d25623f6f6d5a801b5b4a4616b4871326f6662633234617018186174f66176d82a582500017112207f4ef99239f39634843a77ff5d0a8d3c1b85b63fd90e51b524326417ffd47607a4616b4a6434706c7078667332706170166174f66176d82a58250001711220310dfc0d7b15f1a664661e3bfc71798a33ab7e5121f555dfc300b0f1bef29e5aa4616b4a686167766577616b326d6170166174f66176d82a58250001711220aa7058f4e669e567b20767b3f826a14821277df60a3f70efac3b7254721c8eb0a4616b4a6934727a686a3473326e6170166174f66176d82a58250001711220d9bec9e66592ed540ed995de86e8a37ab8db4ad5afca17409c5a27f47beacdb3a4616b4a6a616877656a7363326e6170166174f66176d82a58250001711220da40b03d60c65812b24e5df4d9ddcb4e96dcd15978337e8fb86631895967b74ea4616b497068687462717332786170176174f66176d82a582500017112203eb4166f4f008c474ec06c77f2d53baad3ddbd277ec9cda6a9bce9cc03e01363a4616b547265706f73742f336a76796c366c6e376f79327461700e6174f66176d82a58250001711220bc843928329a6d5fb01b434969847ef8afa2d9a6f6a162db57c3a04d6aaad5e4a4616b496d35786b6e65633264617018196174f66176d82a5825000171122091e9a0ced15a7c538721fd3aceb123107cca1d847da97aaf92c806c0fa09fd16a4616b4b773336796a7465696d32646170176174f66176d82a582500017112200766225d4052baff9de84dce3885f7f0addb7a169d0f242bbd3b5711426794cba4616b4a35357961337275733270617018186174f66176d82a58250001711220e52f82ae35a9c19e24dc71c58cd19c0cffb58e2ed339173ad114699a7305986da4616b49716d7a70647932326f617018196174f66176d82a582500017112207f42b2416430e1f2ce945fab6f5c683c8dbf63f691e66134db70dbc00cac78c4616cf6";
-        bytes32 targetCid = 0xd9bec9e66592ed540ed995de86e8a37ab8db4ad5afca17409c5a27f47beacdb3;
-        string memory rkey = gateway.dataNodeRecordKeyForCID(targetCid, dataNode, 5);
-        assertEq("app.bsky.feed.post/3lci4rzhj4s2n", rkey);
-    }
     
     function testMerkleProvenRootHash() public {
         // Given a hash of the dataNode, crawl up the tree and give me a root hash that I expect to find in the Sig Node
         // For each record we should have a hint which is either:
+        // For node 0 (data node): 
+        // - index+1 of the entry where we will find our hash in the data field
+        // For other nodes (intermediate nodes):
         // - 0 for the l record
-        // - 1 for the e record where we should find the t
+        // - index+1 for the e record where we should find our hash in the t field
         string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/ss.json"));
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
         // Check the value is in the data node and recover the rkey
-        string memory rkey = gateway.dataNodeRecordKeyForCID(sha256(proof.content), proof.dataNode, proof.dataNodeHint);
+        (bytes32 rootHash, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
+        //string memory rkey = gateway.dataNodeRecordKeyForCID(sha256(proof.content), proof.dataNode, proof.dataNodeHint);
         string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
 
-        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.dataNode), proof.treeNodes, proof.treeNodesHints);
         gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
 
     }
+
+    function testActualSkeetBBSPost() public {
+        // Given a hash of the dataNode, crawl up the tree and give me a root hash that I expect to find in the Sig Node
+        // For each record we should have a hint which is either:
+        // - 0 for the l record
+        // - 1 for the e record where we should find the t
+        string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/car_files_cannot_hurt_you.json"));
+        bytes memory data = vm.parseJson(json);
+        SkeetProof memory proof = abi.decode(data, (SkeetProof));
+
+        uint256[] memory offsets = new uint256[](2);
+        offsets[0] = 10; // trims the stuff before the address
+        offsets[1] = 81; // trims the stuff from the end of the comment
+
+        gateway.handleSkeet(proof.content, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s);
+    }
+
 
     function testRealAddressRecovery() public {
         // Address for edmundedgar.unconsensus.com, recovered earlier by signing a message with the private key then running ecrecover on it

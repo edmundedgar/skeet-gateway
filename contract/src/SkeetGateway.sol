@@ -56,8 +56,11 @@ contract SkeetGateway {
         return address(uint160(bytes20(addrBytes)));
     }
 
-    function _parsePayload(string memory _payload, uint256[] memory _offsets) internal returns (address, uint256, bytes memory) {
-        string memory main_part = _substring(_payload, _offsets[0], _offsets[1]);
+    function _parsePayload(string memory _payload) internal returns (address, uint256, bytes memory) {
+        uint256 BEFORE_ADDRESS = 10;
+        uint256 AFTER_CONTENT = 81;
+        console.log(_payload);
+        string memory main_part = _substring(_payload, BEFORE_ADDRESS, AFTER_CONTENT);
         address to = _stringToAddress(_substring(main_part, 0, 42));
         // bytes memory data = bytes(payload);
         string memory message = _substring(main_part, 43, bytes(main_part).length);
@@ -122,22 +125,24 @@ contract SkeetGateway {
 
     }
 
-    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata treeNodes, uint256[] calldata hints) public returns (bytes32) {
+    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes, uint256[] calldata hints) public returns (bytes32, string memory) {
 
-        // entry like 0xa2616582a4616b58206170702e62736b792e666565642e706f73742f336c63686876626277736b32796170006174d82a58250001711220a79e4fed89e6ff29dbe9f93097b34034e4f3496e14e4e397aa748858e0cc76256176d82a58250001711220547af95230596159b1b5db3da4f7a308472805be910c313ff37835b31968de91a4616b4a6f716332686f647532706170166174d82a582500017112209e0de417a295b6028113c7218fe244dfc5c1367c93a471d9ede0ca79b771f4ce6176d82a582500017112200215215340c1d660ffdad5ee56c99c05fc37825a5166fa312661100893fe03eb616cd82a58250001711220e1689648cc5f888e5d77eb91d67c89003b789cafe4eb6fb9bcb9c74a4f3f6f61
+        string memory rkey;
 
-        for(uint256 n=0; n<treeNodes.length; n++) {
+        for(uint256 n=0; n<nodes.length; n++) {
+            console.log('node is');
+            console.log(n);
 
             uint256 hint = hints[n];
 
             uint256 nextLen;
             uint256 numEntries;
 
-            assert(bytes8(treeNodes[n][0:3]) == bytes8(hex"a26165"));
+            assert(bytes8(nodes[n][0:3]) == bytes8(hex"a26165"));
             uint256 cursor = 3; // mapping header, text, e
 
             // Header for variable-length array
-            (, numEntries, cursor) = CBORDecoder.parseCborHeader(treeNodes[n], cursor); // e array header
+            (, numEntries, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // e array header
 
             require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
@@ -146,43 +151,88 @@ contract SkeetGateway {
                 numEntries = hint; 
             }
 
+            console.log("hint");
+            console.log(hint);
+
             for(uint256 i=0; i<numEntries; i++) {
 
-                assert(bytes8(treeNodes[n][cursor:cursor+3]) == bytes8(hex"a4616b")); // 4 item map, text, k
-                cursor = cursor + 3;
+                console.log('entry is');
+                console.log(i);
+                console.log("try to prove:");
+                console.logBytes32(proveMe);
 
-                // Variable-length string
-                (, nextLen, cursor) = CBORDecoder.parseCborHeader(treeNodes[n], cursor);
-                cursor = cursor + nextLen;
+                // For the first node, which is the data node, we also need the record key.
+                // For everything else we can go past it
 
-                assert(bytes8(treeNodes[n][cursor:cursor+2]) == bytes8(hex"6170")); // text, p
-                cursor = cursor + 2;
+                if (n == 0) {
 
-                // int, val is in the header so we shouldn't need to advance cursor beyond what parseCborHeader did
-                // TODO: Make sure this works when p > 24 and it needs the extra byte
-                (, nextLen, cursor) = CBORDecoder.parseCborHeader(treeNodes[n], cursor); // val
+                    assert(bytes8(nodes[n][cursor:cursor+3]) == bytes8(hex"a4616b")); // 4 item map, text, k
+                    cursor = cursor + 3;
 
-                assert(bytes8(treeNodes[n][cursor:cursor+2]) == bytes8(hex"6174")); // text, t
+                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
+                    string memory kval = string(nodes[n][cursor:cursor+nextLen]);
+                    cursor = cursor + nextLen;
+
+                    // p
+                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // key
+                    bytes memory p = nodes[n][cursor:cursor+nextLen];
+                    cursor = cursor + nextLen;
+
+                    // TODO: Check whether this may vary depending on the size of p
+                    (, nextLen, ) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
+                    cursor = cursor + 1;
+                    uint8 pval = uint8(nextLen);
+                    //cursor = cursor + nextLen; // The cursor is already advanced
+
+                    // Take the first bytes specified by the partial from the existing rkey
+                    // Then append the bytes found in kval
+                    if (pval == 0) {
+                        rkey = kval;
+                    } else {
+                        string memory oldr = _substring(rkey, 0, uint256(pval));
+                        rkey = string.concat(oldr, kval);
+                    }
+
+                } else {
+
+                    assert(bytes8(nodes[n][cursor:cursor+3]) == bytes8(hex"a4616b")); // 4 item map, text, k
+                    cursor = cursor + 3;
+
+                    // Variable-length string
+                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor);
+                    cursor = cursor + nextLen;
+
+                    assert(bytes8(nodes[n][cursor:cursor+2]) == bytes8(hex"6170")); // text, p
+                    cursor = cursor + 2;
+
+                    // For an int the val is in the header so we shouldn't need to advance cursor beyond what parseCborHeader did
+                    // TODO: Make sure this works if p > 24 and it needs the extra byte
+                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // val
+
+                } 
+
+                //console.logBytes32(bytes(nodes[n][cursor:cursor+32]));
+                assert(bytes8(nodes[n][cursor:cursor+2]) == bytes8(hex"6174")); // text, t
                 cursor = cursor + 2;
                 
-                if (CBORDecoder.isNullNext(treeNodes[n], cursor+1)) {
+                if (CBORDecoder.isNullNext(nodes[n], cursor)) {
                     // TODO: What's the first byte here that's ignored by isNullNext?
-                    assert(bytes8(treeNodes[n][cursor+1:cursor+2]) == bytes8(hex"f6")); // null
-                    cursor = cursor + 2;
+                    assert(bytes8(nodes[n][cursor:cursor+1]) == bytes8(hex"f6")); // null
+                    cursor = cursor + 1;
                 } else {
 
                     // TODO: Move these checks to a require when the hint matches
-                    assert(bytes8(treeNodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
+                    assert(bytes8(nodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
                     cursor = cursor + 4;
 
-                    assert(bytes8(treeNodes[n][cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+                    assert(bytes8(nodes[n][cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
                     cursor = cursor + 5;
 
                     // Our 32 bytes
-                    if (hint > 0 && i == hint-1) {
-                        bytes32 val = bytes32(treeNodes[n][cursor:cursor+32]);
+                    if (n > 0 && hint > 0 && i == hint-1) {
+                        bytes32 val = bytes32(nodes[n][cursor:cursor+32]);
                         require(val == proveMe, "Value does not match target");
-                        proveMe = sha256(treeNodes[n]);
+                        proveMe = sha256(nodes[n]);
                         continue;
                     }
 
@@ -190,162 +240,71 @@ contract SkeetGateway {
                 }
 
                 // non-nullable v
-                assert(bytes8(treeNodes[n][cursor:cursor+2]) == bytes8(hex"6176")); // text, t
+                assert(bytes8(nodes[n][cursor:cursor+2]) == bytes8(hex"6176")); // text, t
                 cursor = cursor + 2;
-                assert(bytes8(treeNodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
+                assert(bytes8(nodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
                 cursor = cursor + 4;
-                assert(bytes8(treeNodes[n][cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+                assert(bytes8(nodes[n][cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
                 cursor = cursor + 5;
-                // 32 bytes we don't care about
+                // 32 bytes we don't care about unless we're doing the initial data node
+
+                if (n == 0 && i == hint-1) {
+                    // Our 32 bytes
+                    bytes32 val = bytes32(nodes[n][cursor:cursor+32]);
+                    require(val == proveMe, "e val does not match");
+                    proveMe = sha256(nodes[0]);
+                } 
                 cursor = cursor + 32;
                 
             }
 
-            if (hint == 0) {
-                assert(bytes8(treeNodes[n][cursor:cursor+2]) == bytes8(hex"616c")); // text, l
+            // The l field is at the end so we only care about it if we actually want to read it
+            if (n > 0 && hint == 0) {
+                assert(bytes8(nodes[n][cursor:cursor+2]) == bytes8(hex"616c")); // text, l
                 cursor = cursor + 2;
 
-                if (CBORDecoder.isNullNext(treeNodes[n], cursor+1)) {
+                if (CBORDecoder.isNullNext(nodes[n], cursor)) {
                     // TODO: What's the first byte here that's ignored by isNullNext?
-                    assert(bytes8(treeNodes[n][cursor+1:cursor+2]) == bytes8(hex"f6")); // null
-                    cursor = cursor + 2;
+                    assert(bytes8(nodes[n][cursor:cursor+1]) == bytes8(hex"f6")); // null
+                    cursor = cursor + 1;
                 } else {
                     // TODO: Move these checks to a require when the hint matches
-                    assert(bytes8(treeNodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
+                    assert(bytes8(nodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
                     cursor = cursor + 4;
 
-                    assert(bytes8(treeNodes[n][cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+                    assert(bytes8(nodes[n][cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
                     cursor = cursor + 5;
 
                     // Our 32 bytes
-                    bytes32 val = bytes32(treeNodes[n][cursor:cursor+32]);
+                    bytes32 val = bytes32(nodes[n][cursor:cursor+32]);
                     require(val == proveMe, "l val does not match");
-                    proveMe = sha256(treeNodes[n]);
-                    // require(keccak256(treeNodes[n][cursor:cursor+nextLen]) == keccak256(bytes.concat(hex"0001711220", proveMe)), "Cid in data node did not match");
+                    proveMe = sha256(nodes[n]);
                 }
             }
         }
 
-        return proveMe;
-    }
-
-    function dataNodeRecordKeyForCID(bytes32 cid, bytes calldata dataNode, uint256 dataNodeEntryIdx) public returns (string memory) {
-
-        uint256 cursor;
-        uint256 nextLen;
-        uint256 numEntries;
-
-        string memory rkey;
-
-        // (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, 0); // the mapping for the node
-        // require(numEntries == 2, "Should be 2 entries in the mapping");
-        cursor = cursor + 1;
-
-        //(, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e key
-        cursor = cursor + 2; // (e text)
-        // (, numEntries, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // the e array header
-        cursor = cursor + 1; // (array)
-        // require(dataNodeEntryIdx < numEntries, "e index provided is past the end of the array");
-
-        for(uint256 i=0; i<=dataNodeEntryIdx; i++) {
-
-            // The mapping entries show up in pairs, and each entry hash its own header
-            // The parseCborHeader will advance the cursor to the beginning of the item (key or value)
-            // We then read the bytes ourselves if we need them and advance the cursor to the start of the next header
-
-            // (, , cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // mapping header
-            cursor = cursor + 1; // a5 (map)
-
-            // k
-            // (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
-            cursor = cursor + 2; // 61 65 (text k)
-
-            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
-            string memory kval = string(dataNode[cursor:cursor+nextLen]);
-            cursor = cursor + nextLen;
-
-            // p
-            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
-            bytes memory p = dataNode[cursor:cursor+nextLen];
-            cursor = cursor + nextLen;
-
-            // TODO: Check whether this may vary depending on the size of p
-            (, nextLen, ) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
-            cursor = cursor + 1;
-            uint8 pval = uint8(nextLen);
-            //cursor = cursor + nextLen; // The cursor is already advanced
-
-            // Take the first bytes specified by the partial from the existing rkey
-            // Then append the bytes found in kval
-            if (pval == 0) {
-                rkey = kval;
-            } else {
-                string memory oldr = _substring(rkey, 0, uint256(pval));
-                rkey = string.concat(oldr, kval);
-            }
-
-            // t
-            (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
-
-            if (CBORDecoder.isNullNext(dataNode, cursor+1)) {
-                cursor = cursor + 2;
-            } else {
-                //cursor = cursor + nextLen;
-                // mystery d8 2a 58 then we get what we expect in 2500017
-                cursor = cursor + 3;
-
-                // (, nextLen, ) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
-                nextLen = 37;
-                cursor = cursor + 2;
-
-                cursor = cursor + nextLen;
-            }
-
-            // v 
-            // (, , cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
-            cursor = cursor + 1; // 61 76 (text v) TODO Check this
-
-            // add mystery cid cursor
-            cursor = cursor + 3;
-            cursor = cursor + 2;
-            nextLen = 37;
-            // (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
-
-            // If we're at the target dataNodeEntryIdx, read the value, check it and return the rkey
-            // If we're not, skip it
-            if (i == dataNodeEntryIdx) {
-                require(keccak256(dataNode[cursor:cursor+nextLen]) == keccak256(bytes.concat(hex"0001711220", cid)), "Cid in data node did not match");
-                return rkey;
-            }
-            cursor = cursor + nextLen;
-        }
-
-        /*
-        No need to handle l
-        // skip l
-        (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // key
-        cursor = cursor + nextLen;
-        (, nextLen, cursor) = CBORDecoder.parseCborHeader(dataNode, cursor); // value
-        cursor = cursor + nextLen;
-        */
-
-        revert("Entry not found in data node");
-
+        return (proveMe, rkey);
     }
 
     // Handles a skeet and 
-    function handleSkeet(uint8 _v, bytes32 _r, bytes32 _s, bytes calldata rootCbor, bytes calldata dataCbor, uint256 dataNodeEntryIdx, bytes[] calldata treeCbors) external {
+    function handleSkeet(bytes calldata content, bytes[] calldata nodes, uint256[] calldata nodeHints, bytes calldata commitNode, uint8 _v, bytes32 _r, bytes32 _s) external {
 
-        // TODO: If the signature is p256 we need something like
-        // https://github.com/daimo-eth/p256-verifier      
-        // ...until such time as Ethereum adopts:
-        // https://ethereum-magicians.org/t/eip-7212-precompiled-for-secp256r1-curve-support/14789/15
-        // This takes different parameters to ecrecover, we have to pass in the pubkey.
+        {
+            bytes32 target = sha256(abi.encodePacked(content));
+            (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
+            // TODO: Check rkey is a post, maybe also store it as a nonce
+            assertCommitNodeContainsData(rootHash, commitNode);
+        }
 
-        // TODO I guess this is always sha256 even when the signing is done with k256
-        bytes32 rootCborHash = sha256(abi.encodePacked(rootCbor));
+        {
+            bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
+            address signer = ecrecover(commitNodeHash, _v, _r, _s);
 
-        address signer = ecrecover(rootCborHash, _v, _r, _s);
+            executePayload(signer, content);
+        }
+    }
+
+    function executePayload(address signer, bytes calldata content) internal {
         require(signer != address(0), "Signer should not be empty");
         if (address(signerSafes[signer]) == address(0)) {
             bytes32 salt = bytes32(uint256(uint160(signer)));
@@ -354,14 +313,10 @@ contract SkeetGateway {
             emit LogCreateSignerSafe(signer, address(signerSafes[signer]));
         }
 
-        /*
-        string payload = 'replaceme';
+        (address to, uint256 value, bytes memory payloadData) = _parsePayload(string(content));
 
-
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(payload, _offsets);
         signerSafes[signer].executeOwnerCall(to, value, payloadData);
-        emit LogExecutePayload(signer, to, value, payloadData, _payload);
-        */
+        emit LogExecutePayload(signer, to, value, payloadData, string(content));
     }
     
 }
