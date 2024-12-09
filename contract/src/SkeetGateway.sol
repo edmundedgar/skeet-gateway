@@ -130,8 +130,6 @@ contract SkeetGateway {
         string memory rkey;
 
         for(uint256 n=0; n<nodes.length; n++) {
-            console.log('node is');
-            console.log(n);
 
             uint256 hint = hints[n];
 
@@ -151,15 +149,7 @@ contract SkeetGateway {
                 numEntries = hint; 
             }
 
-            console.log("hint");
-            console.log(hint);
-
             for(uint256 i=0; i<numEntries; i++) {
-
-                console.log('entry is');
-                console.log(i);
-                console.log("try to prove:");
-                console.logBytes32(proveMe);
 
                 // For the first node, which is the data node, we also need the record key.
                 // For everything else we can go past it
