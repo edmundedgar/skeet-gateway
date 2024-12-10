@@ -69,8 +69,18 @@ contract SkeetGateway {
         return (to, 0, data);
     }
 
-    function predictSafeAddress(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s) external view returns (address) {
-        address signer = predictSignerAddress(sigHash, _v, _r, _s);
+    function predictSafeAddress(address _signer) external view returns (address) {
+        bytes32 salt = bytes32(uint256(uint160(_signer)));
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                bytes1(0xff), address(this), salt, keccak256(type(SignerSafe).creationCode)
+            )
+        );
+        return address (uint160(uint(hash)));
+    }
+
+    function predictSafeAddressFromSig(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s) external view returns (address) {
+        address signer = predictSignerAddressFromSig(sigHash, _v, _r, _s);
         bytes32 salt = bytes32(uint256(uint160(signer)));
         bytes32 hash = keccak256(
             abi.encodePacked(
@@ -80,7 +90,7 @@ contract SkeetGateway {
         return address (uint160(uint(hash)));
     }
 
-    function predictSignerAddress(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s) public pure returns (address) {
+    function predictSignerAddressFromSig(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s) public pure returns (address) {
         return ecrecover(sigHash, _v, _r, _s);
     }
 
