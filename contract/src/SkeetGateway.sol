@@ -57,11 +57,12 @@ contract SkeetGateway {
     }
 
     function _parsePayload(string memory _payload) internal pure returns (address, uint256, bytes memory) {
+        // TODO: Put back the indexes that tell us where the text starts and ends
+        // BEFORE_ADDRESS may be ok but AFTER_CONTENT will depend on the length of the message
         uint256 BEFORE_ADDRESS = 8;
         uint256 AFTER_CONTENT = 67;
         string memory main_part = _substring(_payload, BEFORE_ADDRESS, AFTER_CONTENT);
         address to = _stringToAddress(_substring(main_part, 0, 42));
-        // bytes memory data = bytes(payload);
         string memory message = _substring(main_part, 43, bytes(main_part).length);
         bytes memory data = abi.encodeWithSignature("postMessage(string)", message);
         return (to, 0, data);
@@ -119,7 +120,6 @@ contract SkeetGateway {
         assert(bytes8(commitNode[cursor:cursor+5]) == bytes8(hex"6470726576")); // text, prev
         cursor = cursor + 5;
         
-        // TODO: Check why we see the null right here, not in the next byte like elsewhere
         if (CBORDecoder.isNullNext(commitNode, cursor)) {
             cursor = cursor + 1;
         } else {
@@ -219,7 +219,6 @@ contract SkeetGateway {
                     cursor = cursor + 1;
                 } else {
 
-                    // TODO: Move these checks to a require when the hint matches
                     assert(bytes8(nodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
                     cursor = cursor + 4;
 
@@ -244,8 +243,8 @@ contract SkeetGateway {
                 cursor = cursor + 4;
                 assert(bytes8(nodes[n][cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
                 cursor = cursor + 5;
-                // 32 bytes we don't care about unless we're doing the initial data node
 
+                // 32 bytes we only care about if it's the initial data node
                 if (n == 0 && i == hint-1) {
                     // Our 32 bytes
                     bytes32 val = bytes32(nodes[n][cursor:cursor+32]);
@@ -266,7 +265,6 @@ contract SkeetGateway {
                     assert(bytes8(nodes[n][cursor:cursor+1]) == bytes8(hex"f6")); // null
                     cursor = cursor + 1;
                 } else {
-                    // TODO: Move these checks to a require when the hint matches
                     assert(bytes8(nodes[n][cursor:cursor+4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37) 
                     cursor = cursor + 4;
 
