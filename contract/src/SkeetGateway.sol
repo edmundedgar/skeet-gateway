@@ -63,8 +63,6 @@ contract SkeetGateway {
         address to = _stringToAddress(_substring(main_part, 0, 42));
         // bytes memory data = bytes(payload);
         string memory message = _substring(main_part, 43, bytes(main_part).length);
-        console.log(to);
-        console.log(message);
         bytes memory data = abi.encodeWithSignature("postMessage(string)", message);
         return (to, 0, data);
     }
@@ -212,7 +210,6 @@ contract SkeetGateway {
 
                 } 
 
-                //console.logBytes32(bytes(nodes[n][cursor:cursor+32]));
                 assert(bytes8(nodes[n][cursor:cursor+2]) == bytes8(hex"6174")); // text, t
                 cursor = cursor + 2;
                 
@@ -292,10 +289,7 @@ contract SkeetGateway {
 
         {
             bytes32 target = sha256(abi.encodePacked(content));
-uint g = gasleft();
             (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
-console.log("gas used");
-console.log(g - gasleft());
             // TODO: Check rkey is a post, maybe also store it as a nonce
             assertCommitNodeContainsData(rootHash, commitNode);
         }
