@@ -113,7 +113,7 @@ contract SkeetGateway {
         cursor = cursor + 4;
         assert(bytes8(commitNode[cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
         cursor = cursor + 5;
-        assert(bytes32(commitNode[cursor:cursor+32]) == proveMe);
+        require(bytes32(commitNode[cursor:cursor+32]) == proveMe, "Data field does not contain expected hash");
         cursor = cursor + 32;
 
         assert(bytes8(commitNode[cursor:cursor+5]) == bytes8(hex"6470726576")); // text, prev
@@ -130,7 +130,7 @@ contract SkeetGateway {
             cursor = cursor + 32; // cid we don't care about
         }
 
-        assert(bytes9(commitNode[cursor:cursor+9]) == bytes9(hex"6776657273696f6e03")); // text "version" 3
+        require(bytes9(commitNode[cursor:cursor+9]) == bytes9(hex"6776657273696f6e03"), "v3 field not found"); // text "version" 3
 
     }
 
