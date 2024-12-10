@@ -44,9 +44,20 @@ contract SkeetGatewayTest is Test {
         (bytes32 rootHash, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
         string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
+    }
 
+    function testAssertCommitNodeContainsData() public {
+        string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/bbs_address_is_this_thing_on.json"));
+        bytes memory data = vm.parseJson(json);
+        SkeetProof memory proof = abi.decode(data, (SkeetProof));
+
+        uint256 lastNode = proof.nodes.length - 1;
+        bytes32 rootHash = sha256(proof.nodes[lastNode]);
         gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
 
+        bytes32 someOtherHash = sha256(proof.nodes[lastNode-1]);
+        vm.expectRevert();
+        gateway.assertCommitNodeContainsData(someOtherHash, proof.commitNode);
     }
 
     function testActualSkeetBBSPost() public {
@@ -60,7 +71,6 @@ contract SkeetGatewayTest is Test {
         uint256[] memory offsets = new uint256[](2);
         offsets[0] = 10; // trims the stuff before the address
         offsets[1] = 81; // trims the stuff from the end of the comment
-
 
         address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s);
 
