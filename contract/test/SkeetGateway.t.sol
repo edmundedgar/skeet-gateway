@@ -26,7 +26,7 @@ contract SkeetGatewayTest is Test {
         gateway = new SkeetGateway();
         bbs = new BBS();
     }
-    
+
     function testMerkleProvenRootHash() public {
         // Given a hash of the dataNode, crawl up the tree and give me a root hash that I expect to find in the Sig Node
         // For each record we should have a hint which is either:
@@ -35,7 +35,7 @@ contract SkeetGatewayTest is Test {
         // For other nodes (intermediate nodes):
         // - 0 for the l record
         // - index+1 for the e record where we should find our hash in the t field
-        string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/ss.json"));
+        string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/bbs_address_is_this_thing_on.json"));
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
@@ -100,7 +100,7 @@ contract SkeetGatewayTest is Test {
         assertEq(expectedSigner, signer);
     }
 
-    function testRealAddressRecovery() public {
+    function testRealAddressRecovery() public pure {
         // Address for edmundedgar.unconsensus.com, recovered earlier by signing a message with the private key then running ecrecover on it
         address expect = address(0x69f2163DE8accd232bE4CD84559F823CdC808525);
 

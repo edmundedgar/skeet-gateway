@@ -56,7 +56,7 @@ contract SkeetGateway {
         return address(uint160(bytes20(addrBytes)));
     }
 
-    function _parsePayload(string memory _payload) internal returns (address, uint256, bytes memory) {
+    function _parsePayload(string memory _payload) internal pure returns (address, uint256, bytes memory) {
         uint256 BEFORE_ADDRESS = 8;
         uint256 AFTER_CONTENT = 67;
         string memory main_part = _substring(_payload, BEFORE_ADDRESS, AFTER_CONTENT);
@@ -84,7 +84,7 @@ contract SkeetGateway {
         return ecrecover(sigHash, _v, _r, _s);
     }
 
-    function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitNode) public {
+    function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitNode) public pure {
 
         assert(bytes8(commitNode[0:5]) == bytes8(hex"a563646964")); // mapping, text, did
         uint256 cursor = 5;
@@ -126,7 +126,7 @@ contract SkeetGateway {
 
     }
 
-    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes, uint256[] calldata hints) public returns (bytes32, string memory) {
+    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes, uint256[] calldata hints) public pure returns (bytes32, string memory) {
 
         string memory rkey;
 
