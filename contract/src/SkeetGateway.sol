@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {SignerSafe} from "../src/SignerSafe.sol";
 import {BBS} from "../src/BBS.sol";
-import {CBORDecoder} from "./CBORDecoder.sol";
+import {ReadCbor} from "solidity-cbor/ReadCbor.sol";
 import {console} from "forge-std/console.sol";
 
 contract SkeetGateway {
@@ -38,6 +38,7 @@ contract SkeetGateway {
         } else if (byteValue >= uint8(bytes1("A")) && byteValue <= uint8(bytes1("F"))) {
             return 10 + byteValue - uint8(bytes1("A"));
         }
+        revert("unreachable");
     }
 
     function _stringToAddress(string memory str) internal pure returns (address) {
@@ -91,16 +92,16 @@ contract SkeetGateway {
 
     function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitNode) public pure {
         assert(bytes8(commitNode[0:5]) == bytes8(hex"a563646964")); // mapping, text, did
-        uint256 cursor = 5;
+        uint32 cursor = 5;
 
-        uint256 extra;
-        (, extra, cursor) = CBORDecoder.parseCborHeader(commitNode, cursor); // did content
-        cursor = cursor + extra;
+        uint64 extra;
+        (cursor, extra,) = ReadCbor.header(commitNode, cursor); // did content
+        cursor = cursor + uint32(extra);
 
         assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"63726576")); // text, rev
         cursor = cursor + 4;
-        (, extra, cursor) = CBORDecoder.parseCborHeader(commitNode, cursor); // did content
-        cursor = cursor + extra;
+        (cursor, extra,) = ReadCbor.header(commitNode, cursor); // did content
+        cursor = cursor + uint32(extra);
 
         assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"6464617461")); // rev content
         cursor = cursor + 5;
@@ -115,7 +116,7 @@ contract SkeetGateway {
         assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"6470726576")); // text, prev
         cursor = cursor + 5;
 
-        if (CBORDecoder.isNullNext(commitNode, cursor)) {
+        if (ReadCbor.isNull(commitNode, cursor)) {
             cursor = cursor + 1;
         } else {
             assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
@@ -136,16 +137,16 @@ contract SkeetGateway {
         string memory rkey;
 
         for (uint256 n = 0; n < nodes.length; n++) {
-            uint256 hint = hints[n];
+            uint64 hint = uint64(hints[n]);
 
-            uint256 nextLen;
-            uint256 numEntries;
+            uint64 nextLen;
+            uint64 numEntries;
 
             assert(bytes8(nodes[n][0:3]) == bytes8(hex"a26165"));
-            uint256 cursor = 3; // mapping header, text, e
+            uint32 cursor = 3; // mapping header, text, e
 
             // Header for variable-length array
-            (, numEntries, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // e array header
+            (cursor, numEntries,) = ReadCbor.header(nodes[n], cursor); // e array header
 
             require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
@@ -162,17 +163,17 @@ contract SkeetGateway {
                     assert(bytes8(nodes[n][cursor:cursor + 3]) == bytes8(hex"a4616b")); // 4 item map, text, k
                     cursor = cursor + 3;
 
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
+                    (cursor, nextLen,) = ReadCbor.header(nodes[n], cursor); // value
                     string memory kval = string(nodes[n][cursor:cursor + nextLen]);
-                    cursor = cursor + nextLen;
+                    cursor = cursor + uint32(nextLen);
 
                     // p
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // key
+                    (cursor, nextLen,) = ReadCbor.header(nodes[n], cursor); // key
                     bytes memory p = nodes[n][cursor:cursor + nextLen];
-                    cursor = cursor + nextLen;
+                    cursor = cursor + uint32(nextLen);
 
                     // TODO: Check whether this may vary depending on the size of p
-                    (, nextLen,) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
+                    (, nextLen,) = ReadCbor.header(nodes[n], cursor); // value
                     cursor = cursor + 1;
                     uint8 pval = uint8(nextLen);
                     //cursor = cursor + nextLen; // The cursor is already advanced
@@ -190,21 +191,21 @@ contract SkeetGateway {
                     cursor = cursor + 3;
 
                     // Variable-length string
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor);
-                    cursor = cursor + nextLen;
+                    (cursor, nextLen,) = ReadCbor.header(nodes[n], cursor);
+                    cursor = cursor + uint32(nextLen);
 
                     assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6170")); // text, p
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we shouldn't need to advance cursor beyond what parseCborHeader did
                     // TODO: Make sure this works if p > 24 and it needs the extra byte
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // val
+                    (cursor, nextLen,) = ReadCbor.header(nodes[n], cursor); // val
                 }
 
                 assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6174")); // text, t
                 cursor = cursor + 2;
 
-                if (CBORDecoder.isNullNext(nodes[n], cursor)) {
+                if (ReadCbor.isNull(nodes[n], cursor)) {
                     // TODO: What's the first byte here that's ignored by isNullNext?
                     assert(bytes8(nodes[n][cursor:cursor + 1]) == bytes8(hex"f6")); // null
                     cursor = cursor + 1;
@@ -249,7 +250,7 @@ contract SkeetGateway {
                 assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"616c")); // text, l
                 cursor = cursor + 2;
 
-                if (CBORDecoder.isNullNext(nodes[n], cursor)) {
+                if (ReadCbor.isNull(nodes[n], cursor)) {
                     // TODO: What's the first byte here that's ignored by isNullNext?
                     assert(bytes8(nodes[n][cursor:cursor + 1]) == bytes8(hex"f6")); // null
                     cursor = cursor + 1;
