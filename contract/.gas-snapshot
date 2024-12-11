@@ -1,0 +1,5 @@
+SkeetGatewayTest:testActualSkeetBBSPost() (gas: 653632)
+SkeetGatewayTest:testAddressRecovery() (gas: 18468)
+SkeetGatewayTest:testAssertCommitNodeContainsData() (gas: 91326)
+SkeetGatewayTest:testMerkleProvenRootHash() (gas: 313113)
+SkeetGatewayTest:testRealAddressRecovery() (gas: 7850)
