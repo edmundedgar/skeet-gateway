@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 contract SignerSafe {
-
     address public owner;
 
     constructor() {
@@ -21,5 +20,4 @@ contract SignerSafe {
             success := call(not(0), to, value, add(data, 0x20), mload(data), 0, 0)
         }
     }
-
 }
