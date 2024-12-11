@@ -8,7 +8,6 @@ import {BBS} from "../src/BBS.sol";
 import {console} from "forge-std/console.sol";
 
 contract SkeetGatewayTest is Test {
-
     SkeetGateway public gateway;
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
 
@@ -31,23 +30,26 @@ contract SkeetGatewayTest is Test {
     function testMerkleProvenRootHash() public {
         // Given a hash of the dataNode, crawl up the tree and give me a root hash that I expect to find in the Sig Node
         // For each record we should have a hint which is either:
-        // For node 0 (data node): 
+        // For node 0 (data node):
         // - index+1 of the entry where we will find our hash in the data field
         // For other nodes (intermediate nodes):
         // - 0 for the l record
         // - index+1 for the e record where we should find our hash in the t field
-        string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/bbs_address_is_this_thing_on.json"));
+        string memory json =
+            vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
         // Check the value is in the data node and recover the rkey
-        (bytes32 rootHash, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
+        (bytes32 rootHash, string memory rkey) =
+            gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
         string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
     }
 
     function testAssertCommitNodeContainsData() public {
-        string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/bbs_address_is_this_thing_on.json"));
+        string memory json =
+            vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
@@ -55,16 +57,16 @@ contract SkeetGatewayTest is Test {
         bytes32 rootHash = sha256(proof.nodes[lastNode]);
         gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
 
-        bytes32 someOtherHash = sha256(proof.nodes[lastNode-1]);
+        bytes32 someOtherHash = sha256(proof.nodes[lastNode - 1]);
         vm.expectRevert();
         gateway.assertCommitNodeContainsData(someOtherHash, proof.commitNode);
     }
 
     function testActualSkeetBBSPost() public {
-
         vm.recordLogs();
 
-        string memory json = vm.readFile(string.concat(vm.projectRoot(),"/test/fixtures/bbs_address_is_this_thing_on.json"));
+        string memory json =
+            vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
@@ -75,7 +77,8 @@ contract SkeetGatewayTest is Test {
         address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s);
 
         assertNotEq(expectedSigner, address(0), "Signer not found");
-        address expectedSafe = address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s));
+        address expectedSafe =
+            address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s));
         assertEq(gateway.predictSafeAddress(expectedSigner), expectedSafe);
         assertNotEq(expectedSafe, address(0), "expected safe empty");
 
@@ -97,11 +100,9 @@ contract SkeetGatewayTest is Test {
 
         assertEq(bbs.messages(createdSafe), "is this thing on");
         assertNotEq(bbs.messages(createdSafe), "oinK");
-
     }
 
     function testAddressRecovery() public {
-
         (address alice, uint256 alicePk) = makeAddrAndKey("alice");
         bytes32 hash = sha256("Signed by Alice");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(alicePk, hash);
@@ -135,7 +136,8 @@ contract SkeetGatewayTest is Test {
         We only care about the CID.
         */
 
-        bytes memory cborSansSig = hex"a56364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f73703232716464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
+        bytes memory cborSansSig =
+            hex"a56364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f73703232716464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
         bytes32 hash = sha256(cborSansSig);
 
         // sig from car file was 'd395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf8363f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b',
@@ -147,7 +149,6 @@ contract SkeetGatewayTest is Test {
         bool found = false;
         // for(uint8 v=0; v<255; v++) { } // Earlier we had to try all possible v values to find the one they used
         address signer = ecrecover(hash, v, r, s);
-        assertEq(expect,  signer, "should recover the same signer"); 
+        assertEq(expect, signer, "should recover the same signer");
     }
-
 }
