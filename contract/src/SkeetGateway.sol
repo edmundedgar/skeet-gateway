@@ -151,11 +151,20 @@ contract SkeetGateway {
             // Header for variable-length array
             (, numEntries, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // e array header
 
-            require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
+            // require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
             // If the node is in the "l", we'll have to go through them all to find where "l" starts
             if (hint > 0) {
                 numEntries = hint; 
+            }
+
+            if (n > 0 && hint > 0) {
+                // todo: same treatment for l nodes?
+                require(bytes11(nodes[n][hint:hint+11]) == bytes11(hex"6174d82a58250001711220"), "wrong prefix");
+                bytes32 val = bytes32(nodes[n][hint+11:hint+32+11]);
+                require(val == proveMe, "Value does not match target in strpos test");
+                proveMe = sha256(nodes[n]);
+                continue;
             }
 
             for(uint256 i=0; i<numEntries; i++) {
