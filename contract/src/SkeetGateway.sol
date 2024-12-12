@@ -50,15 +50,14 @@ contract SkeetGateway {
         return address(uint160(bytes20(addrBytes)));
     }
 
-    function _parsePayload(string memory _payload) internal pure returns (address, uint256, bytes memory) {
-        // TODO: Put back the indexes that tell us where the text starts and ends
-        // BEFORE_ADDRESS may be ok but AFTER_CONTENT will depend on the length of the message
-        uint256 BEFORE_ADDRESS = 8;
-        uint256 AFTER_CONTENT = 67;
-        string memory main_part = _substring(_payload, BEFORE_ADDRESS, AFTER_CONTENT);
-        address to = _stringToAddress(_substring(main_part, 0, 42));
-        string memory message = _substring(main_part, 43, bytes(main_part).length);
-        bytes memory data = abi.encodeWithSignature("postMessage(string)", message);
+    function _parsePayload(bytes calldata content) internal pure returns (address, uint256, bytes memory) {
+        assert(bytes6(content[0:6]) == bytes6(hex"a46474657874")); // 4 item map, text, "text"
+        uint256 nextLen;
+        uint256 cursor;
+        (, nextLen, cursor) = CBORDecoder.parseCborHeader(content, 6); // value
+        string calldata text = string(content[cursor:cursor + nextLen]);
+        address to = _stringToAddress(string(text[0:42]));
+        bytes memory data = abi.encodeWithSignature("postMessage(string)", text[43:]);
         return (to, 0, data);
     }
 
@@ -308,7 +307,7 @@ contract SkeetGateway {
             emit LogCreateSignerSafe(signer, address(signerSafes[signer]));
         }
 
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(string(content));
+        (address to, uint256 value, bytes memory payloadData) = _parsePayload(content);
 
         signerSafes[signer].executeOwnerCall(to, value, payloadData);
         emit LogExecutePayload(signer, to, value, payloadData, string(content));
