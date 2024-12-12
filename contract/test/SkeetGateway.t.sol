@@ -47,6 +47,21 @@ contract SkeetGatewayTest is Test {
         assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
     }
 
+    function _testProvingFunctions(string memory fixtureName) internal {
+        string memory fixture = string.concat("/test/fixtures/", fixtureName);
+        string memory json = vm.readFile(string.concat(vm.projectRoot(), fixture));
+        bytes memory data = vm.parseJson(json);
+        SkeetProof memory proof = abi.decode(data, (SkeetProof));
+
+        (bytes32 rootHash, string memory rkey) =
+            gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
+        gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
+    }
+
+    function testLongPValue() public {
+        _testProvingFunctions("long_p_val.json");
+    }
+
     function testAssertCommitNodeContainsData() public {
         string memory json =
             vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));

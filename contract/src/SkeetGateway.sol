@@ -175,6 +175,9 @@ contract SkeetGateway {
                     (, nextLen,) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
                     cursor = cursor + 1;
                     uint8 pval = uint8(nextLen);
+                    if (pval >= 24) {
+                        cursor = cursor + 1;
+                    }
                     //cursor = cursor + nextLen; // The cursor is already advanced
 
                     // Take the first bytes specified by the partial from the existing rkey
