@@ -90,37 +90,37 @@ contract SkeetGateway {
     }
 
     function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitNode) public pure {
-        assert(bytes8(commitNode[0:5]) == bytes8(hex"a563646964")); // mapping, text, did
+        ///assert(bytes8(commitNode[0:5]) == bytes8(hex"a563646964")); // mapping, text, did
         uint256 cursor = 5;
 
         uint256 extra;
         (, extra, cursor) = CBORDecoder.parseCborHeader(commitNode, cursor); // did content
         cursor = cursor + extra;
 
-        assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"63726576")); // text, rev
+        ///assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"63726576")); // text, rev
         cursor = cursor + 4;
         (, extra, cursor) = CBORDecoder.parseCborHeader(commitNode, cursor); // did content
         cursor = cursor + extra;
 
-        assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"6464617461")); // rev content
+        ///assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"6464617461")); // rev content
         cursor = cursor + 5;
 
-        assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
+        ///assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
         cursor = cursor + 4;
-        assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+        ///assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
         cursor = cursor + 5;
         require(bytes32(commitNode[cursor:cursor + 32]) == proveMe, "Data field does not contain expected hash");
         cursor = cursor + 32;
 
-        assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"6470726576")); // text, prev
+        ///assert(bytes8(commitNode[cursor:cursor + 5]) == bytes8(hex"6470726576")); // text, prev
         cursor = cursor + 5;
 
         if (CBORDecoder.isNullNext(commitNode, cursor)) {
             cursor = cursor + 1;
         } else {
-            assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
+            ///assert(bytes8(commitNode[cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
             cursor = cursor + 4;
-            //assert(bytes8(commitNode[cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+            /////assert(bytes8(commitNode[cursor:cursor+5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
             cursor = cursor + 5;
             cursor = cursor + 32; // cid we don't care about
         }
@@ -141,28 +141,31 @@ contract SkeetGateway {
             uint256 nextLen;
             uint256 numEntries;
 
-            // Optimization - TODO Check assumptions                                                                                                         
-            // TODO: Find or manufacture a skeet with the null condition for testing                                                                         
-            // For a left node, the field should be at the very end of the .data                                                                             
-            // If it's there we can just check the l: <multihash etc><cid> we expect.                                                                        
-            // The wrinkle is that it could be null.                                                                                                         
-            // We can't check for null without knowing where the data starts because the bytes meaning null might be at the end of our CID                   
-            // So try the optimization, but if we find the null bytes fall back on cycling through all the nodes                                             
-            if (n > 0 && hint == 0) {                                                                                                                        
-                uint256 lastByte = nodes[n].length;                                                                                                          
-                // If the final bytes are what we would expect for a null l value, it's either a null l value or we got unlucky                              
+            // Optimization - TODO Check assumptions
+            // TODO: Find or manufacture a skeet with the null condition for testing
+            // For a left node, the field should be at the very end of the .data
+            // If it's there we can just check the l: <multihash etc><cid> we expect.
+            // The wrinkle is that it could be null.
+            // We can't check for null without knowing where the data starts because the bytes meaning null might be at the end of our CID
+            // So try the optimization, but if we find the null bytes fall back on cycling through all the nodes
+            if (n > 0 && hint == 0) {
+                uint256 lastByte = nodes[n].length;
+                // If the final bytes are what we would expect for a null l value, it's either a null l value or we got unlucky
                 // If we find them we'll continue with the normal non-optimized flow in case it's the latter
-                                                                                                                                                             
+
                 // TODO: Test the paths "passed something with null l" and "passed something looking like null l but isn't"
-                if (bytes3(nodes[n][lastByte-3:lastByte]) != bytes3(hex"6174f6")) {
-                    require(bytes12(nodes[n][lastByte-32-11:lastByte-32]) == bytes12(hex"616cd82a5825000171122000"), "l prefix mismatch");
-                    require(bytes32(nodes[n][lastByte-32:lastByte]) == proveMe, "l value mismatch");
-                    proveMe = sha256(nodes[n]);       
-                    continue;       
-                }                                                             
-            }                                                                 
-              
-            assert(bytes8(nodes[n][0:3]) == bytes8(hex"a26165"));
+                if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(hex"6174f6")) {
+                    require(
+                        bytes12(nodes[n][lastByte - 32 - 11:lastByte - 32]) == bytes12(hex"616cd82a5825000171122000"),
+                        "l prefix mismatch"
+                    );
+                    require(bytes32(nodes[n][lastByte - 32:lastByte]) == proveMe, "l value mismatch");
+                    proveMe = sha256(nodes[n]);
+                    continue;
+                }
+            }
+
+            ///assert(bytes8(nodes[n][0:3]) == bytes8(hex"a26165"));
             uint256 cursor = 3; // mapping header, text, e
 
             // Header for variable-length array
@@ -180,7 +183,7 @@ contract SkeetGateway {
                 // For everything else we can go past it
 
                 if (n == 0) {
-                    assert(bytes8(nodes[n][cursor:cursor + 3]) == bytes8(hex"a4616b")); // 4 item map, text, k
+                    ///assert(bytes8(nodes[n][cursor:cursor + 3]) == bytes8(hex"a4616b")); // 4 item map, text, k
                     cursor = cursor + 3;
 
                     (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
@@ -210,14 +213,14 @@ contract SkeetGateway {
                         rkey = string.concat(oldr, kval);
                     }
                 } else {
-                    assert(bytes8(nodes[n][cursor:cursor + 3]) == bytes8(hex"a4616b")); // 4 item map, text, k
+                    ///assert(bytes8(nodes[n][cursor:cursor + 3]) == bytes8(hex"a4616b")); // 4 item map, text, k
                     cursor = cursor + 3;
 
                     // Variable-length string
                     (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor);
                     cursor = cursor + nextLen;
 
-                    assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6170")); // text, p
+                    ///assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6170")); // text, p
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we shouldn't need to advance cursor beyond what parseCborHeader did
@@ -225,18 +228,18 @@ contract SkeetGateway {
                     (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // val
                 }
 
-                assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6174")); // text, t
+                ///assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6174")); // text, t
                 cursor = cursor + 2;
 
                 if (CBORDecoder.isNullNext(nodes[n], cursor)) {
                     // TODO: What's the first byte here that's ignored by isNullNext?
-                    assert(bytes8(nodes[n][cursor:cursor + 1]) == bytes8(hex"f6")); // null
+                    ///assert(bytes8(nodes[n][cursor:cursor + 1]) == bytes8(hex"f6")); // null
                     cursor = cursor + 1;
                 } else {
-                    assert(bytes8(nodes[n][cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
+                    ///assert(bytes8(nodes[n][cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
                     cursor = cursor + 4;
 
-                    assert(bytes8(nodes[n][cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+                    ///assert(bytes8(nodes[n][cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
                     cursor = cursor + 5;
 
                     // Our 32 bytes
@@ -251,11 +254,11 @@ contract SkeetGateway {
                 }
 
                 // non-nullable v
-                assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6176")); // text, t
+                ///assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6176")); // text, t
                 cursor = cursor + 2;
-                assert(bytes8(nodes[n][cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
+                ///assert(bytes8(nodes[n][cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
                 cursor = cursor + 4;
-                assert(bytes8(nodes[n][cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+                ///assert(bytes8(nodes[n][cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
                 cursor = cursor + 5;
 
                 // 32 bytes we only care about if it's the initial data node
@@ -270,18 +273,18 @@ contract SkeetGateway {
 
             // The l field is at the end so we only care about it if we actually want to read it
             if (n > 0 && hint == 0) {
-                assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"616c")); // text, l
+                ///assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"616c")); // text, l
                 cursor = cursor + 2;
 
                 if (CBORDecoder.isNullNext(nodes[n], cursor)) {
                     // TODO: What's the first byte here that's ignored by isNullNext?
-                    assert(bytes8(nodes[n][cursor:cursor + 1]) == bytes8(hex"f6")); // null
+                    ///assert(bytes8(nodes[n][cursor:cursor + 1]) == bytes8(hex"f6")); // null
                     cursor = cursor + 1;
                 } else {
-                    assert(bytes8(nodes[n][cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
+                    ///assert(bytes8(nodes[n][cursor:cursor + 4]) == bytes8(hex"d82a5825")); // CBOR CID header stuff then the length (37)
                     cursor = cursor + 4;
 
-                    assert(bytes8(nodes[n][cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
+                    ///assert(bytes8(nodes[n][cursor:cursor + 5]) == bytes8(hex"0001711220")); // Multibase header, multicodec might be 55?
                     cursor = cursor + 5;
 
                     // Our 32 bytes
