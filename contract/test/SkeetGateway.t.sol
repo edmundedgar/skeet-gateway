@@ -62,6 +62,21 @@ contract SkeetGatewayTest is Test {
         _testProvingFunctions("long_p_val.json");
     }
 
+    function testMerkleProvenHashAssortmentOfSkeets() public {
+        _testProvingFunctions("random_skeet0.json");
+        _testProvingFunctions("random_skeet1.json");
+        _testProvingFunctions("random_skeet2.json");
+        _testProvingFunctions("random_skeet3.json");
+        _testProvingFunctions("random_skeet5.json");
+        _testProvingFunctions("random_skeet6.json");
+        _testProvingFunctions("random_skeet7.json");
+        _testProvingFunctions("random_skeet9.json");
+        _testProvingFunctions("random_skeet10.json");
+        _testProvingFunctions("random_skeet11.json");
+        _testProvingFunctions("random_skeet12.json");
+        _testProvingFunctions("random_skeet13.json");
+    }
+
     function testAssertCommitNodeContainsData() public {
         string memory json =
             vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));
