@@ -286,7 +286,7 @@ contract SkeetGateway {
         {
             bytes32 target = sha256(abi.encodePacked(content));
             (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
-            // TODO: Check rkey is a post, maybe also store it as a nonce
+            require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
             assertCommitNodeContainsData(rootHash, commitNode);
         }
 
