@@ -17,6 +17,7 @@
  */
 // THIS CODE WAS SECURITY REVIEWED BY KUDELSKI SECURITY, BUT NOT FORMALLY AUDITED
 // Originally from https://github.com/filecoin-project/filecoin-solidity/blob/master/contracts/v0.8/utils/CborDecode.sol
+// It was then changed by Edmund Edgar and THESE CHANGES HAVE NOT BEEN AUDITED OR REVIEWED IN ANY WAY
 
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
@@ -53,7 +54,7 @@ library CBORDecoder {
     /// @notice check if next value on the cbor encoded data is null
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
-    function isNullNext(bytes memory cborData, uint256 byteIdx) internal pure returns (bool) {
+    function isNullNext(bytes calldata cborData, uint256 byteIdx) internal pure returns (bool) {
         return cborData[byteIdx] == hex"f6";
     }
 
@@ -61,7 +62,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return a bool decoded from input bytes and the byte index after moving past the value
-    function readBool(bytes memory cborData, uint256 byteIdx) internal pure returns (bool, uint256) {
+    function readBool(bytes calldata cborData, uint256 byteIdx) internal pure returns (bool, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -76,7 +77,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return length of the fixed array decoded from input bytes and the byte index after moving past the value
-    function readFixedArray(bytes memory cborData, uint256 byteIdx) internal pure returns (uint256, uint256) {
+    function readFixedArray(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint256, uint256) {
         uint8 maj;
         uint256 len;
 
@@ -90,7 +91,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
-    function readString(bytes memory cborData, uint256 byteIdx) internal pure returns (string memory, uint256) {
+    function readString(bytes calldata cborData, uint256 byteIdx) internal pure returns (string memory, uint256) {
         uint8 maj;
         uint256 len;
 
@@ -112,7 +113,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return arbitrary byte string decoded from input bytes and the byte index after moving past the value
-    function readBytes(bytes memory cborData, uint256 byteIdx) internal pure returns (bytes memory, uint256) {
+    function readBytes(bytes calldata cborData, uint256 byteIdx) internal pure returns (bytes memory, uint256) {
         uint8 maj;
         uint256 len;
 
@@ -139,7 +140,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return a bytes32 decoded from input bytes and the byte index after moving past the value
-    function readBytes32(bytes memory cborData, uint256 byteIdx) internal pure returns (bytes32, uint256) {
+    function readBytes32(bytes calldata cborData, uint256 byteIdx) internal pure returns (bytes32, uint256) {
         uint8 maj;
         uint256 len;
 
@@ -161,7 +162,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an uint256 decoded from input bytes and the byte index after moving past the value
-    function readUInt256(bytes memory cborData, uint256 byteIdx) internal pure returns (uint256, uint256) {
+    function readUInt256(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint256, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -176,9 +177,7 @@ library CBORDecoder {
             require(maj == MajByteString, "invalid maj (expected MajByteString)");
 
             require(cborData.length >= byteIdx + len, "slicing out of range");
-            assembly {
-                value := mload(add(cborData, add(len, byteIdx)))
-            }
+            uint256 value = uint256(bytes32(cborData[byteIdx:byteIdx + len]));
 
             return (value, byteIdx + len);
         }
@@ -190,7 +189,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an int256 decoded from input bytes and the byte index after moving past the value
-    function readInt256(bytes memory cborData, uint256 byteIdx) internal pure returns (int256, uint256) {
+    function readInt256(bytes calldata cborData, uint256 byteIdx) internal pure returns (int256, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -205,9 +204,7 @@ library CBORDecoder {
             require(maj == MajByteString, "invalid maj (expected MajByteString)");
 
             require(cborData.length >= byteIdx + len, "slicing out of range");
-            assembly {
-                value := mload(add(cborData, add(len, byteIdx)))
-            }
+            uint256 value = uint256(bytes32(cborData[byteIdx:byteIdx + len]));
 
             return (int256(value), byteIdx + len);
         }
@@ -219,7 +216,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an uint64 decoded from input bytes and the byte index after moving past the value
-    function readUInt64(bytes memory cborData, uint256 byteIdx) internal pure returns (uint64, uint256) {
+    function readUInt64(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint64, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -233,7 +230,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an uint32 decoded from input bytes and the byte index after moving past the value
-    function readUInt32(bytes memory cborData, uint256 byteIdx) internal pure returns (uint32, uint256) {
+    function readUInt32(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint32, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -247,7 +244,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an uint16 decoded from input bytes and the byte index after moving past the value
-    function readUInt16(bytes memory cborData, uint256 byteIdx) internal pure returns (uint16, uint256) {
+    function readUInt16(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint16, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -261,7 +258,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an uint8 decoded from input bytes and the byte index after moving past the value
-    function readUInt8(bytes memory cborData, uint256 byteIdx) internal pure returns (uint8, uint256) {
+    function readUInt8(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint8, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -275,7 +272,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an int64 decoded from input bytes and the byte index after moving past the value
-    function readInt64(bytes memory cborData, uint256 byteIdx) internal pure returns (int64, uint256) {
+    function readInt64(bytes calldata cborData, uint256 byteIdx) internal pure returns (int64, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -289,7 +286,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an int32 decoded from input bytes and the byte index after moving past the value
-    function readInt32(bytes memory cborData, uint256 byteIdx) internal pure returns (int32, uint256) {
+    function readInt32(bytes calldata cborData, uint256 byteIdx) internal pure returns (int32, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -303,7 +300,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an int16 decoded from input bytes and the byte index after moving past the value
-    function readInt16(bytes memory cborData, uint256 byteIdx) internal pure returns (int16, uint256) {
+    function readInt16(bytes calldata cborData, uint256 byteIdx) internal pure returns (int16, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -317,7 +314,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     /// @return an int8 decoded from input bytes and the byte index after moving past the value
-    function readInt8(bytes memory cborData, uint256 byteIdx) internal pure returns (int8, uint256) {
+    function readInt8(bytes calldata cborData, uint256 byteIdx) internal pure returns (int8, uint256) {
         uint8 maj;
         uint256 value;
 
@@ -327,60 +324,12 @@ library CBORDecoder {
         return (int8(uint8(value)), byteIdx);
     }
 
-    /// @notice slice uint8 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint8 sliced from bytes
-    function sliceUInt8(bytes memory bs, uint256 start) internal pure returns (uint8) {
-        require(bs.length >= start + 1, "slicing out of range");
-        return uint8(bs[start]);
-    }
-
-    /// @notice slice uint16 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint16 sliced from bytes
-    function sliceUInt16(bytes memory bs, uint256 start) internal pure returns (uint16) {
-        require(bs.length >= start + 2, "slicing out of range");
-        bytes2 x;
-        assembly {
-            x := mload(add(bs, add(0x20, start)))
-        }
-        return uint16(x);
-    }
-
-    /// @notice slice uint32 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint32 sliced from bytes
-    function sliceUInt32(bytes memory bs, uint256 start) internal pure returns (uint32) {
-        require(bs.length >= start + 4, "slicing out of range");
-        bytes4 x;
-        assembly {
-            x := mload(add(bs, add(0x20, start)))
-        }
-        return uint32(x);
-    }
-
-    /// @notice slice uint64 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint64 sliced from bytes
-    function sliceUInt64(bytes memory bs, uint256 start) internal pure returns (uint64) {
-        require(bs.length >= start + 8, "slicing out of range");
-        bytes8 x;
-        assembly {
-            x := mload(add(bs, add(0x20, start)))
-        }
-        return uint64(x);
-    }
-
     /// @notice Parse cbor header for major type and extra info.
     /// @param cbor cbor encoded bytes to parse from
     /// @param byteIndex current position to read on the cbor encoded bytes
     /// @return major type, extra info and the byte index after moving past header bytes
-    function parseCborHeader(bytes memory cbor, uint256 byteIndex) internal pure returns (uint8, uint64, uint256) {
-        uint8 first = sliceUInt8(cbor, byteIndex);
+    function parseCborHeader(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint8, uint64, uint256) {
+        uint8 first = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
         byteIndex += 1;
         uint8 maj = (first & 0xe0) >> 5;
         uint8 low = first & 0x1f;
@@ -394,7 +343,7 @@ library CBORDecoder {
 
         // extra in next byte
         if (low == 24) {
-            uint8 next = sliceUInt8(cbor, byteIndex);
+            uint8 next = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
             byteIndex += 1;
             require(next >= 24, "invalid cbor"); // otherwise this is invalid cbor
             return (maj, next, byteIndex);
@@ -402,21 +351,21 @@ library CBORDecoder {
 
         // extra in next 2 bytes
         if (low == 25) {
-            uint16 extra16 = sliceUInt16(cbor, byteIndex);
+            uint16 extra16 = uint16(bytes2(cbor[byteIndex:byteIndex + 2]));
             byteIndex += 2;
             return (maj, extra16, byteIndex);
         }
 
         // extra in next 4 bytes
         if (low == 26) {
-            uint32 extra32 = sliceUInt32(cbor, byteIndex);
+            uint32 extra32 = uint32(bytes4(cbor[byteIndex:byteIndex + 4]));
             byteIndex += 4;
             return (maj, extra32, byteIndex);
         }
 
         // extra in next 8 bytes
         assert(low == 27);
-        uint64 extra64 = sliceUInt64(cbor, byteIndex);
+        uint64 extra64 = uint64(bytes8(cbor[byteIndex:byteIndex + 8]));
         byteIndex += 8;
         return (maj, extra64, byteIndex);
     }
