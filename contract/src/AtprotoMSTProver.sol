@@ -266,6 +266,7 @@ abstract contract AtprotoMSTProver {
 
             // The l field is at the end so we only care about it if we actually want to read it
             if (hint == 0) {
+                require(n > 0, "You should not be reading an l value for the data node");
                 assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_L_2);
                 cursor = cursor + 2;
 
