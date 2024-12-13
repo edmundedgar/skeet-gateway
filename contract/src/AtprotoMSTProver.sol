@@ -155,10 +155,13 @@ abstract contract AtprotoMSTProver {
             // If we run with the asserts() removed it only saves 12531 gas which may not be worth the complexity.
             if (n > 0 && hint == 0) {
                 uint256 lastByte = nodes[n].length;
-                if (bytes3(nodes[n][lastByte-3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3)) {
-                    require(bytes32(nodes[n][lastByte-32:lastByte]) == proveMe, "l value mismatch");
-                    require(bytes9(nodes[n][lastByte-32-9:lastByte-32]) == bytes9(CID_PREFIX_BYTES_9));
-                    require(bytes2(nodes[n][lastByte-32-9-2:lastByte-32-9]) == CBOR_HEADER_L_2, "l prefix mismatch");
+                if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3)) {
+                    require(bytes32(nodes[n][lastByte - 32:lastByte]) == proveMe, "l value mismatch");
+                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9));
+                    require(
+                        bytes2(nodes[n][lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2,
+                        "l prefix mismatch"
+                    );
                     proveMe = sha256(nodes[n]);
                     continue;
                 }
