@@ -4,6 +4,8 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
+import {IMessageParser} from "../src/IMessageParser.sol";
+import {BBSMessageParser} from "../src/BBSMessageParser.sol";
 import {BBS} from "../src/BBS.sol";
 import {console} from "forge-std/console.sol";
 
@@ -25,6 +27,9 @@ contract SkeetGatewayTest is Test {
     function setUp() public {
         gateway = new SkeetGateway();
         bbs = new BBS();
+        BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
+        gateway.addDomain("blah.example.com", address(this));
+        gateway.addBot("bbs", "blah.example.com", address(bbsParser));
     }
 
     function testMerkleProvenRootHash() public {
@@ -95,14 +100,9 @@ contract SkeetGatewayTest is Test {
     function testActualSkeetBBSPost() public {
         vm.recordLogs();
 
-        string memory json =
-            vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));
+        string memory json = vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_blah_example_com.json"));
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
-
-        uint256[] memory offsets = new uint256[](2);
-        offsets[0] = 10; // trims the stuff before the address
-        offsets[1] = 81; // trims the stuff from the end of the comment
 
         address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s);
 
@@ -114,7 +114,8 @@ contract SkeetGatewayTest is Test {
 
         assertEq(address(gateway.signerSafes(expectedSigner)), address(0), "Safe not created yet");
 
-        gateway.handleSkeet(proof.content, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s);
+        uint8 botLength = 20; // bbs.blah.example.com
+        gateway.handleSkeet(proof.content, 20, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s);
 
         address createdSafe = address(gateway.signerSafes(expectedSigner));
         assertNotEq(createdSafe, address(0), "Safe now created");
@@ -128,7 +129,7 @@ contract SkeetGatewayTest is Test {
 
         assertEq(gateway.signerSafes(expectedSigner).owner(), address(gateway));
 
-        assertEq(bbs.messages(createdSafe), "is this thing on");
+        assertEq(bbs.messages(createdSafe), "post this my pretty");
         assertNotEq(bbs.messages(createdSafe), "oinK");
     }
 

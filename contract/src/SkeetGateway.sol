@@ -2,18 +2,46 @@
 pragma solidity ^0.8.13;
 
 import {SignerSafe} from "../src/SignerSafe.sol";
-import {BBS} from "../src/BBS.sol";
+import {IMessageParser} from "../src/IMessageParser.sol";
 import {CBORDecoder} from "./CBORDecoder.sol";
 import {console} from "forge-std/console.sol";
 
 contract SkeetGateway {
+    struct Bot {
+        string domain;
+        string subdomain;
+        address parser;
+    }
+
+    address owner; // Address that can add domains
+
     mapping(address => SignerSafe) public signerSafes;
+
+    mapping(bytes32 => address) public domainOwners;
+    mapping(bytes32 => Bot) public bots;
 
     event LogCreateSignerSafe(address indexed signer, address indexed signerSafe);
 
     event LogExecutePayload(address indexed signer, address indexed to, uint256 value, bytes data, string payload);
 
     //event LogString(string mystr);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function addDomain(string calldata domain, address domainOwner) external {
+        require(msg.sender == owner, "Only the owner can add domains");
+        domainOwners[keccak256(abi.encodePacked(domain))] = domainOwner;
+    }
+
+    function addBot(string calldata subdomain, string calldata domain, address parser) external {
+        require(msg.sender == domainOwners[keccak256(abi.encodePacked(domain))], "Not your domain");
+        require(parser != address(0), "Address not specified");
+        bytes32 key = keccak256(abi.encodePacked(string.concat(string.concat(subdomain, "."), domain)));
+        require(address(bots[key].parser) == address(0), "Subdomain already registered");
+        bots[key] = Bot(domain, subdomain, parser);
+    }
 
     function _substring(string memory str, uint256 startIndex, uint256 endIndex)
         internal
@@ -50,15 +78,27 @@ contract SkeetGateway {
         return address(uint160(bytes20(addrBytes)));
     }
 
-    function _parsePayload(bytes calldata content) internal pure returns (address, uint256, bytes memory) {
-        assert(bytes6(content[0:6]) == bytes6(hex"a46474657874")); // 4 item map, text, "text"
+    function _parsePayload(bytes calldata content, uint8 botNameLength)
+        internal
+        view
+        returns (address, uint256 value, bytes memory)
+    {
+        // Extract the message from the CBOR
+        assert(bytes5(content[1:6]) == bytes5(hex"6474657874")); // text, "text"
         uint256 nextLen;
         uint256 cursor;
         (, nextLen, cursor) = CBORDecoder.parseCborHeader(content, 6); // value
-        string calldata text = string(content[cursor:cursor + nextLen]);
-        address to = _stringToAddress(string(text[0:42]));
-        bytes memory data = abi.encodeWithSignature("postMessage(string)", text[43:]);
-        return (to, 0, data);
+
+        require(bytes1(content[cursor:cursor + 1]) == bytes1(hex"40"), "Message should begin with @");
+
+        bytes calldata message = content[cursor:cursor + nextLen];
+
+        // Look up the bot name which should be in the first <256 bytes of the message followed by a space
+        address bot = bots[keccak256(message[1:1 + botNameLength])].parser;
+        require(address(bot) != address(0), "Bot not found");
+        require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
+
+        return IMessageParser(bot).parseMessage(message[1 + botNameLength + 1:]);
     }
 
     function predictSafeAddress(address _signer) external view returns (address) {
@@ -276,6 +316,7 @@ contract SkeetGateway {
     // Handles a skeet and
     function handleSkeet(
         bytes calldata content,
+        uint8 botNameLength,
         bytes[] calldata nodes,
         uint256[] calldata nodeHints,
         bytes calldata commitNode,
@@ -294,11 +335,11 @@ contract SkeetGateway {
             bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
             address signer = ecrecover(commitNodeHash, _v, _r, _s);
 
-            executePayload(signer, content);
+            executePayload(signer, content, botNameLength);
         }
     }
 
-    function executePayload(address signer, bytes calldata content) internal {
+    function executePayload(address signer, bytes calldata content, uint8 botNameLength) internal {
         require(signer != address(0), "Signer should not be empty");
         if (address(signerSafes[signer]) == address(0)) {
             bytes32 salt = bytes32(uint256(uint160(signer)));
@@ -307,9 +348,9 @@ contract SkeetGateway {
             emit LogCreateSignerSafe(signer, address(signerSafes[signer]));
         }
 
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(content);
+        (address to, uint256 value, bytes memory payloadData) = _parsePayload(content, botNameLength);
 
         signerSafes[signer].executeOwnerCall(to, value, payloadData);
-        emit LogExecutePayload(signer, to, value, payloadData, string(content));
+        emit LogExecutePayload(signer, to, 0, payloadData, string(content));
     }
 }
