@@ -153,7 +153,7 @@ contract SkeetGateway {
         for (uint256 n = 0; n < nodes.length; n++) {
             uint256 hint = hints[n];
 
-            uint256 nextLen;
+            uint256 extra;
             uint256 numEntries;
 
             assert(bytes8(nodes[n][0:3]) == bytes8(hex"a26165"));
@@ -177,23 +177,23 @@ contract SkeetGateway {
                     assert(bytes8(nodes[n][cursor:cursor + 3]) == bytes8(hex"a4616b")); // 4 item map, text, k
                     cursor = cursor + 3;
 
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
-                    string memory kval = string(nodes[n][cursor:cursor + nextLen]);
-                    cursor = cursor + nextLen;
+                    (, extra, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
+                    string memory kval = string(nodes[n][cursor:cursor + extra]);
+                    cursor = cursor + extra;
 
                     // p
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // key
-                    bytes memory p = nodes[n][cursor:cursor + nextLen];
-                    cursor = cursor + nextLen;
+                    (, extra, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // key
+                    bytes memory p = nodes[n][cursor:cursor + extra];
+                    cursor = cursor + extra;
 
                     // TODO: Check whether this may vary depending on the size of p
-                    (, nextLen,) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
+                    (, extra,) = CBORDecoder.parseCborHeader(nodes[n], cursor); // value
                     cursor = cursor + 1;
-                    uint8 pval = uint8(nextLen);
+                    uint8 pval = uint8(extra);
                     if (pval >= 24) {
                         cursor = cursor + 1;
                     }
-                    //cursor = cursor + nextLen; // The cursor is already advanced
+                    //cursor = cursor + extra; // The cursor is already advanced
 
                     // Take the first bytes specified by the partial from the existing rkey
                     // Then append the bytes found in kval
@@ -208,15 +208,15 @@ contract SkeetGateway {
                     cursor = cursor + 3;
 
                     // Variable-length string
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor);
-                    cursor = cursor + nextLen;
+                    (, extra, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor);
+                    cursor = cursor + extra;
 
                     assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6170")); // text, p
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we shouldn't need to advance cursor beyond what parseCborHeader did
                     // TODO: Make sure this works if p > 24 and it needs the extra byte
-                    (, nextLen, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // val
+                    (, extra, cursor) = CBORDecoder.parseCborHeader(nodes[n], cursor); // val
                 }
 
                 assert(bytes8(nodes[n][cursor:cursor + 2]) == bytes8(hex"6174")); // text, t
