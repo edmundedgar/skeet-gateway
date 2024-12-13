@@ -115,7 +115,9 @@ contract SkeetGatewayTest is Test {
         assertEq(address(gateway.signerSafes(expectedSigner)), address(0), "Safe not created yet");
 
         uint8 botLength = 20; // bbs.blah.example.com
-        gateway.handleSkeet(proof.content, 20, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s);
+        gateway.handleSkeet(
+            proof.content, botLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
+        );
 
         address createdSafe = address(gateway.signerSafes(expectedSigner));
         assertNotEq(createdSafe, address(0), "Safe now created");
