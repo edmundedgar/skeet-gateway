@@ -6,6 +6,11 @@ import {console} from "forge-std/console.sol";
 
 bytes1 constant CBOR_NULL_1 = hex"f6";
 
+bytes1 constant CBOR_MAPPING_2_ENTRIES_1 = hex"a2"; // tree node has 2 fields
+bytes1 constant CBOR_MAPPING_4_ENTRIES_1 = hex"a4"; // tree node entry field has 4 fields
+bytes1 constant CBOR_MAPPING_5_ENTRIES_1 = hex"a5"; // sig node has 5 fields when unsigned
+bytes1 constant CBOR_MAPPING_15_ENTRIES_1 = hex"af"; // data node has 4 to 5 fields but they might increase it
+
 // Tree nodes contain e and l
 bytes2 constant CBOR_HEADER_E_2 = bytes2(hex"6165");
 bytes2 constant CBOR_HEADER_L_2 = bytes2(hex"616c");
@@ -51,9 +56,17 @@ abstract contract AtprotoMSTProver {
     }
 
     function _parseMessageCBOR(bytes calldata content) internal pure returns (bytes calldata message) {
-        // Mapping byte
-        uint256 cursor = 1;
+        uint256 cursor;
         uint256 nextLen;
+
+        // Mapping byte
+        // Typically these have 4 or 5 fields (depending whether they are replies).
+        // We only care about 1, the text, which we expect to come first.
+        // We'll sanity-check that the range is somewhere from 2 to 15.
+        bytes1 mappingByte = bytes1(content[cursor:cursor + 1]);
+        assert(uint8(mappingByte) >= uint8(CBOR_MAPPING_2_ENTRIES_1));
+        assert(uint8(mappingByte) <= uint8(CBOR_MAPPING_15_ENTRIES_1));
+        cursor = 1;
 
         // Extract the message from the CBOR
         assert(bytes5(content[cursor:cursor + 5]) == CBOR_HEADER_TEXT_5);
@@ -70,7 +83,7 @@ abstract contract AtprotoMSTProver {
         uint256 cursor;
         uint256 extra;
 
-        // mapping byte
+        assert(bytes1(commitNode[cursor:cursor + 1]) == CBOR_MAPPING_5_ENTRIES_1);
         cursor = 1;
 
         assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4);
@@ -142,8 +155,9 @@ abstract contract AtprotoMSTProver {
             uint256 extra;
             uint256 cursor;
 
-            // mapping byte a2
-            cursor = 1;
+            // mapping byte
+            assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1);
+            cursor = cursor + 1;
 
             // Optimization to avoid looping through entries advancing the cursor unnecessarily:
             // For a left node, the field should be at the very end of the data.
@@ -179,7 +193,8 @@ abstract contract AtprotoMSTProver {
             }
 
             for (uint256 i = 0; i < numEntries; i++) {
-                // mapping byte a4
+                // mapping byte
+                assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1);
                 cursor = cursor + 1;
 
                 // For the first node, which contains information about the skeet, we also need the record key (k) in the relevant entry.
