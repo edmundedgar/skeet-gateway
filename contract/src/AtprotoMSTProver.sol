@@ -9,6 +9,7 @@ bytes1 constant CBOR_NULL_1 = hex"f6";
 // Tree nodes contain e and l
 bytes2 constant CBOR_HEADER_E_2 = bytes2(hex"6165");
 bytes2 constant CBOR_HEADER_L_2 = bytes2(hex"616c");
+bytes3 constant CBOR_HEADER_L_NULL_3 = bytes3(hex"616cf6");
 
 // e contains k, p, t, v
 bytes2 constant CBOR_HEADER_K_2 = bytes2(hex"616b");
@@ -143,6 +144,25 @@ abstract contract AtprotoMSTProver {
 
             // mapping byte a2
             cursor = 1;
+
+            // Optimization to avoid looping through entries advancing the cursor unnecessarily:
+            // For a left node, the field should be at the very end of the data.
+            // If it's there we can just check the l: <multihash etc><cid> we expect.
+            // The wrinkle is that it could be null.
+            // We can't check for null without knowing where the data starts because the bytes meaning null might randomly be part of our CID.
+            // So try the optimized way, but if we find the null bytes, fall back on cycling through all the nodes then reading l at the end.
+            // This saves an average of 176330 gas if we insist on sanity-checking everything in the loop with assert().
+            // If we run with the asserts() removed it only saves 12531 gas which may not be worth the complexity.
+            if (n > 0 && hint == 0) {
+                uint256 lastByte = nodes[n].length;
+                if (bytes3(nodes[n][lastByte-3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3)) {
+                    require(bytes32(nodes[n][lastByte-32:lastByte]) == proveMe, "l value mismatch");
+                    require(bytes9(nodes[n][lastByte-32-9:lastByte-32]) == bytes9(CID_PREFIX_BYTES_9));
+                    require(bytes2(nodes[n][lastByte-32-9-2:lastByte-32-9]) == CBOR_HEADER_L_2, "l prefix mismatch");
+                    proveMe = sha256(nodes[n]);
+                    continue;
+                }
+            }
 
             assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2);
             cursor = cursor + 2;
