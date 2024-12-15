@@ -1,372 +1,119 @@
-/**
- *
- *   (c) 2022 Zondax AG
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- */
-// THIS CODE WAS SECURITY REVIEWED BY KUDELSKI SECURITY, BUT NOT FORMALLY AUDITED
-// Originally from https://github.com/filecoin-project/filecoin-solidity/blob/master/contracts/v0.8/utils/CborDecode.sol
-// It was then changed by Edmund Edgar and THESE CHANGES HAVE NOT BEEN AUDITED OR REVIEWED IN ANY WAY
+// SPDX-License-Identifier: GPL-3.0
+// Based on CBORDecode.sol from filecoin-solidity by Zondax AG (Apache 2.0 license)
 
-// SPDX-License-Identifier: Apache-2.0
+import {console} from "forge-std/console.sol";
+
 pragma solidity ^0.8.17;
 
-// 	MajUnsignedInt = 0
-// 	MajSignedInt   = 1
-// 	MajByteString  = 2
-// 	MajTextString  = 3
-// 	MajArray       = 4
-// 	MajMap         = 5
-// 	MajTag         = 6
-// 	MajOther       = 7
-
-uint8 constant MajUnsignedInt = 0;
-uint8 constant MajSignedInt = 1;
-uint8 constant MajByteString = 2;
-uint8 constant MajTextString = 3;
-uint8 constant MajArray = 4;
-uint8 constant MajMap = 5;
-uint8 constant MajTag = 6;
-uint8 constant MajOther = 7;
-
-uint8 constant TagTypeBigNum = 2;
-uint8 constant TagTypeNegativeBigNum = 3;
-
-uint8 constant True_Type = 21;
-uint8 constant False_Type = 20;
-
-/// @notice This library is a set a functions that allows anyone to decode cbor encoded bytes
-/// @dev methods in this library try to read the data type indicated from cbor encoded data stored in bytes at a specific index
-/// @dev if it successes, methods will return the read value and the new index (intial index plus read bytes)
-/// @author Zondax AG
+/// @notice This library provides functions to find data inside CBOR-encoded calldata
+/// @author Edmund Edgar
 library CBORDecoder {
-    /// @notice check if next value on the cbor encoded data is null
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    function isNullNext(bytes calldata cborData, uint256 byteIdx) internal pure returns (bool) {
-        return cborData[byteIdx] == hex"f6";
-    }
+    /// @notice Return the index of the value of the named field inside a mapping
+    /// @param cbor encoded mapping content (data must end when the mapping does)
+    /// @param fieldHeader The field you want to read
+    /// @param fieldHeaderLength The length of the name of the field you want to read
+    /// @param cursor Cursor to start at to read the actual data
+    /// @return uint256 End of field
+    function indexOfMappingField(
+        bytes calldata cbor,
+        bytes memory fieldHeader,
+        uint256 fieldHeaderLength,
+        uint256 cursor
+    ) internal pure returns (uint256) {
+        uint256 endIndex = cbor.length - fieldHeaderLength;
+        uint256 start;
 
-    /// @notice attempt to read a bool value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return a bool decoded from input bytes and the byte index after moving past the value
-    function readBool(bytes calldata cborData, uint256 byteIdx) internal pure returns (bool, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajOther, "invalid maj (expected MajOther)");
-        assert(value == True_Type || value == False_Type);
-
-        return (value != False_Type, byteIdx);
-    }
-
-    /// @notice attempt to read the length of a fixed array
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return length of the fixed array decoded from input bytes and the byte index after moving past the value
-    function readFixedArray(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint256, uint256) {
-        uint8 maj;
-        uint256 len;
-
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajArray, "invalid maj (expected MajArray)");
-
-        return (len, byteIdx);
-    }
-
-    /// @notice attempt to read an arbitrary length string value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
-    function readString(bytes calldata cborData, uint256 byteIdx) internal pure returns (string memory, uint256) {
-        uint8 maj;
-        uint256 len;
-
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTextString, "invalid maj (expected MajTextString)");
-
-        uint256 max_len = byteIdx + len;
-        bytes memory slice = new bytes(len);
-        uint256 slice_index = 0;
-        for (uint256 i = byteIdx; i < max_len; i++) {
-            slice[slice_index] = cborData[i];
-            slice_index++;
+        uint256 payloadStart;
+        uint256 payloadEnd;
+        while (cursor < endIndex) {
+            if (bytes8(cbor[cursor:cursor + fieldHeaderLength]) == bytes8(fieldHeader)) {
+                return cursor + fieldHeaderLength;
+            } else {
+                // field for the name
+                (, cursor,) = cborFieldMetaData(cbor, cursor);
+                // field for the value
+                (, cursor,) = cborFieldMetaData(cbor, cursor);
+            }
         }
-
-        return (string(slice), byteIdx + len);
+        revert("fieldHeader not found");
     }
 
-    /// @notice attempt to read an arbitrary byte string value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return arbitrary byte string decoded from input bytes and the byte index after moving past the value
-    function readBytes(bytes calldata cborData, uint256 byteIdx) internal pure returns (bytes memory, uint256) {
-        uint8 maj;
-        uint256 len;
+    // The following is based on the parseCborHeader function from:
+    // https://github.com/filecoin-project/filecoin-solidity/blob/master/contracts/v0.8/utils/CborDecode.sol
+    // Key differences:
+    //  1) It uses calldata instead of memory, allowing us to use calldata slices instead of memory copying
+    //  2) It doesn't return the major type
+    //  3) It returns the start and end of the payload.
 
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTag || maj == MajByteString, "invalid maj (expected MajTag or MajByteString)");
-
-        if (maj == MajTag) {
-            (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-            assert(maj == MajByteString);
-        }
-
-        uint256 max_len = byteIdx + len;
-        bytes memory slice = new bytes(len);
-        uint256 slice_index = 0;
-        for (uint256 i = byteIdx; i < max_len; i++) {
-            slice[slice_index] = cborData[i];
-            slice_index++;
-        }
-
-        return (slice, byteIdx + len);
-    }
-
-    /// @notice attempt to read a bytes32 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return a bytes32 decoded from input bytes and the byte index after moving past the value
-    function readBytes32(bytes calldata cborData, uint256 byteIdx) internal pure returns (bytes32, uint256) {
-        uint8 maj;
-        uint256 len;
-
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajByteString, "invalid maj (expected MajByteString)");
-
-        uint256 max_len = byteIdx + len;
-        bytes memory slice = new bytes(32);
-        uint256 slice_index = 32 - len;
-        for (uint256 i = byteIdx; i < max_len; i++) {
-            slice[slice_index] = cborData[i];
-            slice_index++;
-        }
-
-        return (bytes32(slice), byteIdx + len);
-    }
-
-    /// @notice attempt to read a uint256 value encoded per cbor specification
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint256 decoded from input bytes and the byte index after moving past the value
-    function readUInt256(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint256, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTag || maj == MajUnsignedInt, "invalid maj (expected MajTag or MajUnsignedInt)");
-
-        if (maj == MajTag) {
-            require(value == TagTypeBigNum, "invalid tag (expected TagTypeBigNum)");
-
-            uint256 len;
-            (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-            require(maj == MajByteString, "invalid maj (expected MajByteString)");
-
-            require(cborData.length >= byteIdx + len, "slicing out of range");
-            uint256 value = uint256(bytes32(cborData[byteIdx:byteIdx + len]));
-
-            return (value, byteIdx + len);
-        }
-
-        return (value, byteIdx);
-    }
-
-    /// @notice attempt to read a int256 value encoded per cbor specification
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int256 decoded from input bytes and the byte index after moving past the value
-    function readInt256(bytes calldata cborData, uint256 byteIdx) internal pure returns (int256, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTag || maj == MajSignedInt, "invalid maj (expected MajTag or MajSignedInt)");
-
-        if (maj == MajTag) {
-            assert(value == TagTypeNegativeBigNum);
-
-            uint256 len;
-            (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-            require(maj == MajByteString, "invalid maj (expected MajByteString)");
-
-            require(cborData.length >= byteIdx + len, "slicing out of range");
-            uint256 value = uint256(bytes32(cborData[byteIdx:byteIdx + len]));
-
-            return (int256(value), byteIdx + len);
-        }
-
-        return (int256(value), byteIdx);
-    }
-
-    /// @notice attempt to read a uint64 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint64 decoded from input bytes and the byte index after moving past the value
-    function readUInt64(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint64, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
-
-        return (uint64(value), byteIdx);
-    }
-
-    /// @notice attempt to read a uint32 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint32 decoded from input bytes and the byte index after moving past the value
-    function readUInt32(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint32, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
-
-        return (uint32(value), byteIdx);
-    }
-
-    /// @notice attempt to read a uint16 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint16 decoded from input bytes and the byte index after moving past the value
-    function readUInt16(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint16, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
-
-        return (uint16(value), byteIdx);
-    }
-
-    /// @notice attempt to read a uint8 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint8 decoded from input bytes and the byte index after moving past the value
-    function readUInt8(bytes calldata cborData, uint256 byteIdx) internal pure returns (uint8, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
-
-        return (uint8(value), byteIdx);
-    }
-
-    /// @notice attempt to read a int64 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int64 decoded from input bytes and the byte index after moving past the value
-    function readInt64(bytes calldata cborData, uint256 byteIdx) internal pure returns (int64, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int64(uint64(value)), byteIdx);
-    }
-
-    /// @notice attempt to read a int32 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int32 decoded from input bytes and the byte index after moving past the value
-    function readInt32(bytes calldata cborData, uint256 byteIdx) internal pure returns (int32, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int32(uint32(value)), byteIdx);
-    }
-
-    /// @notice attempt to read a int16 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int16 decoded from input bytes and the byte index after moving past the value
-    function readInt16(bytes calldata cborData, uint256 byteIdx) internal pure returns (int16, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int16(uint16(value)), byteIdx);
-    }
-
-    /// @notice attempt to read a int8 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int8 decoded from input bytes and the byte index after moving past the value
-    function readInt8(bytes calldata cborData, uint256 byteIdx) internal pure returns (int8, uint256) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int8(uint8(value)), byteIdx);
-    }
-
-    /// @notice Parse cbor header for major type and extra info.
+    /// @notice Return the length of the payload, and if relevant its value and number of entries
     /// @param cbor cbor encoded bytes to parse from
-    /// @param byteIndex current position to read on the cbor encoded bytes
-    /// @return major type, extra info and the byte index after moving past header bytes
-    function parseCborHeader(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint8, uint64, uint256) {
+    /// @param byteIndex index of the start of the header
+    /// @return index where the payload starts
+    /// @return index where the payload ends
+    /// @return extradata (length for mapping/array, value for int)
+    function cborFieldMetaData(bytes calldata cbor, uint256 byteIndex)
+        internal
+        pure
+        returns (uint256, uint256, uint64)
+    {
         uint8 first = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
-        byteIndex += 1;
+        byteIndex++;
+
         uint8 maj = (first & 0xe0) >> 5;
         uint8 low = first & 0x1f;
-        // We don't handle CBOR headers with extra > 27, i.e. no indefinite lengths
-        require(low < 28, "cannot handle headers with extra > 27");
 
-        // extra is lower bits
+        uint64 extra;
+
         if (low < 24) {
-            return (maj, low, byteIndex);
-        }
-
-        // extra in next byte
-        if (low == 24) {
-            uint8 next = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
+            // extra is lower bits
+            extra = low;
+        } else if (low == 24) {
+            // extra in next byte
+            extra = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
             byteIndex += 1;
-            require(next >= 24, "invalid cbor"); // otherwise this is invalid cbor
-            return (maj, next, byteIndex);
-        }
-
-        // extra in next 2 bytes
-        if (low == 25) {
-            uint16 extra16 = uint16(bytes2(cbor[byteIndex:byteIndex + 2]));
+        } else if (low == 25) {
+            // extra in next 2 bytes
+            extra = uint16(bytes2(cbor[byteIndex:byteIndex + 2]));
             byteIndex += 2;
-            return (maj, extra16, byteIndex);
-        }
-
-        // extra in next 4 bytes
-        if (low == 26) {
-            uint32 extra32 = uint32(bytes4(cbor[byteIndex:byteIndex + 4]));
+        } else if (low == 26) {
+            // extra in next 4 bytes
+            extra = uint32(bytes4(cbor[byteIndex:byteIndex + 4]));
             byteIndex += 4;
-            return (maj, extra32, byteIndex);
+        } else if (low == 27) {
+            // extra in next 8 bytes
+            extra = uint64(bytes8(cbor[byteIndex:byteIndex + 8]));
+            byteIndex += 8;
+        } else {
+            // We don't handle CBOR headers with extra > 27, i.e. no indefinite lengths
+            revert("cannot handle headers with extra > 27");
         }
 
-        // extra in next 8 bytes
-        assert(low == 27);
-        uint64 extra64 = uint64(bytes8(cbor[byteIndex:byteIndex + 8]));
-        byteIndex += 8;
-        return (maj, extra64, byteIndex);
+        // Types are divided into "atomic" types 0–1 and 6–7, for which the count field encodes the value directly,
+        // and non-atomic types 2–5, for which the count field encodes the size of the following payload field.
+        if (maj == 0 || maj == 1 || maj == 6 || maj == 7) {
+            return (byteIndex, byteIndex, extra);
+        }
+
+        // For string/bytes types, the extra field tells us the length of the payload
+        if (maj == 2 || maj == 3) {
+            return (byteIndex, byteIndex + extra, uint64(0));
+        }
+
+        // For a mapping or an array, the payload length is the combined length of all the entries
+        // The entries may in turn contain their own arrays and maps
+        // This can recurse as deep as it likes through layers of nested maps/arrays until you run out of gas
+        if (maj == 4 || maj == 5) {
+            // For a map the number of entries is doubled because there's a key and a value per item
+            uint64 numEntries = (maj == 5) ? extra * 2 : extra;
+            // save the start of the parent mapping, we'll advance byteIndex through the array/mapping items
+            uint256 start = byteIndex;
+            uint256 payloadEnd = byteIndex;
+            for (uint64 i = 0; i < numEntries; i++) {
+                (, byteIndex,) = cborFieldMetaData(cbor, byteIndex);
+            }
+            return (start, payloadEnd, extra);
+        }
+
+        revert("Unsupported major type");
     }
 }
