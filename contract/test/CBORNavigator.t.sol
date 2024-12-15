@@ -3,20 +3,20 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {CBORDecoder} from "../src/CBORDecoder.sol";
+import {CBORNavigator} from "../src/CBORNavigator.sol";
 import {console} from "forge-std/console.sol";
 
 bytes constant CBOR_HEADER_TEXT_5 = bytes(hex"6474657874"); // text, "text"
 bytes constant CBOR_HEADER_TYPE_6 = bytes(hex"652474797065"); // text, "$type"
 
-contract CBORDecoderClient {
+contract CBORNavigatorClient {
     function indexOfMappingField(
         bytes calldata cbor,
         bytes memory fieldHeader,
         uint256 fieldHeaderLength,
         uint256 cursor
     ) external pure returns (uint256) {
-        return CBORDecoder.indexOfMappingField(cbor, fieldHeader, fieldHeaderLength, cursor);
+        return CBORNavigator.indexOfMappingField(cbor, fieldHeader, fieldHeaderLength, cursor);
     }
 
     function cborFieldMetaData(bytes calldata cbor, uint256 byteIndex)
@@ -24,16 +24,16 @@ contract CBORDecoderClient {
         pure
         returns (uint256, uint256, uint64)
     {
-        return CBORDecoder.cborFieldMetaData(cbor, byteIndex);
+        return CBORNavigator.cborFieldMetaData(cbor, byteIndex);
     }
 }
 
-contract CBORDecoderTest is Test {
+contract CBORNavigatorTest is Test {
     bytes cborMap;
-    CBORDecoderClient client;
+    CBORNavigatorClient client;
 
     function setUp() public {
-        client = new CBORDecoderClient();
+        client = new CBORNavigatorClient();
 
         // A5                                     # map(5) #1
         //   6B                                   # text(11) #1

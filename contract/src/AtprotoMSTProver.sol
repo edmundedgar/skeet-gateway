@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {CBORDecoder} from "./CBORDecoder.sol";
+import {CBORNavigator} from "./CBORNavigator.sol";
 import {console} from "forge-std/console.sol";
 
 bytes1 constant CBOR_NULL_1 = hex"f6";
@@ -73,7 +73,7 @@ abstract contract AtprotoMSTProver {
         // Extract the message from the CBOR
         assert(bytes5(content[cursor:cursor + 5]) == CBOR_HEADER_TEXT_5);
         cursor = cursor + 5;
-        (payloadStart, payloadEnd,) = CBORDecoder.cborFieldMetaData(content, cursor); // value
+        (payloadStart, payloadEnd,) = CBORNavigator.cborFieldMetaData(content, cursor); // value
         bytes calldata message = content[payloadStart:payloadEnd];
         return message;
     }
@@ -90,11 +90,11 @@ abstract contract AtprotoMSTProver {
 
         assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4);
         cursor = cursor + 4;
-        (, cursor,) = CBORDecoder.cborFieldMetaData(commitNode, cursor);
+        (, cursor,) = CBORNavigator.cborFieldMetaData(commitNode, cursor);
 
         assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4);
         cursor = cursor + 4;
-        (, cursor,) = CBORDecoder.cborFieldMetaData(commitNode, cursor);
+        (, cursor,) = CBORNavigator.cborFieldMetaData(commitNode, cursor);
 
         assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5);
         cursor = cursor + 5;
@@ -184,7 +184,7 @@ abstract contract AtprotoMSTProver {
 
             assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2);
             cursor = cursor + 2;
-            (, cursor, numEntries) = CBORDecoder.cborFieldMetaData(nodes[n], cursor);
+            (, cursor, numEntries) = CBORNavigator.cborFieldMetaData(nodes[n], cursor);
 
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
             // If the node is in the "l", we'll have to go through them all to find where "l" starts
@@ -206,14 +206,14 @@ abstract contract AtprotoMSTProver {
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
                     cursor = cursor + 2;
 
-                    (payloadStart, cursor,) = CBORDecoder.cborFieldMetaData(nodes[n], cursor);
+                    (payloadStart, cursor,) = CBORNavigator.cborFieldMetaData(nodes[n], cursor);
                     string memory kval = string(nodes[n][payloadStart:cursor]);
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
 
                     uint64 pval;
-                    (, cursor, pval) = CBORDecoder.cborFieldMetaData(nodes[n], cursor); // value
+                    (, cursor, pval) = CBORNavigator.cborFieldMetaData(nodes[n], cursor); // value
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey
@@ -229,13 +229,13 @@ abstract contract AtprotoMSTProver {
                     cursor = cursor + 2;
 
                     // Skip variable-length k
-                    (, cursor,) = CBORDecoder.cborFieldMetaData(nodes[n], cursor);
+                    (, cursor,) = CBORNavigator.cborFieldMetaData(nodes[n], cursor);
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
 
                     // Skip variable-length p
-                    (, cursor,) = CBORDecoder.cborFieldMetaData(nodes[n], cursor); // val
+                    (, cursor,) = CBORNavigator.cborFieldMetaData(nodes[n], cursor); // val
                 }
 
                 assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2);
