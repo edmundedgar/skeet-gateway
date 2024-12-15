@@ -13,10 +13,9 @@ contract CBORNavigatorClient {
     function indexOfMappingField(
         bytes calldata cbor,
         bytes memory fieldHeader,
-        uint256 fieldHeaderLength,
         uint256 cursor
     ) external pure returns (uint256) {
-        return CBORNavigator.indexOfMappingField(cbor, fieldHeader, fieldHeaderLength, cursor);
+        return CBORNavigator.indexOfMappingField(cbor, fieldHeader, cursor);
     }
 
     function cborFieldMetaData(bytes calldata cbor, uint256 byteIndex)
@@ -88,7 +87,7 @@ contract CBORNavigatorTest is Test {
     function testIndexOfMappingField() public {
         uint256 cursor = 1 + 1 + 11 + 1 + 1 + 11;
         bytes memory largeFieldText = bytes(hex"6b6c617267654e756d626572");
-        uint256 index = client.indexOfMappingField(cborMap, largeFieldText, 12, 1);
+        uint256 index = client.indexOfMappingField(cborMap, largeFieldText, 1);
         assertEq(index, cursor);
     }
 

@@ -11,15 +11,14 @@ library CBORNavigator {
     /// @notice Return the index of the value of the named field inside a mapping
     /// @param cbor encoded mapping content (data must end when the mapping does)
     /// @param fieldHeader The field you want to read
-    /// @param fieldHeaderLength The length of the name of the field you want to read
     /// @param cursor Cursor to start at to read the actual data
     /// @return uint256 End of field
     function indexOfMappingField(
         bytes calldata cbor,
         bytes memory fieldHeader,
-        uint256 fieldHeaderLength,
         uint256 cursor
     ) internal pure returns (uint256) {
+        uint256 fieldHeaderLength = fieldHeader.length;
         uint256 endIndex = cbor.length - fieldHeaderLength;
         uint256 start;
 
