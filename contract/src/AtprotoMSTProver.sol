@@ -211,10 +211,9 @@ abstract contract AtprotoMSTProver {
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
-                    // For an int the cursor is already advanced
-                    // (cursor, extra,) = CBORNavigator.parseCborHeader(nodes[n], cursor); // value
-                    (, cursor, extra) = CBORNavigator.cborFieldMetaData(nodes[n], cursor); // value
+                    (, extra, cursor) = CBORNavigator.parseCborHeader(nodes[n], cursor); // value
                     uint8 pval = uint8(extra);
+                    // For an int payload is 0 bytes and extra is the value not the length, so we don't advance the cursor
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey

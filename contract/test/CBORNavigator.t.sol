@@ -18,12 +18,12 @@ contract CBORNavigatorClient {
         return CBORNavigator.indexOfMappingField(cbor, fieldHeader, cursor);
     }
 
-    function cborFieldMetaData(bytes calldata cbor, uint256 byteIndex)
+    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex)
         external
         pure
-        returns (uint256, uint256, uint64)
+        returns (uint256)
     {
-        return CBORNavigator.cborFieldMetaData(cbor, byteIndex);
+        return CBORNavigator.indexOfFieldPayloadEnd(cbor, byteIndex);
     }
 }
 
@@ -66,22 +66,12 @@ contract CBORNavigatorTest is Test {
     3) skeets have "text" first, before various other stuff
     */
 
-    function testCborMetaData() public {
-        uint256 payloadStart;
-        uint256 payloadEnd;
-        uint64 extraData;
-        uint256 cursor = 1;
-        (payloadStart, payloadEnd, extraData) = client.cborFieldMetaData(cborMap, 1);
+    function testIndexOfFieldPayloadEnd () public {
+        uint256 payloadEnd = client.indexOfFieldPayloadEnd(cborMap, 1);
         assertEq(payloadEnd, 1 + 1 + 11);
-        assertEq(0, extraData);
 
-        cursor = 1 + 2 + 11 - 1;
-        (payloadStart, payloadEnd, extraData) = client.cborFieldMetaData(cborMap, cursor);
-        assertEq(4, extraData);
-
-        cursor = 1 + 2 + 11 + 1 + 1 + 11 - 1;
-        (payloadStart, payloadEnd, extraData) = client.cborFieldMetaData(cborMap, cursor);
-        assertEq(9999999, extraData);
+        uint256 cursor = 1 + 2 + 11 - 1;
+        payloadEnd = client.indexOfFieldPayloadEnd(cborMap, cursor);
     }
 
     function testIndexOfMappingField() public {
@@ -91,12 +81,4 @@ contract CBORNavigatorTest is Test {
         assertEq(index, cursor);
     }
 
-    function testArrayLengthParsing() public {
-        uint256 payloadStart;
-        uint256 payloadEnd;
-        uint64 extraData;
-        bytes memory cborSimpleArray = bytes(hex"83010203");
-        (payloadStart, payloadEnd, extraData) = client.cborFieldMetaData(cborSimpleArray, 0);
-        assertEq(3, extraData);
-    }
 }

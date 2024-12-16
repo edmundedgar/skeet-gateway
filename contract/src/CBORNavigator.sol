@@ -29,9 +29,9 @@ library CBORNavigator {
                 return cursor + fieldHeaderLength;
             } else {
                 // field for the name
-                (, cursor,) = cborFieldMetaData(cbor, cursor);
+                cursor = indexOfFieldPayloadEnd(cbor, cursor);
                 // field for the value
-                (, cursor,) = cborFieldMetaData(cbor, cursor);
+                cursor = indexOfFieldPayloadEnd(cbor, cursor);
             }
         }
         revert("fieldHeader not found");
@@ -82,13 +82,11 @@ library CBORNavigator {
     /// @notice Return the length of the payload, and if relevant its value and number of entries
     /// @param cbor cbor encoded bytes to parse from
     /// @param byteIndex index of the start of the header
-    /// @return index where the payload starts
     /// @return index where the payload ends
-    /// @return extradata (length for mapping/array, value for int)
-    function cborFieldMetaData(bytes calldata cbor, uint256 byteIndex) 
+    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) 
         internal
         pure
-        returns (uint256, uint256, uint64)
+        returns (uint256)
     {
 
         uint8 maj;
@@ -99,12 +97,12 @@ library CBORNavigator {
         // Types are divided into "atomic" types 0–1 and 6–7, for which the count field encodes the value directly,
         // and non-atomic types 2–5, for which the count field encodes the size of the following payload field.
         if (maj == 0 || maj == 1 || maj == 6 || maj == 7) {
-            return (byteIndex, byteIndex, extra);
+            return byteIndex;
         }
 
         // For string/bytes types, the extra field tells us the length of the payload
         if (maj == 2 || maj == 3) {
-            return (byteIndex, byteIndex + extra, uint64(0));
+            return byteIndex + extra;
         }
 
         // For a mapping or an array, the payload length is the combined length of all the entries
@@ -114,12 +112,11 @@ library CBORNavigator {
             // For a map the number of entries is doubled because there's a key and a value per item
             uint64 numEntries = (maj == 5) ? extra * 2 : extra;
             // save the start of the parent mapping, we'll advance byteIndex through the array/mapping items
-            uint256 start = byteIndex;
             uint256 payloadEnd = byteIndex;
             for (uint64 i = 0; i < numEntries; i++) {
-                (, byteIndex,) = cborFieldMetaData(cbor, byteIndex);
+                byteIndex = indexOfFieldPayloadEnd(cbor, byteIndex);
             }
-            return (start, payloadEnd, extra);
+            return payloadEnd;
         }
 
         revert("Unsupported major type");
