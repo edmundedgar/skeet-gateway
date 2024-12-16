@@ -13,11 +13,11 @@ library CBORNavigator {
     /// @param fieldHeader The field you want to read
     /// @param cursor Cursor to start at to read the actual data
     /// @return uint256 End of field
-    function indexOfMappingField(
-        bytes calldata cbor,
-        bytes memory fieldHeader,
-        uint256 cursor
-    ) internal pure returns (uint256) {
+    function indexOfMappingField(bytes calldata cbor, bytes memory fieldHeader, uint256 cursor)
+        internal
+        pure
+        returns (uint256)
+    {
         uint256 fieldHeaderLength = fieldHeader.length;
         uint256 endIndex = cbor.length - fieldHeaderLength;
         uint256 start;
@@ -40,10 +40,7 @@ library CBORNavigator {
     // Based on the parseCborHeader function from:
     // https://github.com/filecoin-project/filecoin-solidity/blob/master/contracts/v0.8/utils/CborDecode.sol
     // Uses calldata instead of memory copying
-    function parseCborHeader(bytes calldata cbor, uint256 byteIndex) internal pure 
-        returns (uint8, uint64, uint)
-    {
-
+    function parseCborHeader(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint8, uint64, uint256) {
         uint8 first = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
         byteIndex++;
 
@@ -83,12 +80,7 @@ library CBORNavigator {
     /// @param cbor cbor encoded bytes to parse from
     /// @param byteIndex index of the start of the header
     /// @return index where the payload ends
-    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) 
-        internal
-        pure
-        returns (uint256)
-    {
-
+    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
         uint8 maj;
         uint64 extra;
 
@@ -121,5 +113,4 @@ library CBORNavigator {
 
         revert("Unsupported major type");
     }
-
 }

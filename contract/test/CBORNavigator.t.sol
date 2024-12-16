@@ -10,19 +10,15 @@ bytes constant CBOR_HEADER_TEXT_5 = bytes(hex"6474657874"); // text, "text"
 bytes constant CBOR_HEADER_TYPE_6 = bytes(hex"652474797065"); // text, "$type"
 
 contract CBORNavigatorClient {
-    function indexOfMappingField(
-        bytes calldata cbor,
-        bytes memory fieldHeader,
-        uint256 cursor
-    ) external pure returns (uint256) {
-        return CBORNavigator.indexOfMappingField(cbor, fieldHeader, cursor);
-    }
-
-    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex)
+    function indexOfMappingField(bytes calldata cbor, bytes memory fieldHeader, uint256 cursor)
         external
         pure
         returns (uint256)
     {
+        return CBORNavigator.indexOfMappingField(cbor, fieldHeader, cursor);
+    }
+
+    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) external pure returns (uint256) {
         return CBORNavigator.indexOfFieldPayloadEnd(cbor, byteIndex);
     }
 }
@@ -66,7 +62,7 @@ contract CBORNavigatorTest is Test {
     3) skeets have "text" first, before various other stuff
     */
 
-    function testIndexOfFieldPayloadEnd () public {
+    function testIndexOfFieldPayloadEnd() public {
         uint256 payloadEnd = client.indexOfFieldPayloadEnd(cborMap, 1);
         assertEq(payloadEnd, 1 + 1 + 11);
 
@@ -80,5 +76,4 @@ contract CBORNavigatorTest is Test {
         uint256 index = client.indexOfMappingField(cborMap, largeFieldText, 1);
         assertEq(index, cursor);
     }
-
 }
