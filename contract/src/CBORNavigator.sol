@@ -19,22 +19,22 @@ library CBORNavigator {
         uint256 cursor
     ) internal pure returns (uint256) {
         uint256 fieldHeaderLength = fieldHeader.length;
+        require(fieldHeaderLength < 16, "Field header too long, only support up to 16");
         uint256 endIndex = cbor.length - fieldHeaderLength;
-        uint256 start;
-
-        uint256 payloadStart;
         uint256 payloadEnd;
-        while (cursor < endIndex) {
-            if (bytes8(cbor[cursor:cursor + fieldHeaderLength]) == bytes8(fieldHeader)) {
+        while (cursor <= endIndex) {
+            bytes16 candidate = bytes16(cbor[cursor:cursor+fieldHeaderLength]);
+            if (candidate == bytes16(fieldHeader)) {
+                console.log("found, setting cursor to next field (value)");
                 return cursor + fieldHeaderLength;
             } else {
-                // field for the name
+                // advance to the end of the name field
                 (, cursor,) = cborFieldMetaData(cbor, cursor);
-                // field for the value
+                // advance to the end of the value field
                 (, cursor,) = cborFieldMetaData(cbor, cursor);
             }
         }
-        revert("fieldHeader not found");
+        revert("index not found");
     }
 
     // The following is based on the parseCborHeader function from:
@@ -70,6 +70,14 @@ library CBORNavigator {
             // extra in next byte
             extra = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
             byteIndex += 1;
+            // Special case for CBOR Cids
+            // TODO: Wouldn't this overlap with some innocent string?
+            if (extra == 42 && (bytes2(cbor[byteIndex:byteIndex + 2]) == bytes2(hex"5825"))) {
+                // We've already consumed d82a. Now consume 5825.
+                byteIndex += 2;
+                // Data will be 0001711220 (5 bytes) + 32 bytes
+                return (byteIndex, byteIndex+37, uint64(0));
+            }
         } else if (low == 25) {
             // extra in next 2 bytes
             extra = uint16(bytes2(cbor[byteIndex:byteIndex + 2]));

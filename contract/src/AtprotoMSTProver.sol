@@ -22,18 +22,19 @@ bytes2 constant CBOR_HEADER_P_2 = bytes2(hex"6170");
 bytes2 constant CBOR_HEADER_T_2 = bytes2(hex"6174");
 bytes2 constant CBOR_HEADER_V_2 = bytes2(hex"6176");
 
-// signodes contain did, rev, data, prev and version (which must be 3)
-bytes4 constant CBOR_HEADER_DID_4 = bytes4(hex"63646964"); // text, did
-bytes4 constant CBOR_HEADER_REV_4 = bytes4(hex"63726576"); // text, rev
-bytes5 constant CBOR_HEADER_DATA_5 = bytes5(hex"6464617461"); // text, data
-bytes5 constant CBOR_HEADER_PREV_5 = bytes5(hex"6470726576"); // text, prev
-bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_9_9 = bytes9(hex"6776657273696f6e03"); // text, version, 3
+// Use bytes arrays for these
 
-// data nodes contain text (we use a bytes array for this one)
+// signodes contain did, rev, data, prev and version (which must be 3)
+bytes constant CBOR_HEADER_DATA_5 = bytes(hex"6464617461"); // text, data
+bytes constant CBOR_HEADER_VERSION_8 = bytes(hex"6776657273696F6E"); // text, version
+uint64 constant ATPROTO_REPO_VERSION = 3;
+
+// data nodes contain text
 bytes constant CBOR_HEADER_TEXT_5 = bytes(hex"6474657874"); // text, "text"
 
 // CID IDs are 32-byte hashes preceded by some special CBOR tag data then the multibyte prefix
-bytes9 constant CID_PREFIX_BYTES_9 = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
+bytes9 constant CBOR_HEADER_CID_PREFIX_9 = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
+bytes5 constant CID_PREFIX_5 = hex"0001711220";
 uint256 constant CID_HASH_LENGTH = 32;
 
 abstract contract AtprotoMSTProver {
@@ -79,42 +80,27 @@ abstract contract AtprotoMSTProver {
 
     /// @notice Check that the supplied commit node includes the supplied root hash, or revert if it doesn't.
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
-    /// @param commitNode The CBOR-encoded commit node
-    function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitNode) public pure {
+    /// @param commitCbor The CBOR-encoded commit node
+    function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitCbor) public pure {
         uint256 cursor;
-        uint256 extra;
 
-        assert(bytes1(commitNode[cursor:cursor + 1]) == CBOR_MAPPING_5_ENTRIES_1);
+        bytes1 mappingByte = bytes1(commitCbor[cursor:cursor + 1]);
+        assert(uint8(mappingByte) >= uint8(CBOR_MAPPING_5_ENTRIES_1));
+        assert(uint8(mappingByte) <= uint8(CBOR_MAPPING_15_ENTRIES_1));
         cursor = 1;
 
-        assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4);
-        cursor = cursor + 4;
-        (, cursor,) = CBORNavigator.cborFieldMetaData(commitNode, cursor);
-
-        assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4);
-        cursor = cursor + 4;
-        (, cursor,) = CBORNavigator.cborFieldMetaData(commitNode, cursor);
-
-        assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5);
-        cursor = cursor + 5;
-        assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
-        cursor = cursor + 9;
+        uint256 payloadStart;
+        cursor = CBORNavigator.indexOfMappingField(commitCbor, CBOR_HEADER_DATA_5, cursor);
+        (payloadStart, cursor, ) = CBORNavigator.cborFieldMetaData(commitCbor, cursor);
+        require(bytes5(commitCbor[payloadStart:payloadStart + 5]) == CID_PREFIX_5, "Data does not have expected prefix");
         require(
-            bytes32(commitNode[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Data field does not contain expected hash"
+            bytes32(commitCbor[payloadStart+5:cursor]) == proveMe, "Data field does not contain expected hash"
         );
-        cursor = cursor + CID_HASH_LENGTH;
 
-        assert(bytes5(commitNode[cursor:cursor + 5]) == CBOR_HEADER_PREV_5);
-        cursor = cursor + 5;
-        if (bytes1(commitNode[cursor:cursor + 1]) == CBOR_NULL_1) {
-            cursor = cursor + 1;
-        } else {
-            assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
-            cursor = cursor + 9;
-            cursor = cursor + CID_HASH_LENGTH; // cid we don't care about
-        }
-
-        require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_9_9, "v3 field not found"); // text "version" 3
+        cursor = CBORNavigator.indexOfMappingField(commitCbor, CBOR_HEADER_VERSION_8, 1);
+        uint64 version;
+        (, , version) = CBORNavigator.cborFieldMetaData(commitCbor, cursor);
+        require(version == ATPROTO_REPO_VERSION);
     }
 
     /// @notice Verify the path from the hash of the data node provided (index 0) to the final node provided.
@@ -171,7 +157,7 @@ abstract contract AtprotoMSTProver {
                 uint256 lastByte = nodes[n].length;
                 if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3)) {
                     require(bytes32(nodes[n][lastByte - 32:lastByte]) == proveMe, "l value mismatch");
-                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9));
+                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CBOR_HEADER_CID_PREFIX_9));
                     require(
                         bytes2(nodes[n][lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2,
                         "l prefix mismatch"
@@ -243,7 +229,7 @@ abstract contract AtprotoMSTProver {
                 if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1) {
                     cursor = cursor + 1;
                 } else {
-                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CBOR_HEADER_CID_PREFIX_9);
                     cursor = cursor + 9;
 
                     // Our 32 bytes
@@ -261,7 +247,7 @@ abstract contract AtprotoMSTProver {
                 assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_V_2);
                 cursor = cursor + 2;
 
-                assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+                assert(bytes9(nodes[n][cursor:cursor + 9]) == CBOR_HEADER_CID_PREFIX_9);
                 cursor = cursor + 9;
 
                 // 32 bytes that we only care about if it's the winning entry of the data node (node 0)
@@ -283,7 +269,7 @@ abstract contract AtprotoMSTProver {
                 if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1) {
                     cursor = cursor + 1;
                 } else {
-                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CBOR_HEADER_CID_PREFIX_9);
                     cursor = cursor + 9;
 
                     // Our 32 bytes
