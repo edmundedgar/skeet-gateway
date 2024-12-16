@@ -79,10 +79,6 @@ library CBORNavigator {
         return (maj, extra, byteIndex);
     }
 
-    //  1) It uses calldata instead of memory, allowing us to use calldata slices instead of memory copying
-    //  2) It doesn't return the major type
-    //  3) It returns the start and end of the payload.
-
     /// @notice Return the length of the payload, and if relevant its value and number of entries
     /// @param cbor cbor encoded bytes to parse from
     /// @param byteIndex index of the start of the header
@@ -129,21 +125,4 @@ library CBORNavigator {
         revert("Unsupported major type");
     }
 
-    /// @notice Return the number of entries in the specified array and advances to the start of the entries
-    /// @param cbor cbor encoded bytes to parse from
-    /// @param byteIndex index of the start of the header
-    /// @return numEntries
-    /// @return cursor
-    function countArrayEntries(bytes calldata cbor, uint256 byteIndex)
-        internal
-        pure
-        returns (uint256, uint64)
-    {
-        uint8 maj;
-        uint64 extra;
-        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
-
-        require(maj == 4, "Not an array");
-        return (byteIndex, extra);
-    }
 }

@@ -212,13 +212,9 @@ abstract contract AtprotoMSTProver {
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
                     // For an int the cursor is already advanced
-                    (, extra,) = CBORNavigator.parseCborHeader(nodes[n], cursor); // value
+                    // (cursor, extra,) = CBORNavigator.parseCborHeader(nodes[n], cursor); // value
+                    (, cursor, extra) = CBORNavigator.cborFieldMetaData(nodes[n], cursor); // value
                     uint8 pval = uint8(extra);
-                    // TODO: Check why the library didn't do this. Would it have done it when we called readInt?
-                    cursor = cursor + 1;
-                    if (pval >= 24) {
-                        cursor = cursor + 1;
-                    }
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey
