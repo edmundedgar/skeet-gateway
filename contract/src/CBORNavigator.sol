@@ -40,6 +40,7 @@ library CBORNavigator {
     // Based on the parseCborHeader function from:
     // https://github.com/filecoin-project/filecoin-solidity/blob/master/contracts/v0.8/utils/CborDecode.sol
     // Uses calldata instead of memory copying
+    // Adds support for CID tags
     function parseCborHeader(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint8, uint64, uint256) {
         uint8 first = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
         byteIndex++;
@@ -48,6 +49,20 @@ library CBORNavigator {
         uint8 low = first & 0x1f;
 
         uint64 extra;
+
+        if (maj == 6) {
+            // Tag
+            // https://github.com/ipld/cid-cbor
+            // The only supported tag is CID (42), as per
+            // https://ipld.io/specs/codecs/dag-cbor/spec/
+            // Next bytes must be:
+            // 2a: Tag 42
+            // 58: CBOR major byte, minor byte
+            // 25: 37 bytes coming, including the leading 00
+            require(bytes3(cbor[byteIndex:byteIndex + 3]) == bytes3(hex"2a5825"), "Unsupported tag or unexpected CID header bytes");
+            byteIndex += 3;
+            return (maj, 37, byteIndex);
+        }
 
         if (low < 24) {
             // extra is lower bits
@@ -88,13 +103,15 @@ library CBORNavigator {
 
         // Types are divided into "atomic" types 0–1 and 6–7, for which the count field encodes the value directly,
         // and non-atomic types 2–5, for which the count field encodes the size of the following payload field.
-        if (maj == 0 || maj == 1 || maj == 6 || maj == 7) {
-            return byteIndex;
-        }
 
         // For string/bytes types, the extra field tells us the length of the payload
-        if (maj == 2 || maj == 3) {
+        // We also handle CID tags this way (major type 6, the only tags DAG-CBOR supports)
+        if (maj == 2 || maj == 3 || maj == 6) {
             return byteIndex + extra;
+        }
+
+        if (maj == 0 || maj == 1 || maj == 7) {
+            return byteIndex;
         }
 
         // For a mapping or an array, the payload length is the combined length of all the entries
