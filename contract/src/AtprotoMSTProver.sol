@@ -29,8 +29,8 @@ bytes5 constant CBOR_HEADER_DATA_5 = bytes5(hex"6464617461"); // text, data
 bytes5 constant CBOR_HEADER_PREV_5 = bytes5(hex"6470726576"); // text, prev
 bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_9_9 = bytes9(hex"6776657273696f6e03"); // text, version, 3
 
-// data nodes contain text
-bytes5 constant CBOR_HEADER_TEXT_5 = bytes5(hex"6474657874"); // text, "text"
+// data nodes contain text (we use a bytes array for this one)
+bytes constant CBOR_HEADER_TEXT_5 = bytes(hex"6474657874"); // text, "text"
 
 // CID IDs are 32-byte hashes preceded by some special CBOR tag data then the multibyte prefix
 bytes9 constant CID_PREFIX_BYTES_9 = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
@@ -63,7 +63,7 @@ abstract contract AtprotoMSTProver {
 
         // Mapping byte
         // Typically these have 4 or 5 fields (depending whether they are replies).
-        // We only care about 1, the text, which we expect to come first.
+        // We only care about one field, the text.
         // We'll sanity-check that the range is somewhere from 2 to 15.
         bytes1 mappingByte = bytes1(content[cursor:cursor + 1]);
         assert(uint8(mappingByte) >= uint8(CBOR_MAPPING_2_ENTRIES_1));
@@ -71,8 +71,7 @@ abstract contract AtprotoMSTProver {
         cursor = 1;
 
         // Extract the message from the CBOR
-        assert(bytes5(content[cursor:cursor + 5]) == CBOR_HEADER_TEXT_5);
-        cursor = cursor + 5;
+        cursor = CBORNavigator.indexOfMappingField(content, CBOR_HEADER_TEXT_5, cursor);
         (payloadStart, payloadEnd,) = CBORNavigator.cborFieldMetaData(content, cursor); // value
         bytes calldata message = content[payloadStart:payloadEnd];
         return message;
