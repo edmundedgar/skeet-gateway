@@ -55,7 +55,7 @@ abstract contract AtprotoMSTProver {
         return string(result);
     }
 
-    function _parseMessageCBOR(bytes calldata content) internal pure returns (bytes calldata message) {
+    function _parseMessageCBOR(bytes calldata content) internal pure returns (bytes calldata) {
         uint256 cursor;
         uint256 nextLen;
 
@@ -119,7 +119,7 @@ abstract contract AtprotoMSTProver {
     }
 
     /// @notice Verify the path from the hash of the data node provided (index 0) to the final node provided.
-    /// @dev The final node is intended to be the root node of the MST tree, but you must verify this by checking the commit node
+    /// @dev The final node is intended to be the root node of the MST tree, but you must verify this by checking the signed commit node
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param nodes An array of CBOR-encoded tree nodes, each containing an entry for the hash of an earlier one
     /// @return rootNode The final node of the series, intended (but not verified) to be the root node
@@ -213,7 +213,7 @@ abstract contract AtprotoMSTProver {
                     cursor = cursor + 2;
                     (, extra, cursor) = CBORNavigator.parseCborHeader(nodes[n], cursor); // value
                     uint8 pval = uint8(extra);
-                    // For an int payload is 0 bytes and extra is the value not the length, so we don't advance the cursor
+                    // For an int payload is 0 bytes and extra is the value not the length, so we don't advance the cursor beyond what parseCborHeader told us
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey
@@ -235,8 +235,7 @@ abstract contract AtprotoMSTProver {
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
 
-                    // For an int the val is in the header so we shouldn't need to advance cursor beyond what parseCborHeader did
-                    // TODO: Make sure this works if p > 24 and it needs the extra byte
+                    // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
                     (, extra, cursor) = CBORNavigator.parseCborHeader(nodes[n], cursor); // val
                 }
 

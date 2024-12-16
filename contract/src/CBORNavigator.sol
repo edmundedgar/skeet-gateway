@@ -79,7 +79,7 @@ library CBORNavigator {
         return (maj, extra, byteIndex);
     }
 
-    /// @notice Return the length of the payload, and if relevant its value and number of entries
+    /// @notice Return end of the field (ie the end of the payload, not just the header)
     /// @param cbor cbor encoded bytes to parse from
     /// @param byteIndex index of the start of the header
     /// @return index where the payload ends
