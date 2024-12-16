@@ -29,8 +29,8 @@ bytes5 constant CBOR_HEADER_DATA_5 = bytes5(hex"6464617461"); // text, data
 bytes5 constant CBOR_HEADER_PREV_5 = bytes5(hex"6470726576"); // text, prev
 bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_9_9 = bytes9(hex"6776657273696f6e03"); // text, version, 3
 
-// data nodes contain text (we use a bytes array for this one)
-bytes constant CBOR_HEADER_TEXT_5 = bytes(hex"6474657874"); // text, "text"
+// data nodes contain text
+bytes5 constant CBOR_HEADER_TEXT_5 = bytes5(hex"6474657874"); // text, "text"
 
 // CID IDs are 32-byte hashes preceded by some special CBOR tag data then the multibyte prefix
 bytes9 constant CID_PREFIX_BYTES_9 = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
@@ -57,13 +57,11 @@ abstract contract AtprotoMSTProver {
 
     function _parseMessageCBOR(bytes calldata content) internal pure returns (bytes calldata message) {
         uint256 cursor;
-
-        uint256 payloadStart;
-        uint256 payloadEnd;
+        uint256 nextLen;
 
         // Mapping byte
         // Typically these have 4 or 5 fields (depending whether they are replies).
-        // We only care about one field, the text.
+        // We only care about 1, the text, which we expect to come first.
         // We'll sanity-check that the range is somewhere from 2 to 15.
         bytes1 mappingByte = bytes1(content[cursor:cursor + 1]);
         assert(uint8(mappingByte) >= uint8(CBOR_MAPPING_2_ENTRIES_1));
@@ -71,9 +69,10 @@ abstract contract AtprotoMSTProver {
         cursor = 1;
 
         // Extract the message from the CBOR
-        cursor = CBORNavigator.indexOfMappingField(content, CBOR_HEADER_TEXT_5, cursor);
-        (payloadStart, payloadEnd,) = CBORNavigator.cborFieldMetaData(content, cursor); // value
-        bytes calldata message = content[payloadStart:payloadEnd];
+        assert(bytes5(content[cursor:cursor + 5]) == CBOR_HEADER_TEXT_5);
+        cursor = cursor + 5;
+        (, nextLen, cursor) = CBORNavigator.parseCborHeader(content, cursor); // value
+        bytes calldata message = content[cursor:cursor + nextLen];
         return message;
     }
 
@@ -89,11 +88,13 @@ abstract contract AtprotoMSTProver {
 
         assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4);
         cursor = cursor + 4;
-        (, cursor,) = CBORNavigator.cborFieldMetaData(commitNode, cursor);
+        (, extra, cursor) = CBORNavigator.parseCborHeader(commitNode, cursor);
+        cursor = cursor + extra;
 
         assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4);
         cursor = cursor + 4;
-        (, cursor,) = CBORNavigator.cborFieldMetaData(commitNode, cursor);
+        (, extra, cursor) = CBORNavigator.parseCborHeader(commitNode, cursor);
+        cursor = cursor + extra;
 
         assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5);
         cursor = cursor + 5;
@@ -130,8 +131,6 @@ abstract contract AtprotoMSTProver {
     {
         string memory rkey;
 
-        uint256 payloadStart;
-
         // We work up the chain finding the "proveMe" hash in the appropriate place.
         // Each time we find it we hash the current node and use it as the next "proveMe" value to check at the next level up.
 
@@ -150,9 +149,10 @@ abstract contract AtprotoMSTProver {
 
             uint256 numEntries;
 
-            // Entries may have a value, which is extracted from the header, and a payload, which we read as a calldata slice.
-            // cborFieldMetaData() will tell us the end of the payload field, so each time we read it we will advance the cursor to it
-            // If we know exactly what data we expect to find, eg with a mapping field name, we manually advance the cursor
+            // parseCborHeader either tells us the length of the data, or tells us the data itself if it could fit in the header.
+            // It also advances the cursor to the end of the header.
+            // If the data didn't fit in the header, we then read the data manually as a calldata slice and advance the cursor ourselves.
+            uint256 extra;
             uint256 cursor;
 
             // mapping byte
@@ -183,7 +183,7 @@ abstract contract AtprotoMSTProver {
 
             assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2);
             cursor = cursor + 2;
-            (cursor, numEntries) = CBORNavigator.countArrayEntries(nodes[n], cursor);
+            (, numEntries, cursor) = CBORNavigator.parseCborHeader(nodes[n], cursor); // e array header
 
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
             // If the node is in the "l", we'll have to go through them all to find where "l" starts
@@ -193,26 +193,32 @@ abstract contract AtprotoMSTProver {
             }
 
             for (uint256 i = 0; i < numEntries; i++) {
-                // mapping byte for a mapping with 4 entries
+                // mapping byte
                 assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1);
                 cursor = cursor + 1;
 
                 // For the first node, which contains information about the skeet, we also need the record key (k) in the relevant entry.
-                // Atproto uses a compression scheme where we have to construct it from the k and p of earlier entries.
+                // This uses a compression scheme where we have to construct it from the k and p of earlier entries.
                 // For all later nodes we can ignore the value but we still have to check the field lengths to know how far to advance the cursor.
 
                 if (n == 0) {
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
                     cursor = cursor + 2;
 
-                    (payloadStart, cursor,) = CBORNavigator.cborFieldMetaData(nodes[n], cursor);
-                    string memory kval = string(nodes[n][payloadStart:cursor]);
+                    (, extra, cursor) = CBORNavigator.parseCborHeader(nodes[n], cursor);
+                    string memory kval = string(nodes[n][cursor:cursor + extra]);
+                    cursor = cursor + extra;
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
-
-                    uint64 pval;
-                    (, cursor, pval) = CBORNavigator.cborFieldMetaData(nodes[n], cursor); // value
+                    // For an int the cursor is already advanced
+                    (, extra,) = CBORNavigator.parseCborHeader(nodes[n], cursor); // value
+                    uint8 pval = uint8(extra);
+                    // TODO: Check why the library didn't do this. Would it have done it when we called readInt?
+                    cursor = cursor + 1;
+                    if (pval >= 24) {
+                        cursor = cursor + 1;
+                    }
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey
@@ -227,14 +233,16 @@ abstract contract AtprotoMSTProver {
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
                     cursor = cursor + 2;
 
-                    // Skip variable-length k
-                    (, cursor,) = CBORNavigator.cborFieldMetaData(nodes[n], cursor);
+                    // Variable-length string
+                    (, extra, cursor) = CBORNavigator.parseCborHeader(nodes[n], cursor);
+                    cursor = cursor + extra;
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
 
-                    // Skip variable-length p
-                    (, cursor,) = CBORNavigator.cborFieldMetaData(nodes[n], cursor); // val
+                    // For an int the val is in the header so we shouldn't need to advance cursor beyond what parseCborHeader did
+                    // TODO: Make sure this works if p > 24 and it needs the extra byte
+                    (, extra, cursor) = CBORNavigator.parseCborHeader(nodes[n], cursor); // val
                 }
 
                 assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2);
