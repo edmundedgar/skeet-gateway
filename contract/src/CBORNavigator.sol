@@ -37,28 +37,17 @@ library CBORNavigator {
         revert("fieldHeader not found");
     }
 
-    // The following is based on the parseCborHeader function from:
+    // Based on the parseCborHeader function from:
     // https://github.com/filecoin-project/filecoin-solidity/blob/master/contracts/v0.8/utils/CborDecode.sol
-    // Key differences:
-    //  1) It uses calldata instead of memory, allowing us to use calldata slices instead of memory copying
-    //  2) It doesn't return the major type
-    //  3) It returns the start and end of the payload.
-
-    /// @notice Return the length of the payload, and if relevant its value and number of entries
-    /// @param cbor cbor encoded bytes to parse from
-    /// @param byteIndex index of the start of the header
-    /// @return index where the payload starts
-    /// @return index where the payload ends
-    /// @return extradata (length for mapping/array, value for int)
-    function cborFieldMetaData(bytes calldata cbor, uint256 byteIndex)
-        internal
-        pure
-        returns (uint256, uint256, uint64)
+    // Uses calldata instead of memory copying
+    function parseCborHeader(bytes calldata cbor, uint256 byteIndex) internal pure 
+        returns (uint8, uint64, uint)
     {
+
         uint8 first = uint8(bytes1(cbor[byteIndex:byteIndex + 1]));
         byteIndex++;
 
-        uint8 maj = (first & 0xe0) >> 5;
+        uint8 maj = first >> 5;
         uint8 low = first & 0x1f;
 
         uint64 extra;
@@ -87,6 +76,30 @@ library CBORNavigator {
             revert("cannot handle headers with extra > 27");
         }
 
+        return (maj, extra, byteIndex);
+    }
+
+    //  1) It uses calldata instead of memory, allowing us to use calldata slices instead of memory copying
+    //  2) It doesn't return the major type
+    //  3) It returns the start and end of the payload.
+
+    /// @notice Return the length of the payload, and if relevant its value and number of entries
+    /// @param cbor cbor encoded bytes to parse from
+    /// @param byteIndex index of the start of the header
+    /// @return index where the payload starts
+    /// @return index where the payload ends
+    /// @return extradata (length for mapping/array, value for int)
+    function cborFieldMetaData(bytes calldata cbor, uint256 byteIndex) 
+        internal
+        pure
+        returns (uint256, uint256, uint64)
+    {
+
+        uint8 maj;
+        uint64 extra;
+
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+
         // Types are divided into "atomic" types 0–1 and 6–7, for which the count field encodes the value directly,
         // and non-atomic types 2–5, for which the count field encodes the size of the following payload field.
         if (maj == 0 || maj == 1 || maj == 6 || maj == 7) {
@@ -114,5 +127,23 @@ library CBORNavigator {
         }
 
         revert("Unsupported major type");
+    }
+
+    /// @notice Return the number of entries in the specified array and advances to the start of the entries
+    /// @param cbor cbor encoded bytes to parse from
+    /// @param byteIndex index of the start of the header
+    /// @return numEntries
+    /// @return cursor
+    function countArrayEntries(bytes calldata cbor, uint256 byteIndex)
+        internal
+        pure
+        returns (uint256, uint64)
+    {
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+
+        require(maj == 4, "Not an array");
+        return (byteIndex, extra);
     }
 }

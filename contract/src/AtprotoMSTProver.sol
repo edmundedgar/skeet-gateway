@@ -183,7 +183,7 @@ abstract contract AtprotoMSTProver {
 
             assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2);
             cursor = cursor + 2;
-            (, cursor, numEntries) = CBORNavigator.cborFieldMetaData(nodes[n], cursor);
+            (cursor, numEntries) = CBORNavigator.countArrayEntries(nodes[n], cursor);
 
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
             // If the node is in the "l", we'll have to go through them all to find where "l" starts
