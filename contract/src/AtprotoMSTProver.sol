@@ -44,14 +44,14 @@ bytes2 constant CBOR_HEADER_P_2 = bytes2(hex"6170");
 bytes2 constant CBOR_HEADER_T_2 = bytes2(hex"6174");
 bytes2 constant CBOR_HEADER_V_2 = bytes2(hex"6176");
 
-// signodes contain did, rev, data, prev and version (which must be 3)
+// commit nodes contain did, rev, data, prev and version (which must be 3)
 bytes4 constant CBOR_HEADER_DID_4 = bytes4(hex"63646964"); // text, did
 bytes4 constant CBOR_HEADER_REV_4 = bytes4(hex"63726576"); // text, rev
 bytes5 constant CBOR_HEADER_DATA_5 = bytes5(hex"6464617461"); // text, data
 bytes5 constant CBOR_HEADER_PREV_5 = bytes5(hex"6470726576"); // text, prev
 bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_9_9 = bytes9(hex"6776657273696f6e03"); // text, version, 3
 
-// data nodes contain text
+// content cbor contains text
 bytes5 constant CBOR_HEADER_TEXT_5 = bytes5(hex"6474657874"); // text, "text"
 
 // CID IDs are 32-byte hashes which we will find preceded by some special CBOR tag data then the multibyte prefix
@@ -77,8 +77,8 @@ abstract contract AtprotoMSTProver {
         return string(result);
     }
 
-    /// @notice Parse a data node and return the value of the "text" field
-    /// @param content The CBOR-encoded data node whose value we want
+    /// @notice Parse the content CBOR and return the value of the "text" field
+    /// @param content The CBOR-encoded content whose value we want
     /// @return The value of the text field
     function _parseMessageCBOR(bytes calldata content) internal pure returns (bytes calldata) {
         uint256 cursor;
@@ -309,7 +309,7 @@ abstract contract AtprotoMSTProver {
 
             // The l field is at the end so we only care about it if we actually want to read it
             if (hint == 0) {
-                require(n > 0, "You should not be reading an l value for the data node");
+                require(n > 0, "You should not be reading an l value for the node at the tip");
                 assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_L_2);
                 cursor = cursor + 2;
 
