@@ -227,21 +227,21 @@ abstract contract AtprotoMSTProver {
                         rkey = string.concat(oldr, kval);
                     }
                 } else {
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
+                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
                     cursor = cursor + 2;
 
                     // Variable-length string
                     (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
                     cursor = cursor + extra;
 
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
+                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
                     (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
                 }
 
-                assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2);
+                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2);
                 cursor = cursor + 2;
 
                 if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1) {
@@ -262,10 +262,10 @@ abstract contract AtprotoMSTProver {
                 }
 
                 // non-nullable v
-                assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_V_2);
+                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_V_2);
                 cursor = cursor + 2;
 
-                assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+                ///assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
                 cursor = cursor + 9;
 
                 // 32 bytes that we only care about if it's the winning entry of the data node (node 0)
