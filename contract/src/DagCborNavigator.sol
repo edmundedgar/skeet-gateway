@@ -7,7 +7,7 @@ pragma solidity ^0.8.17;
 
 /// @notice This library provides functions to find data inside DAGCBOR-encoded calldata
 /// @author Edmund Edgar
-library DAGCBORNavigator {
+library DagCborNavigator {
     /// @notice Return the index of the value of the named field inside a mapping
     /// @param cbor encoded mapping content (data must end when the mapping does)
     /// @param fieldHeader The field you want to read

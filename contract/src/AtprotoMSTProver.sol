@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {DAGCBORNavigator} from "./DAGCBORNavigator.sol";
+import {DagCborNavigator} from "./DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
 bytes1 constant CBOR_NULL_1 = hex"f6";
@@ -71,7 +71,7 @@ abstract contract AtprotoMSTProver {
         // Extract the message from the CBOR
         assert(bytes5(content[cursor:cursor + 5]) == CBOR_HEADER_TEXT_5);
         cursor = cursor + 5;
-        (, nextLen, cursor) = DAGCBORNavigator.parseCborHeader(content, cursor); // value
+        (, nextLen, cursor) = DagCborNavigator.parseCborHeader(content, cursor); // value
         bytes calldata message = content[cursor:cursor + nextLen];
         return message;
     }
@@ -88,12 +88,12 @@ abstract contract AtprotoMSTProver {
 
         assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4);
         cursor = cursor + 4;
-        (, extra, cursor) = DAGCBORNavigator.parseCborHeader(commitNode, cursor);
+        (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
         cursor = cursor + extra;
 
         assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4);
         cursor = cursor + 4;
-        (, extra, cursor) = DAGCBORNavigator.parseCborHeader(commitNode, cursor);
+        (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
         cursor = cursor + extra;
 
         assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5);
@@ -183,7 +183,7 @@ abstract contract AtprotoMSTProver {
 
             assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2);
             cursor = cursor + 2;
-            (, numEntries, cursor) = DAGCBORNavigator.parseCborHeader(nodes[n], cursor); // e array header
+            (, numEntries, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // e array header
 
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
             // If the node is in the "l", we'll have to go through them all to find where "l" starts
@@ -205,13 +205,13 @@ abstract contract AtprotoMSTProver {
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
                     cursor = cursor + 2;
 
-                    (, extra, cursor) = DAGCBORNavigator.parseCborHeader(nodes[n], cursor);
+                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
                     string memory kval = string(nodes[n][cursor:cursor + extra]);
                     cursor = cursor + extra;
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
-                    (, extra, cursor) = DAGCBORNavigator.parseCborHeader(nodes[n], cursor); // value
+                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // value
                     uint8 pval = uint8(extra);
                     // For an int payload is 0 bytes and extra is the value not the length, so we don't advance the cursor beyond what parseCborHeader told us
 
@@ -229,14 +229,14 @@ abstract contract AtprotoMSTProver {
                     cursor = cursor + 2;
 
                     // Variable-length string
-                    (, extra, cursor) = DAGCBORNavigator.parseCborHeader(nodes[n], cursor);
+                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
                     cursor = cursor + extra;
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
-                    (, extra, cursor) = DAGCBORNavigator.parseCborHeader(nodes[n], cursor); // val
+                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
                 }
 
                 assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2);

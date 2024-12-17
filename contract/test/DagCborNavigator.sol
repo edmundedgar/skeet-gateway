@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {DAGCBORNavigator} from "../src/DAGCBORNavigator.sol";
+import {DagCborNavigator} from "../src/DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
 bytes constant CBOR_HEADER_TEXT_5 = bytes(hex"6474657874"); // text, "text"
@@ -12,31 +12,31 @@ bytes constant CBOR_HEADER_TYPE_6 = bytes(hex"652474797065"); // text, "$type"
 bytes constant CBOR_HEADER_VERSION_8 = bytes(hex"6776657273696f6e");
 bytes constant CBOR_HEADER_DATA_5 = bytes(hex"6464617461"); // text, data
 
-contract DAGCBORNavigatorClient {
+contract DagCborNavigatorClient {
     function indexOfMappingField(bytes calldata cbor, bytes memory fieldHeader, uint256 cursor)
         external
         pure
         returns (uint256)
     {
-        return DAGCBORNavigator.indexOfMappingField(cbor, fieldHeader, cursor);
+        return DagCborNavigator.indexOfMappingField(cbor, fieldHeader, cursor);
     }
 
     function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) external pure returns (uint256) {
-        return DAGCBORNavigator.indexOfFieldPayloadEnd(cbor, byteIndex);
+        return DagCborNavigator.indexOfFieldPayloadEnd(cbor, byteIndex);
     }
 
     function parseCborHeader(bytes calldata cbor, uint256 byteIndex) external pure returns (uint8, uint64, uint256) {
-        return DAGCBORNavigator.parseCborHeader(cbor, byteIndex);
+        return DagCborNavigator.parseCborHeader(cbor, byteIndex);
     }
 }
 
-contract DAGCBORNavigatorTest is Test {
+contract DagCborNavigatorTest is Test {
     bytes cborMap;
     bytes cborWithCIDs;
-    DAGCBORNavigatorClient client;
+    DagCborNavigatorClient client;
 
     function setUp() public {
-        client = new DAGCBORNavigatorClient();
+        client = new DagCborNavigatorClient();
 
         // A5                                     # map(5) #1
         //   6B                                   # text(11) #1
