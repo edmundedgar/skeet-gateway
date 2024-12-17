@@ -30,6 +30,10 @@ contract SkeetGateway is AtprotoMSTProver {
 
     event LogExecutePayload(address indexed signer, address indexed to, uint256 value, bytes data, string payload);
 
+    event LogAddDomain(address indexed owner, string domain);
+
+    event LogAddBot(address indexed parser, string domain, string subdomain);
+
     constructor() {
         owner = msg.sender;
     }
@@ -40,6 +44,7 @@ contract SkeetGateway is AtprotoMSTProver {
     function addDomain(string calldata domain, address domainOwner) external {
         require(msg.sender == owner, "Only the owner can add domains");
         domainOwners[keccak256(abi.encodePacked(domain))] = domainOwner;
+        emit LogAddDomain(domainOwner, domain);
     }
 
     /// @notice Add a bot under a domain you control, specifying the parser that will handle messages to it
@@ -52,6 +57,7 @@ contract SkeetGateway is AtprotoMSTProver {
         bytes32 key = keccak256(abi.encodePacked(string.concat(string.concat(subdomain, "."), domain)));
         require(address(bots[key].parser) == address(0), "Subdomain already registered");
         bots[key] = Bot(domain, subdomain, parser);
+        emit LogAddBot(parser, domain, subdomain);
     }
 
     /// @notice Translate a data node containing a message into a contract address, value and transaction bytecode
@@ -171,6 +177,6 @@ contract SkeetGateway is AtprotoMSTProver {
         // The user's smart wallet should recognize this contract as their owner and execute what we send it.
         // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
         signerSafes[signer].executeOwnerCall(to, value, payloadData);
-        emit LogExecutePayload(signer, to, 0, payloadData, string(content));
+        emit LogExecutePayload(signer, to, value, payloadData, string(content));
     }
 }
