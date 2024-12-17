@@ -113,6 +113,43 @@ contract DagCborNavigatorTest is Test {
         client.indexOfMappingField(cborMap, oink, 1);
     }
 
+    function testIndexOfMappingFieldSkippingInnerMapping() public {
+        // {"a": 1, "b": 2, "c": {"c1": 9, "c2": 9, "c3": 7}, "target": 123, "more": "data"}
+
+        // A5                 # map(5)
+        //    61              # text(1)
+        //       61           # "a"
+        //    01              # unsigned(1)
+        //    61              # text(1)
+        //       62           # "b"
+        //    02              # unsigned(2)
+        //    61              # text(1)
+        //       63           # "c"
+        //    A3              # map(3)
+        //       62           # text(2)
+        //          6331      # "c1" [2 bytes]
+        //       09           # unsigned(9)
+        //       62           # text(2)
+        //          6332      # "c2" [2 bytes]
+        //       09           # unsigned(9)
+        //       62           # text(2)
+        //          6333      # "c3" [2 bytes]
+        //       07           # unsigned(7)
+        //    66              # text(6)
+        //       746172676574 # "target" [7 bytes]
+        //    18 7B           # unsigned(123) [2 bytes]
+        //    64              # text(4)
+        //       6D6F7265     # "more" [4 bytes]
+        //    64              # text(4)
+        //       64617461     # "data" [4 bytes]
+
+        bytes memory nestedCbor =
+            hex"A56161016162026163A362633109626332096263330766746172676574187B646D6F72656464617461";
+        uint256 expectIndex = 29; // end of "target" text
+        uint256 index = client.indexOfMappingField(nestedCbor, bytes(hex"66746172676574"), 1);
+        assertEq(index, expectIndex);
+    }
+
     function testIndexOfMappingFieldWithCIDs() public {
         // The value we want is the version last byte (3)
         uint256 expectIndex = cborWithCIDs.length - 1;

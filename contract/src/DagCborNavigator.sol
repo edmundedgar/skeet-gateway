@@ -123,12 +123,10 @@ library DagCborNavigator {
         if (maj == 4 || maj == 5) {
             // For a map the number of entries is doubled because there's a key and a value per item
             uint64 numEntries = (maj == 5) ? extra * 2 : extra;
-            // save the start of the parent mapping, we'll advance byteIndex through the array/mapping items
-            uint256 payloadEnd = byteIndex;
             for (uint64 i = 0; i < numEntries; i++) {
                 byteIndex = indexOfFieldPayloadEnd(cbor, byteIndex);
             }
-            return payloadEnd;
+            return byteIndex;
         }
 
         revert("Unsupported major type");
