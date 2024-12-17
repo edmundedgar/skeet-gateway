@@ -69,9 +69,11 @@ abstract contract AtprotoMSTProver {
         cursor = 1;
 
         // Extract the message from the CBOR
-        assert(bytes5(content[cursor:cursor + 5]) == CBOR_HEADER_TEXT_5);
-        cursor = cursor + 5;
-        (, nextLen, cursor) = DagCborNavigator.parseCborHeader(content, cursor); // value
+        // This is in the "text" field
+        // This always seems to be at the start of the message (because "text" is a fairly short key)
+        // But in theory there could be other things ahead of it
+        cursor = DagCborNavigator.indexOfMappingField(content, bytes.concat(CBOR_HEADER_TEXT_5), cursor);
+        (, nextLen, cursor) = DagCborNavigator.parseCborHeader(content, cursor);
         bytes calldata message = content[cursor:cursor + nextLen];
         return message;
     }
