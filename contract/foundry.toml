@@ -3,7 +3,13 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
-fs_permissions = [{ access = "read", path = "./test/fixtures" }]
+fs_permissions = [{ access = "read", path = "./test/fixtures" }, { access = "read", path = "./script/input" }]
+
 
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
