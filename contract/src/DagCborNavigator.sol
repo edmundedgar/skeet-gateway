@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-// Based on DAGCBORDecode.sol from filecoin-solidity by Zondax AG (Apache 2.0 license)
+// Based on CBORDecode.sol from filecoin-solidity by Zondax AG (Apache 2.0 license)
 
 import {console} from "forge-std/console.sol";
 
 pragma solidity ^0.8.17;
 
-/// @notice This library provides functions to find data inside DAGCBOR-encoded calldata
+/// @notice This library provides functions to find data inside DAG-CBOR-encoded calldata
 /// @author Edmund Edgar
 library DagCborNavigator {
     /// @notice Return the index of the value of the named field inside a mapping
@@ -54,7 +54,7 @@ library DagCborNavigator {
             // https://ipld.io/specs/codecs/dag-cbor/spec/
             // Next bytes must be:
             // 2a: Tag 42
-            // 58: DAGCBOR major byte, minor byte
+            // 58: CBOR major byte, minor byte
             // 25: 37 bytes coming, including the leading 00
             require(
                 bytes3(cbor[byteIndex:byteIndex + 3]) == bytes3(hex"2a5825"),
@@ -84,7 +84,7 @@ library DagCborNavigator {
             extra = uint64(bytes8(cbor[byteIndex:byteIndex + 8]));
             byteIndex += 8;
         } else {
-            // We don't handle DAGCBOR headers with extra > 27, i.e. no indefinite lengths
+            // We don't handle CBOR headers with extra > 27, i.e. no indefinite lengths
             revert("cannot handle headers with extra > 27");
         }
 
@@ -105,7 +105,7 @@ library DagCborNavigator {
         // and non-atomic types 2–5, for which the count field encodes the size of the following payload field.
 
         // For string/bytes types, the extra field tells us the length of the payload
-        // We also handle CID tags this way (major type 6, the only tags DAG-DAGCBOR supports)
+        // We also handle CID tags this way (major type 6, the only tags DAG-CBOR supports)
         if (maj == 2 || maj == 3 || maj == 6) {
             return byteIndex + extra;
         }
