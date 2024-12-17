@@ -59,7 +59,10 @@ library DAGCBORNavigator {
             // 2a: Tag 42
             // 58: DAGCBOR major byte, minor byte
             // 25: 37 bytes coming, including the leading 00
-            require(bytes3(cbor[byteIndex:byteIndex + 3]) == bytes3(hex"2a5825"), "Unsupported tag or unexpected CID header bytes");
+            require(
+                bytes3(cbor[byteIndex:byteIndex + 3]) == bytes3(hex"2a5825"),
+                "Unsupported tag or unexpected CID header bytes"
+            );
             byteIndex += 3;
             return (maj, 37, byteIndex);
         }

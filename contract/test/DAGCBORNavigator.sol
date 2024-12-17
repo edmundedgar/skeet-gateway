@@ -66,7 +66,6 @@ contract DAGCBORNavigatorTest is Test {
         cborWithCIDs = bytes(
             hex"a56364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c63767332696d73756b32666464617461d82a5825000171122020b90507550beb6a0c2d031c2ffca2ce1c1702933a47070ddcdaf3cc1879a9546470726576f66776657273696f6e03"
         );
-
     }
 
     function testIndexOfFieldPayloadEndSimple() public {
@@ -93,13 +92,12 @@ contract DAGCBORNavigatorTest is Test {
         uint64 extra; // should be the length
         uint256 payloadStart;
         (maj, extra, payloadStart) = client.parseCborHeader(cborWithCIDs, start);
-        assertEq(extra, 5+32);
+        assertEq(extra, 5 + 32);
 
         assertEq(maj, 6);
 
         uint256 payloadEnd = client.indexOfFieldPayloadEnd(cborWithCIDs, start);
-        assertEq(62+4+5+32, payloadEnd);
-
+        assertEq(62 + 4 + 5 + 32, payloadEnd);
     }
 
     function testIndexOfMappingField() public {
