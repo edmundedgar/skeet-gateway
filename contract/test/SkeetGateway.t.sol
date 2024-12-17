@@ -122,7 +122,7 @@ contract SkeetGatewayTest is Test {
         assertEq(createdSafe, expectedSafe, "Safe not expected address");
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
-        assertEq(entries.length, 2);
+        assertEq(entries.length, 3);
 
         assertEq(entries[0].topics[1], bytes32(uint256(uint160(expectedSigner))));
         assertEq(entries[0].topics[2], bytes32(uint256(uint160(expectedSafe))));
