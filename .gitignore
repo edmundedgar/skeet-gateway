@@ -1,10 +1,6 @@
 # Compiler files
 cache/
-!out/SkeetGateway.sol
-!out/BBS.sol
-!out/SignerSafe.sol
 out/*
-contract/out/*
 
 # Ignores development broadcast logs
 !/broadcast
