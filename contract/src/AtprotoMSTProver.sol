@@ -1,6 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+// Contract to extract DAG-CBOR-encoded Atproto Merkle Search Tree data
+// https://atproto.com/specs/repository
+// https://ipld.io/specs/codecs/dag-cbor/spec/
+
+// The order of keys is fixed as per the DAG-CBOR spec.
+// Most data is encoded in mappings with a known, fixed-width name field followed by a field of known length.
+// When the lengths are known we can just read the bytes representing the value we need directly and skip the name field.
+// We will sometimes sanity-check the name field with assert() although this is not strictly necessary.
+// However there are some cases we encounter where data lengths vary:
+// - For nullable CIDs we need to check for null
+// - For strings and byte arrays we need to extract the length from the header
+// - For integers with unknown values (just the p field) the data itself needs to be extracted from the header.
+// - For arrays the length of the array needs to be extracted from the header.
+// We extract these values with DagCborNavigator.parseCborHeader()
+// The meaning of the value we get from the header will vary depending on the type of the field:
+// - For our integer (p) it will return the value of the field and there will be no additional payload.
+// - For strings and byte arrays it will return the number of bytes in the payload.
+// - For arrays it will return the number of entries in the array.
+
 import {DagCborNavigator} from "./DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
@@ -11,10 +30,13 @@ bytes1 constant CBOR_MAPPING_4_ENTRIES_1 = hex"a4"; // tree node entry field has
 bytes1 constant CBOR_MAPPING_5_ENTRIES_1 = hex"a5"; // sig node has 5 fields when unsigned
 bytes1 constant CBOR_MAPPING_15_ENTRIES_1 = hex"af"; // data node has 4 to 5 fields but they might increase it
 
+// For performance reasons we search for fieldnames by their encoded bytes starting with the CBOR header byte
+// eg "did" is encoded with 63 (CBOR for 3-byte text) followed by 646964 ("did" in UTF-8).
+
 // Tree nodes contain e and l
 bytes2 constant CBOR_HEADER_E_2 = bytes2(hex"6165");
 bytes2 constant CBOR_HEADER_L_2 = bytes2(hex"616c");
-bytes3 constant CBOR_HEADER_L_NULL_3 = bytes3(hex"616cf6");
+bytes3 constant CBOR_HEADER_L_NULL_3 = bytes3(hex"616cf6"); // l followed by a null
 
 // e contains k, p, t, v
 bytes2 constant CBOR_HEADER_K_2 = bytes2(hex"616b");
@@ -32,7 +54,7 @@ bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_9_9 = bytes9(hex"6776657273696f6e0
 // data nodes contain text
 bytes5 constant CBOR_HEADER_TEXT_5 = bytes5(hex"6474657874"); // text, "text"
 
-// CID IDs are 32-byte hashes preceded by some special CBOR tag data then the multibyte prefix
+// CID IDs are 32-byte hashes which we will find preceded by some special CBOR tag data then the multibyte prefix
 bytes9 constant CID_PREFIX_BYTES_9 = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
 uint256 constant CID_HASH_LENGTH = 32;
 
@@ -55,6 +77,9 @@ abstract contract AtprotoMSTProver {
         return string(result);
     }
 
+    /// @notice Parse a data node and return the value of the "text" field
+    /// @param content The CBOR-encoded data node whose value we want
+    /// @return The value of the text field
     function _parseMessageCBOR(bytes calldata content) internal pure returns (bytes calldata) {
         uint256 cursor;
         uint256 nextLen;
@@ -85,6 +110,8 @@ abstract contract AtprotoMSTProver {
         uint256 cursor;
         uint256 extra;
 
+        // The unsigned commit node has 5 entries.
+        // A 6th entry, "sig", is added later by hashing the unsigned, 5-entry version.
         assert(bytes1(commitNode[cursor:cursor + 1]) == CBOR_MAPPING_5_ENTRIES_1);
         cursor = 1;
 
@@ -120,12 +147,12 @@ abstract contract AtprotoMSTProver {
         require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_9_9, "v3 field not found"); // text "version" 3
     }
 
-    /// @notice Verify the path from the hash of the data node provided (index 0) to the final node provided.
+    /// @notice Verify the path from the hash of the node provided (index 0) up towards the root, to the final node provided.
     /// @dev The final node is intended to be the root node of the MST tree, but you must verify this by checking the signed commit node
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param nodes An array of CBOR-encoded tree nodes, each containing an entry for the hash of an earlier one
     /// @return rootNode The final node of the series, intended (but not verified) to be the root node
-    /// @return rkey The record key of the data node
+    /// @return rkey The record key of the tip node
     function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes, uint256[] calldata hints)
         public
         pure
@@ -133,11 +160,11 @@ abstract contract AtprotoMSTProver {
     {
         string memory rkey;
 
-        // We work up the chain finding the "proveMe" hash in the appropriate place.
+        // We work up the chain towards the root, finding the "proveMe" hash in the appropriate place.
         // Each time we find it we hash the current node and use it as the next "proveMe" value to check at the next level up.
 
         // For the first node (node 0), we need to find the hash we want in the "v" field of one of the entries.
-        // However we also need to look at the preceding fields to recover the rkey (see below).
+        // However we also need to look at the preceding entries in the node to recover the rkey (see below).
         // For subsequent nodes, we need to find the hash in either the "l" field or the "t" field of one of the entries.
 
         for (uint256 n = 0; n < nodes.length; n++) {
@@ -153,11 +180,12 @@ abstract contract AtprotoMSTProver {
 
             // parseCborHeader either tells us the length of the data, or tells us the data itself if it could fit in the header.
             // It also advances the cursor to the end of the header.
-            // If the data didn't fit in the header, we then read the data manually as a calldata slice and advance the cursor ourselves.
+            // If there is a payload (ie the answer wasn't in the header)...
+            // ...we then read the data manually as a calldata slice and advance the cursor to the end of the payload.
             uint256 extra;
             uint256 cursor;
 
-            // mapping byte
+            // mapping byte for 2 entries, k and e
             assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1);
             cursor = cursor + 1;
 
@@ -195,7 +223,7 @@ abstract contract AtprotoMSTProver {
             }
 
             for (uint256 i = 0; i < numEntries; i++) {
-                // mapping byte
+                // mapping byte for a mapping with 4 keys
                 assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1);
                 cursor = cursor + 1;
 
@@ -213,9 +241,10 @@ abstract contract AtprotoMSTProver {
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
                     cursor = cursor + 2;
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // value
+                    // p is an int so there is no payload and the "extra" denotes the value not the length,
+                    // Since there is no payload we don't advance the cursor beyond what parseCborHeader told us
+                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
                     uint8 pval = uint8(extra);
-                    // For an int payload is 0 bytes and extra is the value not the length, so we don't advance the cursor beyond what parseCborHeader told us
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey
