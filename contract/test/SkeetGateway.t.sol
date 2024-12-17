@@ -33,9 +33,9 @@ contract SkeetGatewayTest is Test {
     }
 
     function testMerkleProvenRootHash() public view {
-        // Given a hash of the dataNode, crawl up the tree and give me a root hash that I expect to find in the Sig Node
+        // Given a hash of the content cbor, crawl up the tree and give me a root hash that I expect to find in the Sig Node
         // For each record we should have a hint which is either:
-        // For node 0 (data node):
+        // For node 0 (node at the tip containing the hash of the content in its v field):
         // - index+1 of the entry where we will find our hash in the data field
         // For other nodes (intermediate nodes):
         // - 0 for the l record
@@ -45,7 +45,7 @@ contract SkeetGatewayTest is Test {
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
-        // Check the value is in the data node and recover the rkey
+        // Check the value is in the node at the tip and recover the rkey
         (, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
         string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
