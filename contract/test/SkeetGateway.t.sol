@@ -32,7 +32,7 @@ contract SkeetGatewayTest is Test {
         gateway.addBot("bbs", "blah.example.com", address(bbsParser));
     }
 
-    function testMerkleProvenRootHash() public {
+    function testMerkleProvenRootHash() public view {
         // Given a hash of the dataNode, crawl up the tree and give me a root hash that I expect to find in the Sig Node
         // For each record we should have a hint which is either:
         // For node 0 (data node):
@@ -46,28 +46,26 @@ contract SkeetGatewayTest is Test {
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
         // Check the value is in the data node and recover the rkey
-        (bytes32 rootHash, string memory rkey) =
-            gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
+        (, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
         string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
     }
 
-    function _testProvingFunctions(string memory fixtureName) internal {
+    function _testProvingFunctions(string memory fixtureName) internal view {
         string memory fixture = string.concat("/test/fixtures/", fixtureName);
         string memory json = vm.readFile(string.concat(vm.projectRoot(), fixture));
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
-        (bytes32 rootHash, string memory rkey) =
-            gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
+        (bytes32 rootHash,) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
         gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
     }
 
-    function testLongPValue() public {
+    function testLongPValue() public view {
         _testProvingFunctions("long_p_val.json");
     }
 
-    function testMerkleProvenHashAssortmentOfSkeets() public {
+    function testMerkleProvenHashAssortmentOfSkeets() public view {
         _testProvingFunctions("random_skeet0.json");
         _testProvingFunctions("random_skeet1.json");
         _testProvingFunctions("random_skeet2.json");
@@ -179,7 +177,7 @@ contract SkeetGatewayTest is Test {
         bytes32 s = 0x63f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b;
 
         uint8 v = 28;
-        bool found = false;
+        // bool found = false;
         // for(uint8 v=0; v<255; v++) { } // Earlier we had to try all possible v values to find the one they used
         address signer = ecrecover(hash, v, r, s);
         assertEq(expect, signer, "should recover the same signer");

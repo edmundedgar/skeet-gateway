@@ -68,7 +68,7 @@ contract DagCborNavigatorTest is Test {
         );
     }
 
-    function testIndexOfFieldPayloadEndSimple() public {
+    function testIndexOfFieldPayloadEndSimple() public view {
         uint256 payloadEnd = client.indexOfFieldPayloadEnd(cborMap, 1);
         assertEq(payloadEnd, 1 + 1 + 11);
 
@@ -76,7 +76,7 @@ contract DagCborNavigatorTest is Test {
         payloadEnd = client.indexOfFieldPayloadEnd(cborMap, cursor);
     }
 
-    function testIndexOfFieldPayloadEndCID() public {
+    function testIndexOfFieldPayloadEndCID() public view {
         // Test on the data CID
         // The data CID including headers starts at 62:
         // d82a5825 (4 bytes)
@@ -100,7 +100,7 @@ contract DagCborNavigatorTest is Test {
         assertEq(62 + 4 + 5 + 32, payloadEnd);
     }
 
-    function testIndexOfMappingField() public {
+    function testIndexOfMappingField() public view {
         uint256 cursor = 1 + 1 + 11 + 1 + 1 + 11;
         bytes memory largeFieldText = bytes(hex"6b6c617267654e756d626572");
         uint256 index = client.indexOfMappingField(cborMap, largeFieldText, 1);
@@ -113,7 +113,7 @@ contract DagCborNavigatorTest is Test {
         client.indexOfMappingField(cborMap, oink, 1);
     }
 
-    function testIndexOfMappingFieldSkippingInnerMapping() public {
+    function testIndexOfMappingFieldSkippingInnerMapping() public view {
         // {"a": 1, "b": 2, "c": {"c1": 9, "c2": 9, "c3": 7}, "target": 123, "more": "data"}
 
         // A5                 # map(5)
@@ -150,7 +150,7 @@ contract DagCborNavigatorTest is Test {
         assertEq(index, expectIndex);
     }
 
-    function testIndexOfMappingFieldWithCIDs() public {
+    function testIndexOfMappingFieldWithCIDs() public view {
         // The value we want is the version last byte (3)
         uint256 expectIndex = cborWithCIDs.length - 1;
         uint256 index = client.indexOfMappingField(cborWithCIDs, CBOR_HEADER_VERSION_8, 1);

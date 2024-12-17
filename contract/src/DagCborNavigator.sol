@@ -20,10 +20,7 @@ library DagCborNavigator {
     {
         uint256 fieldHeaderLength = fieldHeader.length;
         uint256 endIndex = cbor.length - fieldHeaderLength;
-        uint256 start;
 
-        uint256 payloadStart;
-        uint256 payloadEnd;
         while (cursor < endIndex) {
             if (bytes8(cbor[cursor:cursor + fieldHeaderLength]) == bytes8(fieldHeader)) {
                 return cursor + fieldHeaderLength;
