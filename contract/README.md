@@ -71,7 +71,7 @@ forge script --chain sepolia script/SendPayload.sol --private-key $PRIVATE_KEY -
 eg
 
 ```
-forge script --chain sepolia script/SendPayload.sol:SendPayload --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --sig 'run(address,string)' 0x4dfecc19ad271a5193777a9bccc11c9cf9869868 script/input/it_flies_like_a_beautiful_angel.json --broadcast
+forge script --chain sepolia script/SendPayload.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --sig 'run(address,string)' 0x4dfecc19ad271a5193777a9bccc11c9cf9869868 script/input/it_flies_like_a_beautiful_angel.json --broadcast
 ```
 
 Note that the .json file can only be read from a directory marked as permitted in `foundry.toml`.
