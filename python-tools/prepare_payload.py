@@ -106,7 +106,7 @@ with open(car_file, mode="rb") as cf:
     car_file = CAR.from_bytes(contents)
 
     target_content = None
-    data_node = None
+    tip_node = None
     tree_nodes = []
     commit_node = None
 
@@ -143,7 +143,7 @@ with open(car_file, mode="rb") as cf:
             output['content'] = "0x"+libipld.encode_dag_cbor(b).hex()
             output['botNameLength'] = bot_name_length
         elif i == len(car_file.blocks)-1:
-            data_node = b
+            tip_node = b
         else:
             tree_nodes.append(b)
         i = i + 1
@@ -156,14 +156,14 @@ with open(car_file, mode="rb") as cf:
 
     is_found = False
     vidx = 0;
-    for entry in data_node['e']:
+    for entry in tip_node['e']:
         if 'v' in entry:
             val = "0x"+entry['v'].hex()
             if val == "0x01711220" + prove_me:
                 is_found = True
-                output['nodes'].append("0x"+libipld.encode_dag_cbor(data_node).hex());
+                output['nodes'].append("0x"+libipld.encode_dag_cbor(tip_node).hex());
                 output['nodeHints'].append(vidx+1);
-                prove_me = hashlib.sha256(libipld.encode_dag_cbor(data_node)).hexdigest()
+                prove_me = hashlib.sha256(libipld.encode_dag_cbor(tip_node)).hexdigest()
                 break
         vidx = vidx + 1
 
