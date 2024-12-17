@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 // Based on DAGCBORDecode.sol from filecoin-solidity by Zondax AG (Apache 2.0 license)
 
 import {console} from "forge-std/console.sol";
