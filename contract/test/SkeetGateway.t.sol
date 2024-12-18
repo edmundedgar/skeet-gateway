@@ -14,6 +14,7 @@ contract SkeetGatewayTest is Test {
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
 
     struct SkeetProof {
+        uint8 botNameLength;
         bytes commitNode;
         bytes[] content;
         string did;
@@ -122,9 +123,8 @@ contract SkeetGatewayTest is Test {
 
         assertEq(address(gateway.signerSafes(expectedSigner)), address(0), "Safe not created yet");
 
-        uint8 botLength = 20; // bbs.blah.example.com
         gateway.handleSkeet(
-            proof.content, botLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
+            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
         );
 
         address createdSafe = address(gateway.signerSafes(expectedSigner));
