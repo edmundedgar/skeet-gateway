@@ -66,7 +66,7 @@ endpoint = None
 output = {
     "botNameLength": None,
     "commitNode": None,
-    "content": None,
+    "content": [],
     "did": did,
     "nodes": [],
     "nodeHints": [],
@@ -140,7 +140,10 @@ with open(car_file, mode="rb") as cf:
             bot_name_length = len(bot_name) -1
             if bot_name_length == 0 or bot_name_length > 100:
                 raise Exception("Bot name "+ bot_name + " is not the expected length")
-            output['content'] = "0x"+libipld.encode_dag_cbor(b).hex()
+            # Currently we only use 1 entry for content, the node with the text in it.
+            # However we use an array as in future we may want to support other entries
+            # In particularly we may want to pass the skeet we are replying to
+            output['content'] = ["0x"+libipld.encode_dag_cbor(b).hex()]
             output['botNameLength'] = bot_name_length
         elif i == len(car_file.blocks)-1:
             tip_node = b
