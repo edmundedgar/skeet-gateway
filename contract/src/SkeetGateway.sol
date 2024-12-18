@@ -77,12 +77,12 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @return target The contract to call from the user's smart wallet
     /// @return value The value to send from the user's smart wallet
     /// @return botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
-    function _parsePayload(bytes calldata content, uint8 botNameLength)
+    function _parsePayload(bytes[] calldata content, uint8 botNameLength)
         internal
         view
         returns (address, uint256 value, bytes memory)
     {
-        bytes calldata message = _parseMessageCBOR(content);
+        bytes calldata message = _parseMessageCBOR(content[0]);
         require(bytes1(message[0:1]) == bytes1(hex"40"), "Message should begin with @");
         // Look up the bot name which should be in the first <256 bytes of the message followed by a space
         address bot = bots[keccak256(message[1:1 + botNameLength])].parser;
@@ -132,7 +132,7 @@ contract SkeetGateway is AtprotoMSTProver {
     }
 
     /// @notice Perform some action on behalf of the sender of a skeet
-    /// @param content A data node containing a skeet
+    /// @param content A content node containing a skeet, with an optional extra one containing reply context
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
     /// @param nodes An array of CBOR-encoded tree nodes, ending in the root node for the MST
     /// @param nodeHints An array of indexes to help the verifier find the relevant data in the tree nodes
@@ -141,7 +141,7 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param _r The r parameter of the signature
     /// @param _s The s parameter of the signature
     function handleSkeet(
-        bytes calldata content,
+        bytes[] calldata content,
         uint8 botNameLength,
         bytes[] calldata nodes,
         uint256[] calldata nodeHints,
@@ -151,7 +151,7 @@ contract SkeetGateway is AtprotoMSTProver {
         bytes32 _s
     ) external {
         {
-            bytes32 target = sha256(abi.encodePacked(content));
+            bytes32 target = sha256(abi.encodePacked(content[0]));
             (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
             // TODO: Add replay protection
             require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
@@ -170,7 +170,7 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param signer The user on whose behalf an action will be taken
     /// @param content A data node containing a skeet
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
-    function executePayload(address signer, bytes calldata content, uint8 botNameLength) internal {
+    function executePayload(address signer, bytes[] calldata content, uint8 botNameLength) internal {
         require(signer != address(0), "Signer should not be empty");
 
         // Every user action will be done in the context of their smart contract wallet.
@@ -189,6 +189,6 @@ contract SkeetGateway is AtprotoMSTProver {
         // The user's smart wallet should recognize this contract as their owner and execute what we send it.
         // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
         signerSafes[signer].executeOwnerCall(to, value, payloadData);
-        emit LogExecutePayload(signer, to, value, payloadData, string(content));
+        emit LogExecutePayload(signer, to, value, payloadData, string(content[0]));
     }
 }

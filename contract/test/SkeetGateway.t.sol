@@ -15,7 +15,7 @@ contract SkeetGatewayTest is Test {
 
     struct SkeetProof {
         bytes commitNode;
-        bytes content;
+        bytes[] content;
         string did;
         uint256[] nodeHints;
         bytes[] nodes;
@@ -56,7 +56,7 @@ contract SkeetGatewayTest is Test {
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
         // Check the value is in the node at the tip and recover the rkey
-        (, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
+        (, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
         string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
     }
@@ -67,7 +67,7 @@ contract SkeetGatewayTest is Test {
         bytes memory data = vm.parseJson(json);
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
-        (bytes32 rootHash,) = gateway.merkleProvenRootHash(sha256(proof.content), proof.nodes, proof.nodeHints);
+        (bytes32 rootHash,) = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
         gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
     }
 

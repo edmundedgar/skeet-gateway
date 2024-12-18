@@ -10,7 +10,7 @@ contract SendPayload is Script {
     struct SkeetProof {
         uint8 botNameLength;
         bytes commitNode;
-        bytes content;
+        bytes[] content;
         string did;
         uint256[] nodeHints;
         bytes[] nodes;
