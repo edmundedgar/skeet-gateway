@@ -23,39 +23,39 @@ pragma solidity ^0.8.13;
 import {DagCborNavigator} from "./DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
-bytes1 constant CBOR_NULL_1 = hex"f6";
+bytes1 constant CBOR_NULL_1B = hex"f6";
 
-bytes1 constant CBOR_MAPPING_2_ENTRIES_1 = hex"a2"; // tree node has 2 fields
-bytes1 constant CBOR_MAPPING_4_ENTRIES_1 = hex"a4"; // tree node entry field has 4 fields
-bytes1 constant CBOR_MAPPING_5_ENTRIES_1 = hex"a5"; // sig node has 5 fields when unsigned
-bytes1 constant CBOR_MAPPING_15_ENTRIES_1 = hex"af"; // data node has 4 to 5 fields but they might increase it
+bytes1 constant CBOR_MAPPING_2_ENTRIES_1B = hex"a2"; // tree node has 2 fields
+bytes1 constant CBOR_MAPPING_4_ENTRIES_1B = hex"a4"; // tree node entry field has 4 fields
+bytes1 constant CBOR_MAPPING_5_ENTRIES_1B = hex"a5"; // sig node has 5 fields when unsigned
+bytes1 constant CBOR_MAPPING_15_ENTRIES_1B = hex"af"; // data node has 4 to 5 fields but they might increase it
 
 // For performance reasons we search for fieldnames by their encoded bytes starting with the CBOR header byte
 // eg "did" is encoded with 63 (CBOR for 3-byte text) followed by 646964 ("did" in UTF-8).
 
 // Tree nodes contain e and l
-bytes2 constant CBOR_HEADER_E_2 = bytes2(hex"6165");
-bytes2 constant CBOR_HEADER_L_2 = bytes2(hex"616c");
-bytes3 constant CBOR_HEADER_L_NULL_3 = bytes3(hex"616cf6"); // l followed by a null
+bytes2 constant CBOR_HEADER_E_2B = bytes2(hex"6165");
+bytes2 constant CBOR_HEADER_L_2B = bytes2(hex"616c");
+bytes3 constant CBOR_HEADER_L_NULL_3B = bytes3(hex"616cf6"); // l followed by a null
 
 // e contains k, p, t, v
-bytes2 constant CBOR_HEADER_K_2 = bytes2(hex"616b");
-bytes2 constant CBOR_HEADER_P_2 = bytes2(hex"6170");
-bytes2 constant CBOR_HEADER_T_2 = bytes2(hex"6174");
-bytes2 constant CBOR_HEADER_V_2 = bytes2(hex"6176");
+bytes2 constant CBOR_HEADER_K_2B = bytes2(hex"616b");
+bytes2 constant CBOR_HEADER_P_2B = bytes2(hex"6170");
+bytes2 constant CBOR_HEADER_T_2B = bytes2(hex"6174");
+bytes2 constant CBOR_HEADER_V_2B = bytes2(hex"6176");
 
 // commit nodes contain did, rev, data, prev and version (which must be 3)
-bytes4 constant CBOR_HEADER_DID_4 = bytes4(hex"63646964"); // text, did
-bytes4 constant CBOR_HEADER_REV_4 = bytes4(hex"63726576"); // text, rev
-bytes5 constant CBOR_HEADER_DATA_5 = bytes5(hex"6464617461"); // text, data
-bytes5 constant CBOR_HEADER_PREV_5 = bytes5(hex"6470726576"); // text, prev
-bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_9_9 = bytes9(hex"6776657273696f6e03"); // text, version, 3
+bytes4 constant CBOR_HEADER_DID_4B = bytes4(hex"63646964"); // text, did
+bytes4 constant CBOR_HEADER_REV_4B = bytes4(hex"63726576"); // text, rev
+bytes5 constant CBOR_HEADER_DATA_5B = bytes5(hex"6464617461"); // text, data
+bytes5 constant CBOR_HEADER_PREV_5B = bytes5(hex"6470726576"); // text, prev
+bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_3_9B = bytes9(hex"6776657273696f6e03"); // text, version, 3
 
 // content cbor contains text
-bytes5 constant CBOR_HEADER_TEXT_5 = bytes5(hex"6474657874"); // text, "text"
+bytes5 constant CBOR_HEADER_TEXT_5B = bytes5(hex"6474657874"); // text, "text"
 
 // CID IDs are 32-byte hashes which we will find preceded by some special CBOR tag data then the multibyte prefix
-bytes9 constant CID_PREFIX_BYTES_9 = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
+bytes9 constant CID_PREFIX_BYTES_9B = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
 uint256 constant CID_HASH_LENGTH = 32;
 
 abstract contract AtprotoMSTProver {
@@ -89,15 +89,15 @@ abstract contract AtprotoMSTProver {
         // We only care about 1, the text, which we expect to come first.
         // We'll sanity-check that the range is somewhere from 2 to 15.
         bytes1 mappingByte = bytes1(content[cursor:cursor + 1]);
-        assert(uint8(mappingByte) >= uint8(CBOR_MAPPING_2_ENTRIES_1));
-        assert(uint8(mappingByte) <= uint8(CBOR_MAPPING_15_ENTRIES_1));
+        assert(uint8(mappingByte) >= uint8(CBOR_MAPPING_2_ENTRIES_1B));
+        assert(uint8(mappingByte) <= uint8(CBOR_MAPPING_15_ENTRIES_1B));
         cursor = 1;
 
         // Extract the message from the CBOR
         // This is in the "text" field
         // This always seems to be at the start of the message (because "text" is a fairly short key)
         // But in theory there could be other things ahead of it
-        cursor = DagCborNavigator.indexOfMappingField(content, bytes.concat(CBOR_HEADER_TEXT_5), cursor);
+        cursor = DagCborNavigator.indexOfMappingField(content, bytes.concat(CBOR_HEADER_TEXT_5B), cursor);
         (, nextLen, cursor) = DagCborNavigator.parseCborHeader(content, cursor);
         bytes calldata message = content[cursor:cursor + nextLen];
         return message;
@@ -112,39 +112,39 @@ abstract contract AtprotoMSTProver {
 
         // The unsigned commit node has 5 entries.
         // A 6th entry, "sig", is added later by hashing the unsigned, 5-entry version.
-        assert(bytes1(commitNode[cursor:cursor + 1]) == CBOR_MAPPING_5_ENTRIES_1);
+        assert(bytes1(commitNode[cursor:cursor + 1]) == CBOR_MAPPING_5_ENTRIES_1B);
         cursor = 1;
 
-        assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4);
+        assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4B);
         cursor = cursor + 4;
         (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
         cursor = cursor + extra;
 
-        assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4);
+        assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4B);
         cursor = cursor + 4;
         (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
         cursor = cursor + extra;
 
-        assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5);
+        assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5B);
         cursor = cursor + 5;
-        assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+        assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
         cursor = cursor + 9;
         require(
             bytes32(commitNode[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Data field does not contain expected hash"
         );
         cursor = cursor + CID_HASH_LENGTH;
 
-        assert(bytes5(commitNode[cursor:cursor + 5]) == CBOR_HEADER_PREV_5);
+        assert(bytes5(commitNode[cursor:cursor + 5]) == CBOR_HEADER_PREV_5B);
         cursor = cursor + 5;
-        if (bytes1(commitNode[cursor:cursor + 1]) == CBOR_NULL_1) {
+        if (bytes1(commitNode[cursor:cursor + 1]) == CBOR_NULL_1B) {
             cursor = cursor + 1;
         } else {
-            assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+            assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
             cursor = cursor + 9;
             cursor = cursor + CID_HASH_LENGTH; // cid we don't care about
         }
 
-        require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_9_9, "v3 field not found"); // text "version" 3
+        require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_3_9B, "v3 field not found"); // text "version" 3
     }
 
     /// @notice Verify the path from the hash of the node provided (index 0) up towards the root, to the final node provided.
@@ -186,7 +186,7 @@ abstract contract AtprotoMSTProver {
             uint256 cursor;
 
             // mapping byte for 2 entries, k and e
-            assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1);
+            assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
             cursor = cursor + 1;
 
             // Optimization to avoid looping through entries advancing the cursor unnecessarily:
@@ -199,11 +199,11 @@ abstract contract AtprotoMSTProver {
             // If we run with the asserts() removed it only saves 12531 gas which may not be worth the complexity.
             if (n > 0 && hint == 0) {
                 uint256 lastByte = nodes[n].length;
-                if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3)) {
+                if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3B)) {
                     require(bytes32(nodes[n][lastByte - 32:lastByte]) == proveMe, "l value mismatch");
-                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9));
+                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B));
                     require(
-                        bytes2(nodes[n][lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2,
+                        bytes2(nodes[n][lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B,
                         "l prefix mismatch"
                     );
                     proveMe = sha256(nodes[n]);
@@ -211,7 +211,7 @@ abstract contract AtprotoMSTProver {
                 }
             }
 
-            assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2);
+            assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2B);
             cursor = cursor + 2;
             (, numEntries, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // e array header
 
@@ -224,7 +224,7 @@ abstract contract AtprotoMSTProver {
 
             for (uint256 i = 0; i < numEntries; i++) {
                 // mapping byte for a mapping with 4 keys
-                assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1);
+                assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
                 cursor = cursor + 1;
 
                 // For the first node, which contains information about the skeet, we also need the record key (k) in the relevant entry.
@@ -232,14 +232,14 @@ abstract contract AtprotoMSTProver {
                 // For all later nodes we can ignore the value but we still have to check the field lengths to know how far to advance the cursor.
 
                 if (n == 0) {
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
+                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2B);
                     cursor = cursor + 2;
 
                     (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
                     string memory kval = string(nodes[n][cursor:cursor + extra]);
                     cursor = cursor + extra;
 
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
+                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2B);
                     cursor = cursor + 2;
                     // p is an int so there is no payload and the "extra" denotes the value not the length,
                     // Since there is no payload we don't advance the cursor beyond what parseCborHeader told us
@@ -256,27 +256,27 @@ abstract contract AtprotoMSTProver {
                         rkey = string.concat(oldr, kval);
                     }
                 } else {
-                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2);
+                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2B);
                     cursor = cursor + 2;
 
                     // Variable-length string
                     (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
                     cursor = cursor + extra;
 
-                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2);
+                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2B);
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
                     (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
                 }
 
-                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2);
+                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2B);
                 cursor = cursor + 2;
 
-                if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1) {
+                if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1B) {
                     cursor = cursor + 1;
                 } else {
-                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
                     cursor = cursor + 9;
 
                     // Our 32 bytes
@@ -291,10 +291,10 @@ abstract contract AtprotoMSTProver {
                 }
 
                 // non-nullable v
-                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_V_2);
+                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_V_2B);
                 cursor = cursor + 2;
 
-                ///assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+                ///assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
                 cursor = cursor + 9;
 
                 // 32 bytes that we only care about if it's the winning entry of the data node (node 0)
@@ -310,13 +310,13 @@ abstract contract AtprotoMSTProver {
             // The l field is at the end so we only care about it if we actually want to read it
             if (hint == 0) {
                 require(n > 0, "You should not be reading an l value for the node at the tip");
-                assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_L_2);
+                assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_L_2B);
                 cursor = cursor + 2;
 
-                if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1) {
+                if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1B) {
                     cursor = cursor + 1;
                 } else {
-                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9);
+                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
                     cursor = cursor + 9;
 
                     // Our 32 bytes
