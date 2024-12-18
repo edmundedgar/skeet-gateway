@@ -82,14 +82,18 @@ contract SkeetGateway is AtprotoMSTProver {
         view
         returns (address, uint256 value, bytes memory)
     {
-        bytes calldata message = _parseMessageCBOR(content[0]);
+        uint256 textStart;
+        uint256 textEnd;
+        (textStart, textEnd) = indexOfMessageText(content[0]);
+        bytes calldata message = content[0][textStart:textEnd];
         require(bytes1(message[0:1]) == bytes1(hex"40"), "Message should begin with @");
+
         // Look up the bot name which should be in the first <256 bytes of the message followed by a space
         address bot = bots[keccak256(message[1:1 + botNameLength])].parser;
         require(address(bot) != address(0), "Bot not found");
         require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
-        return IMessageParser(bot).parseMessage(message[1 + botNameLength + 1:]);
+        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd);
     }
 
     /// @notice Predict the address that the specified signer will be assigned if they make a SignerSafe

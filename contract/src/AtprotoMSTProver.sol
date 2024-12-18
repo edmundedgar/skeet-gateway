@@ -79,8 +79,9 @@ abstract contract AtprotoMSTProver {
 
     /// @notice Parse the content CBOR and return the value of the "text" field
     /// @param content The CBOR-encoded content whose value we want
-    /// @return The value of the text field
-    function _parseMessageCBOR(bytes calldata content) internal pure returns (bytes calldata) {
+    /// @return The start of the text field
+    /// @return The end of the text field
+    function indexOfMessageText(bytes calldata content) internal pure returns (uint256, uint256) {
         uint256 cursor;
         uint256 nextLen;
 
@@ -99,8 +100,7 @@ abstract contract AtprotoMSTProver {
         // But in theory there could be other things ahead of it
         cursor = DagCborNavigator.indexOfMappingField(content, bytes.concat(CBOR_HEADER_TEXT_5B), cursor);
         (, nextLen, cursor) = DagCborNavigator.parseCborHeader(content, cursor);
-        bytes calldata message = content[cursor:cursor + nextLen];
-        return message;
+        return (cursor, cursor + nextLen);
     }
 
     /// @notice Check that the supplied commit node includes the supplied root hash, or revert if it doesn't.
