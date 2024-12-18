@@ -4,9 +4,9 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
-import {IMessageParser} from "../src/IMessageParser.sol";
-import {BBSMessageParser} from "../src/BBSMessageParser.sol";
-import {BBS} from "../src/BBS.sol";
+import {IMessageParser} from "../src/parsers/IMessageParser.sol";
+import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
+import {BBS} from "../src/parsers/bbs/BBS.sol";
 import {console} from "forge-std/console.sol";
 
 contract SkeetGatewayTest is Test {

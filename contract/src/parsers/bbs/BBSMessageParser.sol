@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import {IMessageParser} from "./IMessageParser.sol";
+import {IMessageParser} from "../IMessageParser.sol";
 import {BBS} from "./BBS.sol";
 
 contract BBSMessageParser is IMessageParser {

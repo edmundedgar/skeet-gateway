@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {AtprotoMSTProver} from "../src/AtprotoMSTProver.sol";
 import {SignerSafe} from "../src/SignerSafe.sol";
-import {IMessageParser} from "../src/IMessageParser.sol";
+import {IMessageParser} from "../src/parsers/IMessageParser.sol";
 import {console} from "forge-std/console.sol";
 
 contract SkeetGateway is AtprotoMSTProver {

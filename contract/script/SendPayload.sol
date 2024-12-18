@@ -3,8 +3,8 @@ pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
-import {BBS} from "../src/BBS.sol";
-import {BBSMessageParser} from "../src/BBSMessageParser.sol";
+import {BBS} from "../src/parsers/bbs/BBS.sol";
+import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 
 contract SendPayload is Script {
     struct SkeetProof {
