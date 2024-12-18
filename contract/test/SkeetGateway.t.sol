@@ -36,7 +36,7 @@ contract SkeetGatewayTest is Test {
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
         assertEq(gateway.owner(), address(this), "We own it on deploy");
         gateway.addDomain("blah2.example.com", address(bbsParser)); // We can still add the domain
-        (address alice, uint256 alicePk) = makeAddrAndKey("alice");
+        (address alice, ) = makeAddrAndKey("alice");
         gateway.changeOwner(alice);
         vm.expectRevert();
         gateway.addDomain("blah3.example.com", address(bbsParser));
