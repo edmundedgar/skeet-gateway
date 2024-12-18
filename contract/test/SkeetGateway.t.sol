@@ -32,6 +32,16 @@ contract SkeetGatewayTest is Test {
         gateway.addBot("bbs", "blah.example.com", address(bbsParser));
     }
 
+    function testChangeOwner() public {
+        BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
+        assertEq(gateway.owner(), address(this), "We own it on deploy");
+        gateway.addDomain("blah2.example.com", address(bbsParser)); // We can still add the domain
+        (address alice, uint256 alicePk) = makeAddrAndKey("alice");
+        gateway.changeOwner(alice);
+        vm.expectRevert();
+        gateway.addDomain("blah3.example.com", address(bbsParser));
+    }
+
     function testMerkleProvenRootHash() public view {
         // Given a hash of the content cbor, crawl up the tree and give me a root hash that I expect to find in the Sig Node
         // For each record we should have a hint which is either:

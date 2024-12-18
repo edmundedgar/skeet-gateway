@@ -19,7 +19,7 @@ contract SkeetGateway is AtprotoMSTProver {
 
     // The owner has only one single privileged role, the ability to add a domain and assign it to an administrator.
     // If you own a domain, you have the ability to register bots under that domain.
-    address owner;
+    address public owner;
     mapping(bytes32 => address) public domainOwners;
 
     // We maintain a list of smart wallets that we create on behalf of users.
@@ -34,8 +34,19 @@ contract SkeetGateway is AtprotoMSTProver {
 
     event LogAddBot(address indexed parser, string domain, string subdomain);
 
+    event LogChangeOwner(address indexed owner);
+
     constructor() {
         owner = msg.sender;
+        emit LogChangeOwner(owner);
+    }
+
+    /// @notice Change the contract owner (who has the ability to add domains)
+    /// @param _owner The new owner of the contract
+    function changeOwner(address _owner) external {
+        require(msg.sender == owner, "Only the existing owner can change the owner");
+        owner = _owner;
+        emit LogChangeOwner(_owner);
     }
 
     /// @notice Add a domain, giving its owner the ability to register bots with usernames under it
