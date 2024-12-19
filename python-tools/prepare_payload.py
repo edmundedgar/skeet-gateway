@@ -24,24 +24,17 @@ OUT_DIR = './out'
 
 DID_DIRECTORY = 'https://plc.directory'
 
-if not os.path.exists(SKEET_CACHE):
-    os.mkdir(SKEET_CACHE)
+def fetchAtURIForPostURL(post_url):
 
-if len(sys.argv) < 2:
-    raise Exception("Usage: python prove_car.py <at://<did:plc:something>/app.bsky.feed.post/something>> ")
+    if not os.path.exists(SKEET_CACHE):
+        os.mkdir(SKEET_CACHE)
 
-at_addr = None
-
-# Secret feature: You can just past a bsky skeet URL in here and we'll get the at:// URL
-# If we get a post URL grab the at:// address 
-# It just scrapes the HTML so we don't have to futz with API keys so it will break one day without warning
-if sys.argv[1].startswith('https://bsky.app'):
     skeet_file = SKEET_CACHE + '/' + hashlib.sha256(sys.argv[1].encode()).hexdigest()
     if os.path.exists(skeet_file):
         with open(skeet_file) as sf:
             at_addr = sf.read()
     else:
-        with urllib.request.urlopen(sys.argv[1]) as response:
+        with urllib.request.urlopen(post_url) as response:
             html = response.read()
             result = re.search('<link rel="alternate" href="(at:\/\/did:plc:.*?\/app.bsky.feed.post\/.*?)"', str(html))
             if result is None:
@@ -52,58 +45,55 @@ if sys.argv[1].startswith('https://bsky.app'):
             with open(skeet_file, mode='w') as sf:
                 sf.write(at_addr)
     print("Fetched at:// URI " + at_addr)
-else:
-    at_addr = sys.argv[1]
+    return at_addr
 
-m = re.match(r'^at:\/\/(did:plc:.*?)/app\.bsky\.feed\.post\/(.*)$', at_addr)
-did = m.group(1)
-rkey = m.group(2)
+def loadCar(did, rkey):
 
-endpoint = None
+    if not os.path.exists(OUT_DIR):
+        os.mkdir(OUT_DIR)
 
-# Output sorts keys alphabetically for compatibility with Forge json parsing.
-# The DID and rkey are only there to help keep track of things, they're not used by handleSkeet.
-output = {
-    "botNameLength": None,
-    "commitNode": None,
-    "content": [],
-    "did": did,
-    "nodes": [],
-    "nodeHints": [],
-    "r": None,
-    "rkey": rkey,
-    "s": None
-}
+    if not os.path.exists(CAR_CACHE):
+        os.mkdir(CAR_CACHE)
 
-if not os.path.exists(OUT_DIR):
-    os.mkdir(OUT_DIR)
+    if not os.path.exists(DID_CACHE):
+        os.mkdir(DID_CACHE)
 
-if not os.path.exists(CAR_CACHE):
-    os.mkdir(CAR_CACHE)
+    did_file = DID_CACHE+'/'+did
+    if not os.path.exists(did_file):
+        did_url = DID_DIRECTORY + '/' + did
+        urllib.request.urlretrieve(did_url, did_file)
 
-if not os.path.exists(DID_CACHE):
-    os.mkdir(DID_CACHE)
+    endpoint = None
+    with open(did_file, mode="r") as didf:
+        data = json.load(didf)
+        endpoint = data['service'][0]['serviceEndpoint']
 
-did_file = DID_CACHE+'/'+did
-if not os.path.exists(did_file):
-    did_url = DID_DIRECTORY + '/' + did
-    urllib.request.urlretrieve(did_url, did_file)
+    # NB You have to get the right endpoint here, BSky service won't tell you about other people's PDSes.
+    car_file = CAR_CACHE + '/' + did + '-' + rkey + '.car'
+    if not os.path.exists(car_file):
+        car_url = endpoint + '/xrpc/com.atproto.sync.getRecord?did='+did+'&collection=app.bsky.feed.post&rkey='+rkey
+        urllib.request.urlretrieve(car_url, car_file)
 
-with open(did_file, mode="r") as didf:
-    data = json.load(didf)
-    endpoint = data['service'][0]['serviceEndpoint']
+    with open(car_file, mode="rb") as cf:
+        contents = cf.read()
+        car_file = CAR.from_bytes(contents)
+        return car_file
 
-# NB You have to get the right endpoint here, BSky service won't tell you about other people's PDSes.
-car_file = CAR_CACHE + '/' + did + '-' + rkey + '.car'
-if not os.path.exists(car_file):
-    car_url = endpoint + '/xrpc/com.atproto.sync.getRecord?did='+did+'&collection=app.bsky.feed.post&rkey='+rkey
-    urllib.request.urlretrieve(car_url, car_file)
+def generatePayload(car_file):
 
-out_file = OUT_DIR + '/' + did + '-' + rkey + '.json'
-
-with open(car_file, mode="rb") as cf:
-    contents = cf.read()
-    car_file = CAR.from_bytes(contents)
+    # Output sorts keys alphabetically for compatibility with Forge json parsing.
+    # The DID and rkey are only there to help keep track of things, they're not used by handleSkeet.
+    output = {
+        "botNameLength": None,
+        "commitNode": None,
+        "content": [],
+        "did": did,
+        "nodes": [],
+        "nodeHints": [],
+        "r": None,
+        "rkey": rkey,
+        "s": None
+    }
 
     target_content = None
     tip_node = None
@@ -211,7 +201,34 @@ with open(car_file, mode="rb") as cf:
     if "0x"+commit_node['data'].hex() != "0x01711220" + prove_me:
         raise Exception("Sig node did not sign off on the expected root hash")
 
-with open(out_file, 'w', encoding='utf-8') as f:
-    json.dump(output, f, indent=4, sort_keys=True)
-    print("Output written to:")
-    print(out_file)
+    return output
+
+if __name__ == '__main__':
+
+    if len(sys.argv) < 2:
+        raise Exception("Usage: python prove_car.py <at://<did:plc:something>/app.bsky.feed.post/something>> ")
+
+    at_addr = None
+
+    # Secret feature: You can just past a bsky skeet URL in here and we'll get the at:// URL
+    # If we get a post URL grab the at:// address 
+    # It just scrapes the HTML so we don't have to futz with API keys so it will break one day without warning
+    if sys.argv[1].startswith('https://bsky.app'):
+        at_addr = fetchAtURIForPostURL(sys.argv[1])
+    else:
+        at_addr = sys.argv[1]
+
+    m = re.match(r'^at:\/\/(did:plc:.*?)/app\.bsky\.feed\.post\/(.*)$', at_addr)
+    did = m.group(1)
+    rkey = m.group(2)
+
+    car = loadCar(did, rkey)
+    output = generatePayload(car)
+
+    out_file = OUT_DIR + '/' + did + '-' + rkey + '.json'
+
+    with open(out_file, 'w', encoding='utf-8') as f:
+        json.dump(output, f, indent=4, sort_keys=True)
+        print("Output written to:")
+        print(out_file)
+
