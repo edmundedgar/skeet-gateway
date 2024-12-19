@@ -5,7 +5,6 @@ import {Vm} from "forge-std/Vm.sol";
 import {Test, console} from "forge-std/Test.sol";
 
 abstract contract SkeetProofLoader is Test {
-
     struct SkeetProof {
         uint8 botNameLength;
         bytes commitNode;
@@ -25,5 +24,4 @@ abstract contract SkeetProofLoader is Test {
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
         return proof;
     }
-
 }
