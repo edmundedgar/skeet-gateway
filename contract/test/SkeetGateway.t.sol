@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
+import {SkeetProofLoader} from "./SkeetProofLoader.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
 import {IMessageParser} from "../src/parsers/IMessageParser.sol";
@@ -9,21 +10,9 @@ import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 import {BBS} from "../src/parsers/bbs/BBS.sol";
 import {console} from "forge-std/console.sol";
 
-contract SkeetGatewayTest is Test {
+contract SkeetGatewayTest is Test, SkeetProofLoader {
     SkeetGateway public gateway;
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
-
-    struct SkeetProof {
-        uint8 botNameLength;
-        bytes commitNode;
-        bytes[] content;
-        string did;
-        uint256[] nodeHints;
-        bytes[] nodes;
-        bytes32 r;
-        string rkey;
-        bytes32 s;
-    }
 
     function setUp() public {
         gateway = new SkeetGateway();
@@ -51,10 +40,7 @@ contract SkeetGatewayTest is Test {
         // For other nodes (intermediate nodes):
         // - 0 for the l record
         // - index+1 for the e record where we should find our hash in the t field
-        string memory json =
-            vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));
-        bytes memory data = vm.parseJson(json);
-        SkeetProof memory proof = abi.decode(data, (SkeetProof));
+        SkeetProof memory proof = _loadProofFixture("bbs_address_is_this_thing_on.json");
 
         // Check the value is in the node at the tip and recover the rkey
         (, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
@@ -63,10 +49,7 @@ contract SkeetGatewayTest is Test {
     }
 
     function _testProvingFunctions(string memory fixtureName) internal view {
-        string memory fixture = string.concat("/test/fixtures/", fixtureName);
-        string memory json = vm.readFile(string.concat(vm.projectRoot(), fixture));
-        bytes memory data = vm.parseJson(json);
-        SkeetProof memory proof = abi.decode(data, (SkeetProof));
+        SkeetProof memory proof = _loadProofFixture(fixtureName);
 
         (bytes32 rootHash,) = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
         gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
@@ -92,10 +75,7 @@ contract SkeetGatewayTest is Test {
     }
 
     function testAssertCommitNodeContainsData() public {
-        string memory json =
-            vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_address_is_this_thing_on.json"));
-        bytes memory data = vm.parseJson(json);
-        SkeetProof memory proof = abi.decode(data, (SkeetProof));
+        SkeetProof memory proof = _loadProofFixture("bbs_address_is_this_thing_on.json");
 
         uint256 lastNode = proof.nodes.length - 1;
         bytes32 rootHash = sha256(proof.nodes[lastNode]);
@@ -109,9 +89,7 @@ contract SkeetGatewayTest is Test {
     function testActualSkeetBBSPost() public {
         vm.recordLogs();
 
-        string memory json = vm.readFile(string.concat(vm.projectRoot(), "/test/fixtures/bbs_blah_example_com.json"));
-        bytes memory data = vm.parseJson(json);
-        SkeetProof memory proof = abi.decode(data, (SkeetProof));
+        SkeetProof memory proof = _loadProofFixture("bbs_blah_example_com.json");
 
         address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s);
 
