@@ -8,6 +8,9 @@ contract SignerSafe {
         owner = msg.sender;
     }
 
+    receive() external payable {
+    }
+
     function executeOwnerCall(address to, uint256 value, bytes memory data) external {
         require(msg.sender == owner, "I can only be controlled by the SkeetGateway that created me");
         executeCall(to, value, data);
