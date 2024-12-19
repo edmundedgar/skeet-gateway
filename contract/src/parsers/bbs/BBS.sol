@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-event LogPostMessage(address indexed sender, string message);
-
 contract BBS {
+    event LogPostMessage(address indexed sender, string message);
+
     mapping(address => string) public messages;
 
     function postMessage(string memory message) external {
