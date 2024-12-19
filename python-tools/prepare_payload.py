@@ -24,7 +24,7 @@ OUT_DIR = './out'
 
 DID_DIRECTORY = 'https://plc.directory'
 
-def fetchAtURIForPostURL(post_url):
+def fetchAtURIForSkeetURL(skeet_url):
 
     if not os.path.exists(SKEET_CACHE):
         os.mkdir(SKEET_CACHE)
@@ -34,7 +34,7 @@ def fetchAtURIForPostURL(post_url):
         with open(skeet_file) as sf:
             at_addr = sf.read()
     else:
-        with urllib.request.urlopen(post_url) as response:
+        with urllib.request.urlopen(skeet_url) as response:
             html = response.read()
             result = re.search('<link rel="alternate" href="(at:\/\/did:plc:.*?\/app.bsky.feed.post\/.*?)"', str(html))
             if result is None:
@@ -214,7 +214,7 @@ if __name__ == '__main__':
     # If we get a post URL grab the at:// address 
     # It just scrapes the HTML so we don't have to futz with API keys so it will break one day without warning
     if sys.argv[1].startswith('https://bsky.app'):
-        at_addr = fetchAtURIForPostURL(sys.argv[1])
+        at_addr = fetchAtURIForSkeetURL(sys.argv[1])
     else:
         at_addr = sys.argv[1]
 
