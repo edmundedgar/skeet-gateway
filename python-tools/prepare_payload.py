@@ -24,6 +24,16 @@ OUT_DIR = './out'
 
 DID_DIRECTORY = 'https://plc.directory'
 
+# Returns whether or not the bot needs us to send it content of the skeet they're replying to.
+# Hard-coding this for now. 
+# Later we will probably add this information to the SkeetGateway contract.
+# (It shouldn't change so it should be cacheable after you meet each bot for the first time.)
+def isReplyParentContentNeededByBot(botName):
+    if botName == "@answerv1.bot.reality.eth":
+        return True
+    else:
+        return False
+
 def fetchAtURIForSkeetURL(skeet_url):
 
     if not os.path.exists(SKEET_CACHE):
@@ -79,7 +89,7 @@ def loadCar(did, rkey):
         car_file = CAR.from_bytes(contents)
         return car_file
 
-def generatePayload(car_file):
+def generatePayload(car_file, did, rkey):
 
     # Output sorts keys alphabetically for compatibility with Forge json parsing.
     # The DID and rkey are only there to help keep track of things, they're not used by handleSkeet.
@@ -135,6 +145,19 @@ def generatePayload(car_file):
             # In particularly we may want to pass the skeet we are replying to
             output['content'] = ["0x"+libipld.encode_dag_cbor(b).hex()]
             output['botNameLength'] = bot_name_length
+
+            if isReplyParentContentNeededByBot(bot_name):
+                if not 'reply' in b or not 'parent' in b['reply']:
+                    raise Exception("Bot " + bot_name + " needs the reply parent but none was found");
+                parent_cid = b['reply']['parent']['cid']
+                parent_uri = b['reply']['parent']['uri']
+                (parent_did, parent_rkey) = atURIToDidAndRkey(parent_uri)
+                parent_car = loadCar(parent_did, parent_rkey)
+                parent_block = parent_car.blocks[parent_cid]
+                if 'text' not in parent_car.blocks[parent_cid]:
+                    raise Exception("Post we replied to does not appear to contain text")
+                output['content'].append("0x"+libipld.encode_dag_cbor(parent_car.blocks[parent_cid]).hex())
+
         elif i == len(car_file.blocks)-1:
             tip_node = b
         else:
@@ -203,6 +226,12 @@ def generatePayload(car_file):
 
     return output
 
+def atURIToDidAndRkey(at_uri):
+    m = re.match(r'^at:\/\/(did:plc:.*?)/app\.bsky\.feed\.post\/(.*)$', at_uri)
+    did = m.group(1)
+    rkey = m.group(2)
+    return (did, rkey)
+
 if __name__ == '__main__':
 
     if len(sys.argv) < 2:
@@ -218,14 +247,12 @@ if __name__ == '__main__':
     else:
         at_addr = sys.argv[1]
 
-    m = re.match(r'^at:\/\/(did:plc:.*?)/app\.bsky\.feed\.post\/(.*)$', at_addr)
-    did = m.group(1)
-    rkey = m.group(2)
+    (param_did, param_rkey) = atURIToDidAndRkey(at_addr)
+    
+    car = loadCar(param_did, param_rkey)
+    output = generatePayload(car, param_did, param_rkey)
 
-    car = loadCar(did, rkey)
-    output = generatePayload(car)
-
-    out_file = OUT_DIR + '/' + did + '-' + rkey + '.json'
+    out_file = OUT_DIR + '/' + param_did + '-' + param_rkey + '.json'
 
     with open(out_file, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=4, sort_keys=True)
