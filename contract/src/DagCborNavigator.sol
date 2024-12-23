@@ -66,20 +66,27 @@ library DagCborNavigator {
         uint256 fieldStart; 
 
         (maj, numEntries, cursor) = parseCborHeader(cbor, cursor);
-        if (maj == 5) {
+        if (maj == 5 || maj == 4) {
             for (uint256 mf = 0; mf < numEntries; mf++) {
-                // Read the key
-                (, extra, cursor) = parseCborHeader(cbor, cursor);
+                // For a mapping we read the key
+                // For an array we just process the next index
+                if (maj == 5) {
+                    // Read the key
+                    (, extra, cursor) = parseCborHeader(cbor, cursor);
+                }
                 if (
                     sel.isKeyAny
-                        || (
+                        || ( maj == 4 && sel.arrayIndex == mf )
+                        || ( maj == 5 && 
                             extra == bytes(sel.fieldName).length
                                 && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldName))
                         )
                 ) {
-                    cursor = cursor + extra; // Advance to the end of the key
-                    // Found the field for this mapping.
-                    // Now see if the value passes our selector
+                    if (maj == 5) {
+                        cursor = cursor + extra; // Advance to the end of the key
+                    }
+
+                    // Now see if the entry passes our selector
                     // Stash the cursor in fieldStart in case we find it
                     // We won't return fieldStart unless we do
                     fieldStart = cursor;
@@ -109,41 +116,13 @@ library DagCborNavigator {
 
                 } else {
                     // Not the field yet, keep going
-                    cursor = cursor + extra; // Advance to the end of the key
+                    if (maj == 5) {
+                        cursor = cursor + extra; // Advance to the end of the key
+                    }
                     cursor = indexOfFieldPayloadEnd(cbor, cursor);
                 }
             }
-        } else if (maj == 4) {
-            if (!sel.isKeyAny && sel.arrayIndex > numEntries) {
-                return (0, cursor);
-            }
-            for (uint256 mf = 0; mf < numEntries; mf++) {
-                fieldStart = cursor;
-                if (sel.isKeyAny || sel.arrayIndex == mf) {
-                    (, extra, cursor) = parseCborHeader(cbor, cursor); // TODO: handle if this is an int
-                    if (
-                        sel.isValueAny
-                            || (
-                                extra == bytes(sel.fieldValue).length
-                                    && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldValue))
-                            )
-                    ) {
-                        if (currentLevel == 1) {
-                            return (fieldStart, cursor + extra);
-                        } else {
-                            //require(maj == 4 || maj == 5, "Can only recurse into an array or mapping");
-                            // got a match but we have more levels to try, so try the next match with this level removed
-                            (fieldStart, cursor) = firstMatch(cbor, selectors, currentLevel - 1, fieldStart);
-                            if (fieldStart > 0) {
-                                return (fieldStart, cursor);
-                            }
-                        }
-                    }
-                }
-                // If the key didn't match, jump to the end of the field, recursively if it's an arary
-                cursor = indexOfFieldPayloadEnd(cbor, cursor);
-            }
-        }
+        } 
         return (0, cursor);
     }
 
