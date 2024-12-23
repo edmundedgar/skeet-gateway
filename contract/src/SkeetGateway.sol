@@ -79,7 +79,6 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @return botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
     function _parsePayload(bytes[] calldata content, uint8 botNameLength)
         internal
-        view
         returns (address, uint256 value, bytes memory)
     {
         uint256 textStart;

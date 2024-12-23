@@ -12,7 +12,15 @@ bytes constant CBOR_HEADER_TYPE_6 = bytes(hex"652474797065"); // text, "$type"
 bytes constant CBOR_HEADER_VERSION_8 = bytes(hex"6776657273696f6e");
 bytes constant CBOR_HEADER_DATA_5 = bytes(hex"6464617461"); // text, data
 
+// Workaround for issues making forge handle calldata
 contract DagCborNavigatorClient {
+    function firstMatch(bytes calldata cbor, DagCborNavigator.DagCborSelector[] memory selector, uint256 currentLevel, uint256 cursor)
+        external
+        returns (uint256, uint256)
+    {
+        return DagCborNavigator.firstMatch(cbor, selector, currentLevel, cursor);
+    }
+
     function indexOfMappingField(bytes calldata cbor, bytes memory fieldHeader, uint256 cursor)
         external
         pure
@@ -27,6 +35,11 @@ contract DagCborNavigatorClient {
 
     function parseCborHeader(bytes calldata cbor, uint256 byteIndex) external pure returns (uint8, uint64, uint256) {
         return DagCborNavigator.parseCborHeader(cbor, byteIndex);
+    }
+
+    function logBytesSliceToString(bytes calldata cbor, uint256 start, uint256 end) public view {
+        console.logBytes(cbor[start:end]);
+        console.log(string(cbor[start:end]));
     }
 }
 
@@ -155,5 +168,180 @@ contract DagCborNavigatorTest is Test {
         uint256 expectIndex = cborWithCIDs.length - 1;
         uint256 index = client.indexOfMappingField(cborWithCIDs, CBOR_HEADER_VERSION_8, 1);
         assertEq(index, expectIndex);
+    }
+
+    function testMappingSelector() public {
+        // {"a": 1, "b": 2, "c": {"c1": 9, "c2": 9, "c3": 7}, "target": 123, "more": "data"}
+        // See cbor.me detail in testIndexOfMappingFieldSkippingInnerMapping
+
+        bytes memory nestedCbor =
+            hex"A56161016162026163A362633109626332096263330766746172676574187B646D6F72656464617461";
+        uint256 expectIndex = 29; // end of "target" text
+        uint256 index = client.indexOfMappingField(nestedCbor, bytes(hex"66746172676574"), 1);
+        assertEq(index, expectIndex);
+
+        uint256 foundCursor;
+
+        DagCborNavigator.DagCborSelector[] memory simpleSelector = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelector[0] = DagCborNavigator.createSelector("b");
+        (foundCursor, ) = client.firstMatch(nestedCbor, simpleSelector, 0, 0);
+        assertTrue(foundCursor > 0, "b index should be found");
+        assertEq(6, foundCursor, "Index 1 cursor should start where the b starts");
+
+        DagCborNavigator.DagCborSelector[] memory simpleSelectorC = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelectorC[0] = DagCborNavigator.createSelector("c");
+        (foundCursor, ) = client.firstMatch(nestedCbor, simpleSelectorC, 0, 0);
+        assertTrue(foundCursor > 0, "c index should be found");
+        //assertEq(9, start, "c index cursor should start where the c starts");
+
+    }
+
+    function testMappingSelectorAfterMapping() public {
+        // {"a": 1, "b": 2, "c": {"c1": 9, "c2": 9, "c3": 7}, "target": 123, "more": "data"}
+        // See cbor.me detail in testIndexOfMappingFieldSkippingInnerMapping
+
+        bytes memory nestedCbor =
+            hex"A56161016162026163A362633109626332096263330766746172676574187B646D6F72656464617461";
+
+        uint256 foundCursor;
+        DagCborNavigator.DagCborSelector[] memory simpleSelectorTarget = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelectorTarget[0] = DagCborNavigator.createSelector("target");
+        (foundCursor, ) = client.firstMatch(nestedCbor, simpleSelectorTarget, 0, 0);
+        assertTrue(foundCursor > 0, "target index should be found");
+        //assertEq(9, start, "c index cursor should start where the c starts");
+    }
+
+    function testArraySelector() public {
+        // 83            # array(3)
+        //    61         # text(1)
+        //       61      # "a"
+        //    61         # text(1)
+        //       62      # "b"
+        //    A1         # map(1)
+        //       61      # text(1)
+        //          63   # "c"
+        //       19 0141 # unsigned(321)"c"
+        //
+        bytes memory cbor = bytes(hex"8361616162a16163190141");
+
+        uint256 foundCursor;
+
+        DagCborNavigator.DagCborSelector[] memory simpleSelector = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelector[0] = DagCborNavigator.createSelector(1);
+        (foundCursor, ) = client.firstMatch(cbor, simpleSelector, 0, 0);
+        assertTrue(foundCursor > 0, "Index 1 should be found");
+        assertEq(3, foundCursor, "Index 1 cursor should start where the b header starts");
+
+        DagCborNavigator.DagCborSelector[] memory simpleSelector0 = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelector0[0] = DagCborNavigator.createSelector(0);
+        (foundCursor, ) = client.firstMatch(cbor, simpleSelector0, 0, 0);
+        assertTrue(foundCursor > 0, "Index 0 should be found");
+        assertEq(1, foundCursor, "Index 0 cursor should start where the a header starts");
+
+        DagCborNavigator.DagCborSelector[] memory simpleAnySelector = new DagCborNavigator.DagCborSelector[](1);
+        simpleAnySelector[0] = DagCborNavigator.createSelector();
+        (foundCursor, ) = client.firstMatch(cbor, simpleAnySelector, 0, 0);
+        assertTrue(foundCursor > 0, "Index 0 should be found");
+        assertEq(1, foundCursor, "Index 0 cursor should start where the a header starts");
+
+        DagCborNavigator.DagCborSelector[] memory indexValueSelector = new DagCborNavigator.DagCborSelector[](1);
+        indexValueSelector[0] = DagCborNavigator.createSelector(1, bytes("b"));
+        (foundCursor, ) = client.firstMatch(cbor, indexValueSelector, 0, 0);
+        assertTrue(foundCursor > 0, "Index 1 should be found");
+        assertEq(3, foundCursor, "Index 1 cursor should start where the b header starts");
+    }
+
+    function testMatchSelector() public {
+        bytes memory cbor = bytes(
+            hex"a56474657874782840616e7377657276312e626f742e7265616c6974792e6574682059657320302e3030303320455448652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e657265706c79a264726f6f74a263636964783b6261667972656964687134786f336e7534686b71733435347861787179723679766d65716577797365676c64756e6165616364333678716a71726563757269784661743a2f2f6469643a706c633a7534643576357a736c356a623279333376746668796a6f352f6170702e62736b792e666565642e706f73742f336c646f72747362693365323366706172656e74a263636964783b6261667972656964687134786f336e7534686b71733435347861787179723679766d65716577797365676c64756e6165616364333678716a71726563757269784661743a2f2f6469643a706c633a7534643576357a736c356a623279333376746668796a6f352f6170702e62736b792e666565642e706f73742f336c646f727473626933653233696372656174656441747818323032342d31322d31395432313a31333a32362e3936305a"
+        );
+
+        DagCborNavigator.DagCborSelector[] memory simpleSelector = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelector[0] = DagCborNavigator.createSelector("$type");
+        // field starts at 108/2
+        // title is 652474797065
+        uint256 foundCursor;
+        (foundCursor, ) = client.firstMatch(cbor, simpleSelector, 0, 0);
+        assertTrue(foundCursor > 0, "Found the match");
+        assertEq(54, foundCursor, "start not expected");
+
+        DagCborNavigator.DagCborSelector[] memory simpleMissingSelector = new DagCborNavigator.DagCborSelector[](1);
+        simpleMissingSelector[0] = DagCborNavigator.createSelector("pants");
+        (foundCursor, ) = client.firstMatch(cbor, simpleMissingSelector, 0, 0);
+        assertFalse(foundCursor > 0, "Absent selector returns false");
+
+        DagCborNavigator.DagCborSelector[] memory simpleAnyMappingSelector = new DagCborNavigator.DagCborSelector[](1);
+        simpleAnyMappingSelector[0] = DagCborNavigator.createSelector();
+        (foundCursor, ) = client.firstMatch(cbor, simpleAnyMappingSelector, 0, 0);
+        assertTrue(foundCursor > 0, "any mapping selector returns the text field");
+        assertEq(foundCursor, 1 + 1 + 4, "Any should match the text field");
+
+
+        DagCborNavigator.DagCborSelector[] memory badSelector = new DagCborNavigator.DagCborSelector[](3);
+        badSelector[0] = DagCborNavigator.createSelector("faucets");
+        badSelector[1] = DagCborNavigator.createSelector("features");
+        badSelector[2] = DagCborNavigator.createSelector("uri");
+
+        // max 22 key length
+        (foundCursor, ) = client.firstMatch(cbor, badSelector, 0, 0);
+        assertFalse(foundCursor > 0, "Nonsense match not found");
+    }
+
+    function testMultiSelector() public {
+        // {'text': 'Will this question show up on sepolia reality.eth?  #fe8880c...0229f78\n\n⇒Answer', '$type': 'app.bsky.feed.post', 'facets': [{'index': {'byteEnd': 81, 'byteStart': 71}, 'features': [{'uri': 'https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0xfe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': 'app.bsky.richtext.facet#link'}]}, {'index': {'byteEnd': 70, 'byteStart': 52}, 'features': [{'tag': 'fe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': app.bsky.richtext.facet#tag'}]}], 'createdAt': '2024-12-19T21:08:48.000Z'}
+        bytes memory cbor = bytes(
+            hex"a46474657874785157696c6c2074686973207175657374696f6e2073686f77207570206f6e207365706f6c6961207265616c6974792e6574683f202023666538383830632e2e2e303232396637380a0ae28792416e73776572652474797065726170702e62736b792e666565642e706f73746666616365747382a265696e646578a26762797465456e64185169627974655374617274184768666561747572657381a26375726978e568747470733a2f2f7265616c6974792e6574682e6c696e6b2f6170702f23212f6e6574776f726b2f31313135353131312f636f6e74726163742f3078616633336463623665386335633464396464663537396635333033316235313464313934343963612f746f6b656e2f4554482f7175657374696f6e2f3078616633336463623665386335633464396464663537396635333033316235313464313934343963612d307866653838383063663932313230646431356334656636643838393761373835326233303863666366623037343162636431383339353137626230323239663738652474797065781c6170702e62736b792e72696368746578742e6661636574236c696e6ba265696e646578a26762797465456e64184669627974655374617274183468666561747572657381a263746167784066653838383063663932313230646431356334656636643838393761373835326233303863666366623037343162636431383339353137626230323239663738652474797065781b6170702e62736b792e72696368746578742e666163657423746167696372656174656441747818323032342d31322d31395432313a30383a34382e3030305a"
+        );
+
+        // field starts at 108/2
+        // title is 652474797065
+        uint256 foundCursor;
+        uint256 end;
+
+        DagCborNavigator.DagCborSelector[] memory goodSelector = new DagCborNavigator.DagCborSelector[](5);
+        // mapping > facets > any item > features > any item > uri
+        goodSelector[0] = DagCborNavigator.createSelector("uri");
+        goodSelector[1] = DagCborNavigator.createSelector();
+        goodSelector[2] = DagCborNavigator.createSelector("features");
+        goodSelector[3] = DagCborNavigator.createSelector();
+        goodSelector[4] = DagCborNavigator.createSelector("facets");
+        // TODO: Maybe nicer to run this as an array of strings then create the selectors dynamically eg
+        //  ("facets", "*", "features", "*", "url=blah")
+
+        (foundCursor, end) = client.firstMatch(cbor, goodSelector, 0, 0);
+        assertTrue(foundCursor > 0, "Found the match");
+        //bytes memory uri = bytes(cbor[foundCursor:end]);
+        //console.log(string(uri));
+        uint64 extra;
+        uint256 cursor;
+        (,extra, cursor) = client.parseCborHeader(cbor, foundCursor);
+        // client.logBytesSliceToString(cbor, cursor, cursor+extra);
+
+    }
+
+    function testMultiSelector2() public {
+        // {'text': 'Will this question show up on sepolia reality.eth?  #fe8880c...0229f78\n\n⇒Answer', '$type': 'app.bsky.feed.post', 'facets': [{'index': {'byteEnd': 81, 'byteStart': 71}, 'features': [{'uri': 'https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0xfe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': 'app.bsky.richtext.facet#link'}]}, {'index': {'byteEnd': 70, 'byteStart': 52}, 'features': [{'tag': 'fe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': app.bsky.richtext.facet#tag'}]}], 'createdAt': '2024-12-19T21:08:48.000Z'}
+        bytes memory cbor = bytes(
+            hex"a46474657874785157696c6c2074686973207175657374696f6e2073686f77207570206f6e207365706f6c6961207265616c6974792e6574683f202023666538383830632e2e2e303232396637380a0ae28792416e73776572652474797065726170702e62736b792e666565642e706f73746666616365747382a265696e646578a26762797465456e64185169627974655374617274184768666561747572657381a26375726978e568747470733a2f2f7265616c6974792e6574682e6c696e6b2f6170702f23212f6e6574776f726b2f31313135353131312f636f6e74726163742f3078616633336463623665386335633464396464663537396635333033316235313464313934343963612f746f6b656e2f4554482f7175657374696f6e2f3078616633336463623665386335633464396464663537396635333033316235313464313934343963612d307866653838383063663932313230646431356334656636643838393761373835326233303863666366623037343162636431383339353137626230323239663738652474797065781c6170702e62736b792e72696368746578742e6661636574236c696e6ba265696e646578a26762797465456e64184669627974655374617274183468666561747572657381a263746167784066653838383063663932313230646431356334656636643838393761373835326233303863666366623037343162636431383339353137626230323239663738652474797065781b6170702e62736b792e72696368746578742e666163657423746167696372656174656441747818323032342d31322d31395432313a30383a34382e3030305a"
+        );
+
+        uint256 foundCursor;
+        uint256 end;
+
+        DagCborNavigator.DagCborSelector[] memory goodSelector = new DagCborNavigator.DagCborSelector[](5);
+        // mapping > facets > any item > features > any item > uri
+        goodSelector[0] = DagCborNavigator.createSelector("tag");
+        goodSelector[1] = DagCborNavigator.createSelector();
+        goodSelector[2] = DagCborNavigator.createSelector("features");
+        goodSelector[3] = DagCborNavigator.createSelector();
+        goodSelector[4] = DagCborNavigator.createSelector("facets");
+
+        (foundCursor, end) = client.firstMatch(cbor, goodSelector, 0, 0);
+        //assertTrue(foundCursor > 0, "Found the match");
+        //bytes memory uri = bytes(cbor[foundCursor:end]);
+        //console.log(string(uri));
+        //(,uint256 cursor,) = client.parseCborHeader(cbor, foundCursor);
+        //client.logBytesSliceToString(cbor, foundCursor, end);
+
     }
 }

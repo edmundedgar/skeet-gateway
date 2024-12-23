@@ -8,6 +8,145 @@ pragma solidity ^0.8.17;
 /// @notice This library provides functions to find data inside DAG-CBOR-encoded calldata
 /// @author Edmund Edgar
 library DagCborNavigator {
+
+    // Each level in the tree gets a selector consisting of a key/index (which may be empty to try all),
+    //  mapping text: "oink" | array 3: "oink"
+
+    struct DagCborSelector {
+        string fieldName; // empty string denotes "any key"
+        uint256 arrayIndex; // max uint256 denotes "any entry indexes"
+        bytes fieldValue;
+        bool isKeyAny;
+        bool isValueAny;
+    }
+
+    function createSelector(string memory fieldName) external pure returns (DagCborSelector memory) {
+        return DagCborSelector(fieldName, 0, bytes(hex""), false, true);
+    }
+
+    function createSelector(uint256 idx) external pure returns (DagCborSelector memory) {
+        return DagCborSelector("", idx, bytes(hex""), false, true);
+    }
+
+    function createSelector() external pure returns (DagCborSelector memory) {
+        return DagCborSelector("", 0, bytes(hex""), true, true);
+    }
+
+    function createSelector(uint256 idx, bytes memory fieldValue) external pure returns (DagCborSelector memory) {
+        return DagCborSelector("", idx, fieldValue, false, false);
+    }
+
+    function createSelector(string memory fieldName, string memory fieldValue)
+        external
+        pure
+        returns (DagCborSelector memory)
+    {
+        return DagCborSelector(fieldName, 0, bytes(fieldValue), false, false);
+    }
+
+    // Runs through nested arrays and mappings in cbor and finds the first entry matching the selector, then returns its start and end
+    // If not found, start will return 0 and end will return the cursor where it ended up
+    function firstMatch(bytes calldata cbor, DagCborSelector[] memory selectors, uint256 currentLevel, uint256 cursor)
+        public 
+        returns (uint256, uint256)
+    {
+        uint64 extra;
+
+        // Initialize at zero when the user calls us, then decrease each time and return when we hit 1
+        if (currentLevel == 0) {
+            currentLevel = selectors.length;
+        }
+
+        DagCborSelector memory sel = selectors[currentLevel - 1];
+        uint8 maj;
+        uint256 numEntries;
+
+        // 0 means not found
+        // (it cannot be 0 if found because of the mapping/array header)
+        uint256 fieldStart; 
+
+        (maj, numEntries, cursor) = parseCborHeader(cbor, cursor);
+        if (maj == 5) {
+            for (uint256 mf = 0; mf < numEntries; mf++) {
+                // Read the key
+                (, extra, cursor) = parseCborHeader(cbor, cursor);
+                if (
+                    sel.isKeyAny
+                        || (
+                            extra == bytes(sel.fieldName).length
+                                && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldName))
+                        )
+                ) {
+                    cursor = cursor + extra; // Advance to the end of the key
+                    // Found the field for this mapping.
+                    // Now see if the value passes our selector
+                    // Stash the cursor in fieldStart in case we find it
+                    // We won't return fieldStart unless we do
+                    fieldStart = cursor;
+                    (, extra, cursor) = parseCborHeader(cbor, cursor);
+                    if (
+                        sel.isValueAny
+                            || (
+                                extra == bytes(sel.fieldValue).length
+                                    && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldValue))
+                            )
+                    ) {
+                        if (currentLevel == 1) {
+                            // got to the bottom and this is our value
+                            // TODO: Handle if this is an int and we want the extra
+                            return (fieldStart, cursor + extra);
+                        } else {
+                            // require(maj == 4 || maj == 5, "Can only recurse into an array or mapping");
+                            // got a match but we have more levels to try, so try the next match with this level removed
+                            (fieldStart, cursor) = firstMatch(cbor, selectors, currentLevel - 1, fieldStart);
+                            if (fieldStart > 0) {
+                                return (fieldStart, cursor);
+                            }
+                        }
+                    } else {
+                        cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                    }
+
+                } else {
+                    // Not the field yet, keep going
+                    cursor = cursor + extra; // Advance to the end of the key
+                    cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                }
+            }
+        } else if (maj == 4) {
+            if (!sel.isKeyAny && sel.arrayIndex > numEntries) {
+                return (0, cursor);
+            }
+            for (uint256 mf = 0; mf < numEntries; mf++) {
+                fieldStart = cursor;
+                if (sel.isKeyAny || sel.arrayIndex == mf) {
+                    (, extra, cursor) = parseCborHeader(cbor, cursor); // TODO: handle if this is an int
+                    if (
+                        sel.isValueAny
+                            || (
+                                extra == bytes(sel.fieldValue).length
+                                    && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldValue))
+                            )
+                    ) {
+                        if (currentLevel == 1) {
+                            return (fieldStart, cursor + extra);
+                        } else {
+                            //require(maj == 4 || maj == 5, "Can only recurse into an array or mapping");
+                            // got a match but we have more levels to try, so try the next match with this level removed
+                            (fieldStart, cursor) = firstMatch(cbor, selectors, currentLevel - 1, fieldStart);
+                            if (fieldStart > 0) {
+                                return (fieldStart, cursor);
+                            }
+                        }
+                    }
+                }
+                // If the key didn't match, jump to the end of the field, recursively if it's an arary
+                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+            }
+        }
+        return (0, cursor);
+    }
+
     /// @notice Return the index of the value of the named field inside a mapping
     /// @param cbor encoded mapping content (data must end when the mapping does)
     /// @param fieldHeader The field you want to read

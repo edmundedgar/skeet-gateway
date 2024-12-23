@@ -157,6 +157,8 @@ def generatePayload(car_file, did, rkey):
                 if 'text' not in parent_car.blocks[parent_cid]:
                     raise Exception("Post we replied to does not appear to contain text")
                 output['content'].append("0x"+libipld.encode_dag_cbor(parent_car.blocks[parent_cid]).hex())
+                print("Added reply parent:")
+                print(parent_block)
 
         elif i == len(car_file.blocks)-1:
             tip_node = b

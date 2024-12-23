@@ -61,7 +61,6 @@ contract PayMessageParser is IMessageParser {
 
     function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
         external
-        pure
         returns (address, uint256 value, bytes memory)
     {
         bytes calldata message = content[0][messageStart:messageEnd];
@@ -86,7 +85,7 @@ contract PayMessageParser is IMessageParser {
 
         // NB If you set a longer symbol than 4 bytes for NATIVE_TOKEN_SYMBOL you need to change the bytes4:
         require(
-            bytes4(message[cursor:cursor + bytes(NATIVE_TOKEN_SYMBOL).length]) == bytes5(bytes(NATIVE_TOKEN_SYMBOL)),
+            bytes4(message[cursor:cursor + bytes(NATIVE_TOKEN_SYMBOL).length]) == bytes4(bytes(NATIVE_TOKEN_SYMBOL)),
             "Must specify correct token"
         );
         require(decimals <= NATIVE_TOKEN_DECIMALS, "Too many decimals");

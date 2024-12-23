@@ -24,6 +24,8 @@ forge script --chain sepolia script/DeploySkeetGateway.sol --private-key $PRIVAT
 
 This will make a deployment with a single initial bot (BBS bot) at `bbs.unconsensus.com`.
 
+Other commands reference the gateway so you may want to set the environmental variable $SKEET_GATEWAY to its address.
+
 ## Usage
 
 ### Adding a bot
@@ -37,7 +39,7 @@ forge script --chain sepolia script/AddBot.sol --private-key $PRIVATE_KEY --rpc-
 eg
 
 ```
-forge script --chain sepolia script/AddBot.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string,string)' 0x4dfecc19ad271a5193777a9bccc11c9cf9869868 0xE7c13ff094869bcffC7D0cb4943D568d3AaB2aFC unconsensus.com bbs2
+forge script --chain sepolia script/AddBot.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string,string)' $SKEET_GATEWAY 0xE7c13ff094869bcffC7D0cb4943D568d3AaB2aFC unconsensus.com bbs2
 ```
 
 
@@ -52,8 +54,9 @@ forge script --chain sepolia script/AddDomain.sol --private-key $PRIVATE_KEY --r
 eg
 
 ```
-forge script --chain sepolia script/AddDomain.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string)' 0x4dfecc19ad271a5193777a9bccc11c9cf9869868 0x83dE7e64513e40b7C0f23Df654467178418AE19f "something.example.com"
+forge script --chain sepolia script/AddDomain.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string)' $SKEET_GATEWAY 0x83dE7e64513e40b7C0f23Df654467178418AE19f "something.example.com"
 ```
+
 
 
 ### Sending a payload
@@ -71,7 +74,22 @@ forge script --chain sepolia script/SendPayload.sol --private-key $PRIVATE_KEY -
 eg
 
 ```
-forge script --chain sepolia script/SendPayload.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --sig 'run(address,string)' 0x4dfecc19ad271a5193777a9bccc11c9cf9869868 script/input/it_flies_like_a_beautiful_angel.json --broadcast
+forge script --chain sepolia script/SendPayload.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --sig 'run(address,string)' $SKEET_GATEWAY script/input/it_flies_like_a_beautiful_angel.json --broadcast
 ```
 
 Note that the .json file can only be read from a directory marked as permitted in `foundry.toml`.
+
+
+## Other useful commands
+
+### Deploying and adding the reality.eth bots (example)
+
+```
+forge script --chain sepolia script/AddRealityETHBots.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --sig "run(address,address,address,string,string,string)" <gateway> <reality.eth> <arbitrator> "bot.reality.eth.link" "askqv1" "answerv1" --broadcast
+```
+
+eg
+
+```
+forge script --chain sepolia script/AddRealityETHBots.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --sig "run(address,address,address,string,string,string)" $SKEET_GATEWAY 0xaf33DcB6E8c5c4D9dDF579f53031b514d19449CA 0x05b942faecfb3924970e3a28e0f230910cedff45 "bot.reality.eth.link" "askqv1" "answerv1" --broadcast
+```
