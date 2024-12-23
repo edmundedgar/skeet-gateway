@@ -14,10 +14,12 @@ bytes constant CBOR_HEADER_DATA_5 = bytes(hex"6464617461"); // text, data
 
 // Workaround for issues making forge handle calldata
 contract DagCborNavigatorClient {
-    function firstMatch(bytes calldata cbor, DagCborNavigator.DagCborSelector[] memory selector, uint256 currentLevel, uint256 cursor)
-        external
-        returns (uint256, uint256)
-    {
+    function firstMatch(
+        bytes calldata cbor,
+        DagCborNavigator.DagCborSelector[] memory selector,
+        uint256 currentLevel,
+        uint256 cursor
+    ) external returns (uint256, uint256) {
         return DagCborNavigator.firstMatch(cbor, selector, currentLevel, cursor);
     }
 
@@ -184,16 +186,15 @@ contract DagCborNavigatorTest is Test {
 
         DagCborNavigator.DagCborSelector[] memory simpleSelector = new DagCborNavigator.DagCborSelector[](1);
         simpleSelector[0] = DagCborNavigator.createSelector("b");
-        (foundCursor, ) = client.firstMatch(nestedCbor, simpleSelector, 0, 0);
+        (foundCursor,) = client.firstMatch(nestedCbor, simpleSelector, 0, 0);
         assertTrue(foundCursor > 0, "b index should be found");
         assertEq(6, foundCursor, "Index 1 cursor should start where the b starts");
 
         DagCborNavigator.DagCborSelector[] memory simpleSelectorC = new DagCborNavigator.DagCborSelector[](1);
         simpleSelectorC[0] = DagCborNavigator.createSelector("c");
-        (foundCursor, ) = client.firstMatch(nestedCbor, simpleSelectorC, 0, 0);
+        (foundCursor,) = client.firstMatch(nestedCbor, simpleSelectorC, 0, 0);
         assertTrue(foundCursor > 0, "c index should be found");
         //assertEq(9, start, "c index cursor should start where the c starts");
-
     }
 
     function testMappingSelectorAfterMapping() public {
@@ -206,7 +207,7 @@ contract DagCborNavigatorTest is Test {
         uint256 foundCursor;
         DagCborNavigator.DagCborSelector[] memory simpleSelectorTarget = new DagCborNavigator.DagCborSelector[](1);
         simpleSelectorTarget[0] = DagCborNavigator.createSelector("target");
-        (foundCursor, ) = client.firstMatch(nestedCbor, simpleSelectorTarget, 0, 0);
+        (foundCursor,) = client.firstMatch(nestedCbor, simpleSelectorTarget, 0, 0);
         assertTrue(foundCursor > 0, "target index should be found");
         //assertEq(9, start, "c index cursor should start where the c starts");
     }
@@ -228,25 +229,25 @@ contract DagCborNavigatorTest is Test {
 
         DagCborNavigator.DagCborSelector[] memory simpleSelector = new DagCborNavigator.DagCborSelector[](1);
         simpleSelector[0] = DagCborNavigator.createSelector(1);
-        (foundCursor, ) = client.firstMatch(cbor, simpleSelector, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, simpleSelector, 0, 0);
         assertTrue(foundCursor > 0, "Index 1 should be found");
         assertEq(3, foundCursor, "Index 1 cursor should start where the b header starts");
 
         DagCborNavigator.DagCborSelector[] memory simpleSelector0 = new DagCborNavigator.DagCborSelector[](1);
         simpleSelector0[0] = DagCborNavigator.createSelector(0);
-        (foundCursor, ) = client.firstMatch(cbor, simpleSelector0, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, simpleSelector0, 0, 0);
         assertTrue(foundCursor > 0, "Index 0 should be found");
         assertEq(1, foundCursor, "Index 0 cursor should start where the a header starts");
 
         DagCborNavigator.DagCborSelector[] memory simpleAnySelector = new DagCborNavigator.DagCborSelector[](1);
         simpleAnySelector[0] = DagCborNavigator.createSelector();
-        (foundCursor, ) = client.firstMatch(cbor, simpleAnySelector, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, simpleAnySelector, 0, 0);
         assertTrue(foundCursor > 0, "Index 0 should be found");
         assertEq(1, foundCursor, "Index 0 cursor should start where the a header starts");
 
         DagCborNavigator.DagCborSelector[] memory indexValueSelector = new DagCborNavigator.DagCborSelector[](1);
         indexValueSelector[0] = DagCborNavigator.createSelector(1, bytes("b"));
-        (foundCursor, ) = client.firstMatch(cbor, indexValueSelector, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, indexValueSelector, 0, 0);
         assertTrue(foundCursor > 0, "Index 1 should be found");
         assertEq(3, foundCursor, "Index 1 cursor should start where the b header starts");
     }
@@ -261,21 +262,20 @@ contract DagCborNavigatorTest is Test {
         // field starts at 108/2
         // title is 652474797065
         uint256 foundCursor;
-        (foundCursor, ) = client.firstMatch(cbor, simpleSelector, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, simpleSelector, 0, 0);
         assertTrue(foundCursor > 0, "Found the match");
         assertEq(54, foundCursor, "start not expected");
 
         DagCborNavigator.DagCborSelector[] memory simpleMissingSelector = new DagCborNavigator.DagCborSelector[](1);
         simpleMissingSelector[0] = DagCborNavigator.createSelector("pants");
-        (foundCursor, ) = client.firstMatch(cbor, simpleMissingSelector, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, simpleMissingSelector, 0, 0);
         assertFalse(foundCursor > 0, "Absent selector returns false");
 
         DagCborNavigator.DagCborSelector[] memory simpleAnyMappingSelector = new DagCborNavigator.DagCborSelector[](1);
         simpleAnyMappingSelector[0] = DagCborNavigator.createSelector();
-        (foundCursor, ) = client.firstMatch(cbor, simpleAnyMappingSelector, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, simpleAnyMappingSelector, 0, 0);
         assertTrue(foundCursor > 0, "any mapping selector returns the text field");
         assertEq(foundCursor, 1 + 1 + 4, "Any should match the text field");
-
 
         DagCborNavigator.DagCborSelector[] memory badSelector = new DagCborNavigator.DagCborSelector[](3);
         badSelector[0] = DagCborNavigator.createSelector("faucets");
@@ -283,7 +283,7 @@ contract DagCborNavigatorTest is Test {
         badSelector[2] = DagCborNavigator.createSelector("uri");
 
         // max 22 key length
-        (foundCursor, ) = client.firstMatch(cbor, badSelector, 0, 0);
+        (foundCursor,) = client.firstMatch(cbor, badSelector, 0, 0);
         assertFalse(foundCursor > 0, "Nonsense match not found");
     }
 
@@ -314,9 +314,8 @@ contract DagCborNavigatorTest is Test {
         //console.log(string(uri));
         uint64 extra;
         uint256 cursor;
-        (,extra, cursor) = client.parseCborHeader(cbor, foundCursor);
+        (, extra, cursor) = client.parseCborHeader(cbor, foundCursor);
         // client.logBytesSliceToString(cbor, cursor, cursor+extra);
-
     }
 
     function testMultiSelector2() public {
@@ -342,6 +341,5 @@ contract DagCborNavigatorTest is Test {
         //console.log(string(uri));
         //(,uint256 cursor,) = client.parseCborHeader(cbor, foundCursor);
         //client.logBytesSliceToString(cbor, foundCursor, end);
-
     }
 }

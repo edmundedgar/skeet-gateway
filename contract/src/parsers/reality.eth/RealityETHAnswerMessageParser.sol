@@ -22,7 +22,7 @@ contract RealityETHAnswerMessageParser is IMessageParser {
         require(strBytes.length == 64, "Invalid bytes32 length");
         bytes memory bytes32Bytes = new bytes(32);
 
-        for (uint i = 0; i < 32; i++) {
+        for (uint256 i = 0; i < 32; i++) {
             bytes32Bytes[i] = bytes1(hexCharToByte(strBytes[i * 2]) * 16 + hexCharToByte(strBytes[1 + i * 2]));
         }
 
@@ -31,12 +31,12 @@ contract RealityETHAnswerMessageParser is IMessageParser {
 
     function hexCharToByte(bytes1 char) internal pure returns (uint8) {
         uint8 byteValue = uint8(char);
-        if (byteValue >= uint8(bytes1('0')) && byteValue <= uint8(bytes1('9'))) {
-            return byteValue - uint8(bytes1('0'));
-        } else if (byteValue >= uint8(bytes1('a')) && byteValue <= uint8(bytes1('f'))) {
-            return 10 + byteValue - uint8(bytes1('a'));
-        } else if (byteValue >= uint8(bytes1('A')) && byteValue <= uint8(bytes1('F'))) {
-            return 10 + byteValue - uint8(bytes1('A'));
+        if (byteValue >= uint8(bytes1("0")) && byteValue <= uint8(bytes1("9"))) {
+            return byteValue - uint8(bytes1("0"));
+        } else if (byteValue >= uint8(bytes1("a")) && byteValue <= uint8(bytes1("f"))) {
+            return 10 + byteValue - uint8(bytes1("a"));
+        } else if (byteValue >= uint8(bytes1("A")) && byteValue <= uint8(bytes1("F"))) {
+            return 10 + byteValue - uint8(bytes1("A"));
         }
         revert("Invalid hex character");
     }
@@ -52,7 +52,11 @@ contract RealityETHAnswerMessageParser is IMessageParser {
 
     // TODO: Find an audited library that does this or similar
     // TODO: Refactor out into some library, standardizing on this version (which handles decimals internally)
-    function utf8BytesToUintWithDecimals(bytes calldata numStr, uint8 unitDecimals) public pure returns (uint256, uint256) {
+    function utf8BytesToUintWithDecimals(bytes calldata numStr, uint8 unitDecimals)
+        public
+        pure
+        returns (uint256, uint256)
+    {
         uint256 numBytes = numStr.length;
         uint8 decimals = 0;
         bool isPastDecimal = false;
@@ -131,17 +135,13 @@ contract RealityETHAnswerMessageParser is IMessageParser {
         (cursor, fieldEnd) = DagCborNavigator.firstMatch(content[1], urlSelector, 0, 0);
         require(cursor > 0, "uri field not found");
 
-        require(keccak256(content[1][cursor:fieldEnd-64]) == keccak256(linkURLPrefix), "URL found in CBOR wrong");
+        require(keccak256(content[1][cursor:fieldEnd - 64]) == keccak256(linkURLPrefix), "URL found in CBOR wrong");
 
-        bytes32 questionId = hexStrToBytes32(content[1][fieldEnd-64:fieldEnd]);
+        bytes32 questionId = hexStrToBytes32(content[1][fieldEnd - 64:fieldEnd]);
         // TODO: Check the current answer to make sure we're changing it
 
-        bytes memory data = abi.encodeWithSignature(
-            "submitAnswer(bytes32,bytes32,uint256)",
-            questionId,
-            answer,
-            uint256(0)
-        );
+        bytes memory data =
+            abi.encodeWithSignature("submitAnswer(bytes32,bytes32,uint256)", questionId, answer, uint256(0));
 
         return (realityETH, amount, data);
     }

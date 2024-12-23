@@ -8,7 +8,6 @@ pragma solidity ^0.8.17;
 /// @notice This library provides functions to find data inside DAG-CBOR-encoded calldata
 /// @author Edmund Edgar
 library DagCborNavigator {
-
     // Each level in the tree gets a selector consisting of a key/index (which may be empty to try all),
     //  mapping text: "oink" | array 3: "oink"
 
@@ -47,7 +46,7 @@ library DagCborNavigator {
     // Runs through nested arrays and mappings in cbor and finds the first entry matching the selector, then returns its start and end
     // If not found, start will return 0 and end will return the cursor where it ended up
     function firstMatch(bytes calldata cbor, DagCborSelector[] memory selectors, uint256 currentLevel, uint256 cursor)
-        public 
+        public
         returns (uint256, uint256)
     {
         uint64 extra;
@@ -63,7 +62,7 @@ library DagCborNavigator {
 
         // 0 means not found
         // (it cannot be 0 if found because of the mapping/array header)
-        uint256 fieldStart; 
+        uint256 fieldStart;
 
         (maj, numEntries, cursor) = parseCborHeader(cbor, cursor);
         if (maj == 5 || maj == 4) {
@@ -75,10 +74,9 @@ library DagCborNavigator {
                     (, extra, cursor) = parseCborHeader(cbor, cursor);
                 }
                 if (
-                    sel.isKeyAny
-                        || ( maj == 4 && sel.arrayIndex == mf )
-                        || ( maj == 5 && 
-                            extra == bytes(sel.fieldName).length
+                    sel.isKeyAny || (maj == 4 && sel.arrayIndex == mf)
+                        || (
+                            maj == 5 && extra == bytes(sel.fieldName).length
                                 && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldName))
                         )
                 ) {
@@ -113,7 +111,6 @@ library DagCborNavigator {
                     } else {
                         cursor = indexOfFieldPayloadEnd(cbor, cursor);
                     }
-
                 } else {
                     // Not the field yet, keep going
                     if (maj == 5) {
@@ -122,7 +119,7 @@ library DagCborNavigator {
                     cursor = indexOfFieldPayloadEnd(cbor, cursor);
                 }
             }
-        } 
+        }
         return (0, cursor);
     }
 
