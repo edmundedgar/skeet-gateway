@@ -300,7 +300,7 @@ contract DagCborNavigatorTest is Test {
 
         DagCborNavigator.DagCborSelector[] memory goodSelector = new DagCborNavigator.DagCborSelector[](5);
         // mapping > facets > any item > features > any item > uri
-        goodSelector[0] = DagCborNavigator.createSelector("uri");
+        goodSelector[0] = DagCborNavigator.createTargetSelector("uri");
         goodSelector[1] = DagCborNavigator.createSelector();
         goodSelector[2] = DagCborNavigator.createSelector("features");
         goodSelector[3] = DagCborNavigator.createSelector();

@@ -17,22 +17,27 @@ library DagCborNavigator {
         bytes fieldValue;
         bool isKeyAny;
         bool isValueAny;
+        bool unpackValue; // Should we return the whole field including the header or its value
+    }
+
+    function createTargetSelector(string memory fieldName) external pure returns (DagCborSelector memory) {
+        return DagCborSelector(fieldName, 0, bytes(hex""), false, true, true);
     }
 
     function createSelector(string memory fieldName) external pure returns (DagCborSelector memory) {
-        return DagCborSelector(fieldName, 0, bytes(hex""), false, true);
+        return DagCborSelector(fieldName, 0, bytes(hex""), false, true, false);
     }
 
     function createSelector(uint256 idx) external pure returns (DagCborSelector memory) {
-        return DagCborSelector("", idx, bytes(hex""), false, true);
+        return DagCborSelector("", idx, bytes(hex""), false, true, false);
     }
 
     function createSelector() external pure returns (DagCborSelector memory) {
-        return DagCborSelector("", 0, bytes(hex""), true, true);
+        return DagCborSelector("", 0, bytes(hex""), true, true, false);
     }
 
     function createSelector(uint256 idx, bytes memory fieldValue) external pure returns (DagCborSelector memory) {
-        return DagCborSelector("", idx, fieldValue, false, false);
+        return DagCborSelector("", idx, fieldValue, false, false, false);
     }
 
     function createSelector(string memory fieldName, string memory fieldValue)
@@ -40,7 +45,7 @@ library DagCborNavigator {
         pure
         returns (DagCborSelector memory)
     {
-        return DagCborSelector(fieldName, 0, bytes(fieldValue), false, false);
+        return DagCborSelector(fieldName, 0, bytes(fieldValue), false, false, false);
     }
 
     // Runs through nested arrays and mappings in cbor and finds the first entry matching the selector, then returns its start and end
@@ -82,7 +87,7 @@ library DagCborNavigator {
                     // Stash the cursor in fieldStart in case we find it
                     // We won't return fieldStart unless we do
                     fieldStart = cursor;
-                    (, extra, cursor) = parseCborHeader(cbor, cursor);
+                    (maj, extra, cursor) = parseCborHeader(cbor, cursor);
                     if (
                         sel.isValueAny
                             || (
@@ -93,7 +98,15 @@ library DagCborNavigator {
                         if (currentLevel == 1) {
                             // got to the bottom and this is our value
                             // TODO: Handle if this is an int and we want the extra
-                            return (fieldStart, cursor + extra);
+                            if (sel.unpackValue) {
+                                if (maj == 2 || maj == 3 || maj == 6) {
+                                    return (cursor, cursor + extra);
+                                } else {
+                                    return (cursor, extra);
+                                }
+                            } else {
+                                return (fieldStart, cursor + extra);
+                            }
                         } else {
                             // require(maj == 4 || maj == 5, "Can only recurse into an array or mapping");
                             // got a match but we have more levels to try, so try the next match with this level removed
@@ -118,7 +131,7 @@ library DagCborNavigator {
             for (uint256 mf = 0; mf < numEntries; mf++) {
                 fieldStart = cursor;
                 if (sel.isKeyAny || sel.arrayIndex == mf) {
-                    (, extra, cursor) = parseCborHeader(cbor, cursor); // TODO: handle if this is an int
+                    (maj, extra, cursor) = parseCborHeader(cbor, cursor); // TODO: handle if this is an int
                     if (
                         sel.isValueAny
                             || (
@@ -129,7 +142,7 @@ library DagCborNavigator {
                         if (currentLevel == 1) {
                             return (fieldStart, cursor + extra);
                         } else {
-                            //require(maj == 4 || maj == 5, "Can only recurse into an array or mapping");
+                            // require(maj == 4 || maj == 5, "Can only recurse into an array or mapping");
                             // got a match but we have more levels to try, so try the next match with this level removed
                             (fieldStart, cursor) = firstMatch(cbor, selectors, currentLevel - 1, fieldStart);
                             if (fieldStart > 0) {

@@ -27,10 +27,8 @@ contract RealityETHAnswerMessageParserTest is Test, SkeetProofLoader {
 
         // A URL looks like:
         // https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0xfe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78
-        // We CBOR-encode the full text then truncate the final 64 characters which is the question ID, after the 0x
-        // Do it in that order (encode the full thing, then truncate) or the CBOR header will be wrong
-        bytes memory linkURLPrefix =
-            hex"78e568747470733A2F2F7265616C6974792E6574682E6C696E6B2F6170702F23212F6E6574776F726B2F31313135353131312F636F6E74726163742F3078616633336463623665386335633464396464663537396635333033316235313464313934343963612F746F6B656E2F4554482F7175657374696F6E2F3078616633336463623665386335633464396464663537396635333033316235313464313934343963612D3078";
+        // We trim off the final 32 bytes (64 characters) which will be replaced with a different question ID
+        string memory linkURLPrefix = "https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x";
 
         parser = new RealityETHAnswerMessageParser(realityETH, linkURLPrefix);
     }
