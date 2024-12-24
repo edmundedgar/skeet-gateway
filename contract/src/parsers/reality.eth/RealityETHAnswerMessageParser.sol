@@ -20,8 +20,8 @@ contract RealityETHAnswerMessageParser is IMessageParser {
 
     constructor(address _realityETH, string memory _linkURLPrefix) {
         realityETH = _realityETH;
-        // CBOR-encoded bytes for eg:
-        // <header>"https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x<64 characters which are then truncated>"
+        // URL eg
+        // https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x<64 characters which are then truncated>"
         linkURLPrefix = _linkURLPrefix;
         require(realityETH != address(0), "missing realityETH address");
         require(bytes(linkURLPrefix).length > 0, "missing linkURLPrefix");
