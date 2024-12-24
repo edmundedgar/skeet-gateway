@@ -47,7 +47,8 @@ contract RealityETHAnswerMessageParser is IMessageParser {
 
         uint256 amount;
         uint256 lengthInBytes;
-        (amount, lengthInBytes) = ParserUtil.utf8BytesToUintWithDecimals(content[0][cursor:], NATIVE_TOKEN_DECIMALS);
+        (amount, lengthInBytes) =
+            ParserUtil.stringStartingWithDecimalsToUint256(string(content[0][cursor:]), NATIVE_TOKEN_DECIMALS);
         cursor = cursor + lengthInBytes;
 
         require(bytes1(content[0][cursor:cursor + 1]) == bytes1(hex"20"), "Need a space after the amount");

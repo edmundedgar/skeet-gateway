@@ -12,7 +12,7 @@ contract ParserUtilTest is Test {
         );
         uint256 amount;
         uint256 cursor;
-        (amount, cursor) = ParserUtil.utf8BytesToUintWithDecimals(message, 18);
+        (amount, cursor) = ParserUtil.stringStartingWithDecimalsToUint256(string(message), 18);
         // 0.0123 * 10^18 0012300000000000000
         assertEq(amount, 12300000000000000);
     }

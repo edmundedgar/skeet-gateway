@@ -28,7 +28,8 @@ contract PayMessageParser is IMessageParser {
         uint256 amount;
         uint8 decimals;
         uint256 lengthInBytes;
-        (amount, lengthInBytes) = ParserUtil.utf8BytesToUintWithDecimals(message[cursor:], NATIVE_TOKEN_DECIMALS);
+        (amount, lengthInBytes) =
+            ParserUtil.stringStartingWithDecimalsToUint256(string(message[cursor:]), NATIVE_TOKEN_DECIMALS);
         cursor = cursor + lengthInBytes;
 
         require(bytes1(message[cursor:cursor + 1]) == bytes1(hex"20"), "Need a space after the amount");

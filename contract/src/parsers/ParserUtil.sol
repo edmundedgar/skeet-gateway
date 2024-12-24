@@ -35,18 +35,19 @@ library ParserUtil {
         return bytes32(bytes32Bytes);
     }
 
-    function utf8BytesToUintWithDecimals(bytes calldata numStr, uint8 unitDecimals)
+    // The string should contain numbers (ascii 48-57) and optionally 1 decimal point (46).
+    function stringStartingWithDecimalsToUint256(string calldata numStr, uint8 unitDecimals)
         public
         pure
         returns (uint256, uint256)
     {
-        uint256 numBytes = numStr.length;
+        uint256 numBytes = bytes(numStr).length;
         uint8 decimals = 0;
         bool isPastDecimal = false;
         uint256 i;
         uint256 result;
         for (i = 0; i < numBytes; i++) {
-            uint256 c = uint256(uint8(bytes1(numStr[i])));
+            uint256 c = uint256(uint8(bytes1(bytes(numStr)[i])));
             if (c == 46) {
                 if (isPastDecimal) {
                     // there should only be 1 decimal point
