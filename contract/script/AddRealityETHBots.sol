@@ -27,7 +27,8 @@ contract AddBotRealityETHBots is Script {
         RealityETHQuestionMessageParser questionParser = new RealityETHQuestionMessageParser(_realityETH, _arbitrator);
         gateway.addBot(_questionBot, _domain, address(questionParser));
 
-        RealityETHAnswerMessageParser answerParser = new RealityETHAnswerMessageParser(_realityETH, _realityETHURLPrefix);
+        RealityETHAnswerMessageParser answerParser =
+            new RealityETHAnswerMessageParser(_realityETH, _realityETHURLPrefix);
         gateway.addBot(_answerBot, _domain, address(answerParser));
 
         vm.stopBroadcast();

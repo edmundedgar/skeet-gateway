@@ -12,12 +12,12 @@ library DagCborNavigator {
     //  mapping text: "oink" | array 3: "oink"
 
     struct DagCborSelector {
-        string fieldName; // empty string denotes "any key"
-        uint256 arrayIndex; // max uint256 denotes "any entry indexes"
-        bytes fieldValue;
-        bool isKeyAny;
-        bool isValueAny;
-        bool unpackValue; // Should we return the whole field including the header or its value
+        string fieldName; // The field we should match (unless you set isKeyAny)
+        uint256 arrayIndex; // The array index we should match (unless you set isKeyAny)
+        bytes fieldValue; // The field value we should match (unless you set isValueAny)
+        bool isKeyAny; // Whether we should match any mapping field / array index
+        bool isValueAny; // Whether we should match any value
+        bool unpackValue; // Should we return the whole field including the header, or its value
     }
 
     function createTargetSelector(string memory fieldName) external pure returns (DagCborSelector memory) {

@@ -28,7 +28,8 @@ contract RealityETHAnswerMessageParserTest is Test, SkeetProofLoader {
         // A URL looks like:
         // https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0xfe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78
         // We trim off the final 32 bytes (64 characters) which will be replaced with a different question ID
-        string memory linkURLPrefix = "https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x";
+        string memory linkURLPrefix =
+            "https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x";
 
         parser = new RealityETHAnswerMessageParser(realityETH, linkURLPrefix);
     }
