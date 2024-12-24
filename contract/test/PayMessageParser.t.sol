@@ -17,19 +17,6 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
         parser = new PayMessageParser();
     }
 
-    function testDecimalParsing() external view {
-        bytes memory message = bytes(
-            hex"302e3031323320455448652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e6666616365747380696372656174656441747818323032342d31322d31395430363a30373a32332e3131325a"
-        );
-        uint256 amount;
-        uint8 decimals;
-        uint256 cursor;
-        (amount, decimals, cursor) = parser.utf8BytesToUintWithDecimals(message);
-        // 0.0123 * 10^18 0012300000000000000
-        assertEq(amount, 123);
-        assertEq(decimals, 4);
-    }
-
     function testFullMessageParsing() external {
         SkeetProof memory proof = _loadProofFixture("pay_unconsensus_com.json");
         address to;

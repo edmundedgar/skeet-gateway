@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {IMessageParser} from "../IMessageParser.sol";
+import {ParserUtil} from "../ParserUtil.sol";
 import {IRealityETH} from "./IRealityETH.sol";
 import {DagCborNavigator} from "../../DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
@@ -17,30 +18,6 @@ contract RealityETHAnswerMessageParser is IMessageParser {
     // This will limit us to the correct reality.eth and the correct chain
     bytes linkURLPrefix;
 
-    function hexStrToBytes32(bytes memory str) public pure returns (bytes32) {
-        bytes memory strBytes = bytes(str);
-        require(strBytes.length == 64, "Invalid bytes32 length");
-        bytes memory bytes32Bytes = new bytes(32);
-
-        for (uint256 i = 0; i < 32; i++) {
-            bytes32Bytes[i] = bytes1(hexCharToByte(strBytes[i * 2]) * 16 + hexCharToByte(strBytes[1 + i * 2]));
-        }
-
-        return bytes32(bytes32Bytes);
-    }
-
-    function hexCharToByte(bytes1 char) internal pure returns (uint8) {
-        uint8 byteValue = uint8(char);
-        if (byteValue >= uint8(bytes1("0")) && byteValue <= uint8(bytes1("9"))) {
-            return byteValue - uint8(bytes1("0"));
-        } else if (byteValue >= uint8(bytes1("a")) && byteValue <= uint8(bytes1("f"))) {
-            return 10 + byteValue - uint8(bytes1("a"));
-        } else if (byteValue >= uint8(bytes1("A")) && byteValue <= uint8(bytes1("F"))) {
-            return 10 + byteValue - uint8(bytes1("A"));
-        }
-        revert("Invalid hex character");
-    }
-
     constructor(address _realityETH, bytes memory _linkURLPrefix) {
         realityETH = _realityETH;
         // CBOR-encoded bytes for eg:
@@ -48,42 +25,6 @@ contract RealityETHAnswerMessageParser is IMessageParser {
         linkURLPrefix = _linkURLPrefix;
         require(realityETH != address(0), "missing realityETH address");
         require(linkURLPrefix.length > 0, "missing linkURLPrefix");
-    }
-
-    // TODO: Find an audited library that does this or similar
-    // TODO: Refactor out into some library, standardizing on this version (which handles decimals internally)
-    function utf8BytesToUintWithDecimals(bytes calldata numStr, uint8 unitDecimals)
-        public
-        pure
-        returns (uint256, uint256)
-    {
-        uint256 numBytes = numStr.length;
-        uint8 decimals = 0;
-        bool isPastDecimal = false;
-        uint256 i;
-        uint256 result;
-        for (i = 0; i < numBytes; i++) {
-            uint256 c = uint256(uint8(bytes1(numStr[i])));
-            if (c == 46) {
-                if (isPastDecimal) {
-                    // there should only be 1 decimal point
-                    break;
-                }
-                isPastDecimal = true;
-                continue;
-            } else if (c >= 48 && c <= 57) {
-                result = result * 10 + (c - 48);
-                if (isPastDecimal) {
-                    decimals = decimals + 1;
-                }
-            } else {
-                break;
-            }
-        }
-        require(decimals <= unitDecimals, "Too many decimals");
-
-        result = result * (10 ** (unitDecimals - decimals));
-        return (result, i);
     }
 
     function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
@@ -106,7 +47,7 @@ contract RealityETHAnswerMessageParser is IMessageParser {
 
         uint256 amount;
         uint256 lengthInBytes;
-        (amount, lengthInBytes) = utf8BytesToUintWithDecimals(content[0][cursor:], NATIVE_TOKEN_DECIMALS);
+        (amount, lengthInBytes) = ParserUtil.utf8BytesToUintWithDecimals(content[0][cursor:], NATIVE_TOKEN_DECIMALS);
         cursor = cursor + lengthInBytes;
 
         require(bytes1(content[0][cursor:cursor + 1]) == bytes1(hex"20"), "Need a space after the amount");
@@ -137,7 +78,7 @@ contract RealityETHAnswerMessageParser is IMessageParser {
 
         require(keccak256(content[1][cursor:fieldEnd - 64]) == keccak256(linkURLPrefix), "URL found in CBOR wrong");
 
-        bytes32 questionId = hexStrToBytes32(content[1][fieldEnd - 64:fieldEnd]);
+        bytes32 questionId = ParserUtil.hexStrToBytes32(string(content[1][fieldEnd - 64:fieldEnd]));
         // TODO: Check the current answer to make sure we're changing it
 
         bytes memory data =
