@@ -26,6 +26,8 @@ contract SkeetGateway is AtprotoMSTProver {
     // Later we may make it possible to detach your initial SignerSafe and assign a different smart contract wallet.
     mapping(address => SignerSafe) public signerSafes;
 
+    mapping(address => mapping(bytes32 => bool)) handledMessages;
+
     event LogCreateSignerSafe(address indexed signer, address indexed signerSafe);
 
     event LogExecutePayload(address indexed signer, address indexed to, uint256 value, bytes data);
@@ -175,6 +177,12 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
     function executePayload(address signer, bytes[] calldata content, uint8 botNameLength) internal {
         require(signer != address(0), "Signer should not be empty");
+
+        // TODO We already hashed this in handleSkeet but couldn't reuse the hash for stack-too-deep reasons
+        // See if we reorganize things to get around the need to do the hashing twice
+        bytes32 contentHash = keccak256(content[0]);
+        require(!handledMessages[signer][contentHash], "Already handled");
+        handledMessages[signer][contentHash] = true;
 
         // Every user action will be done in the context of their smart contract wallet.
         // If they don't already have one, create it for them now.

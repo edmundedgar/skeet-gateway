@@ -121,6 +121,19 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         assertNotEq(bbs.messages(createdSafe), "oinK");
     }
 
+    function testReplayProtection() public {
+
+        SkeetProof memory proof = _loadProofFixture("bbs_blah_example_com.json");
+        gateway.handleSkeet(
+            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
+        );
+        vm.expectRevert();
+        gateway.handleSkeet(
+            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
+        );
+
+    }
+
     function testAddressRecovery() public {
         (address alice, uint256 alicePk) = makeAddrAndKey("alice");
         bytes32 hash = sha256("Signed by Alice");
