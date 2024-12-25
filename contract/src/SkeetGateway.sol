@@ -71,28 +71,40 @@ contract SkeetGateway is AtprotoMSTProver {
         emit LogAddBot(parser, domain, subdomain);
     }
 
+    function _extractBotName(bytes calldata message) internal returns (bytes32, uint256) {
+        uint256 messageLength = message.length;
+        require(messageLength > 3, "Message should have at least an @, a letter, a space and some more text");
+        require(bytes1(message[0:1]) == bytes1("@"), "Message should begin with @");
+        // Go through looking for a space
+        uint256 botNameLength = 0;
+        for (botNameLength = 0; botNameLength < messageLength; botNameLength++) {
+            console.logBytes1(bytes1(message[botNameLength + 1:botNameLength + 2]));
+            if (bytes1(message[botNameLength + 1:botNameLength + 2]) == bytes1(" ")) {
+                break;
+            }
+        }
+        bytes32 botNameHash = keccak256(message[1:botNameLength + 1]);
+        return (botNameHash, 1 + botNameLength + 1);
+    }
+
     /// @notice Translate a data node containing a message into a contract address, value and transaction bytecode
     /// @param content A data node containing a skeet
-    /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
     /// @return target The contract to call from the user's smart wallet
     /// @return value The value to send from the user's smart wallet
     /// @return botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
-    function _parsePayload(bytes[] calldata content, uint8 botNameLength)
-        internal
-        returns (address, uint256 value, bytes memory)
-    {
+    function _parsePayload(bytes[] calldata content) internal returns (address, uint256 value, bytes memory) {
         uint256 textStart;
         uint256 textEnd;
         (textStart, textEnd) = indexOfMessageText(content[0]);
         bytes calldata message = content[0][textStart:textEnd];
-        require(bytes1(message[0:1]) == bytes1(hex"40"), "Message should begin with @");
 
-        // Look up the bot name which should be in the first <256 bytes of the message followed by a space
-        address bot = bots[keccak256(message[1:1 + botNameLength])].parser;
+        (bytes32 botNameHash, uint256 textStartAfterBotName) = _extractBotName(message[0:]);
+
+        // Look up the bot name, eg "@mybot.example.com "
+        address bot = bots[botNameHash].parser;
         require(address(bot) != address(0), "Bot not found");
-        require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
-        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd);
+        return IMessageParser(bot).parseMessage(content, textStart + textStartAfterBotName, textEnd);
     }
 
     /// @notice Predict the address that the specified signer will be assigned if they make a SignerSafe
@@ -165,15 +177,14 @@ contract SkeetGateway is AtprotoMSTProver {
             bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
             address signer = ecrecover(commitNodeHash, _v, _r, _s);
 
-            executePayload(signer, content, botNameLength);
+            executePayload(signer, content);
         }
     }
 
     /// @notice Execute the specified content on behalf of the specified signer
     /// @param signer The user on whose behalf an action will be taken
     /// @param content A data node containing a skeet
-    /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
-    function executePayload(address signer, bytes[] calldata content, uint8 botNameLength) internal {
+    function executePayload(address signer, bytes[] calldata content) internal {
         require(signer != address(0), "Signer should not be empty");
 
         // Every user action will be done in the context of their smart contract wallet.
@@ -187,7 +198,7 @@ contract SkeetGateway is AtprotoMSTProver {
         }
 
         // Parsing will map the text of the message in the data node to a contract to interact with and some EVM code to execute against it.
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(content, botNameLength);
+        (address to, uint256 value, bytes memory payloadData) = _parsePayload(content);
 
         // The user's smart wallet should recognize this contract as their owner and execute what we send it.
         // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
