@@ -16,6 +16,10 @@ import re
 import json
 import hashlib
 import libipld
+from multibase import encode, decode
+import sha3
+from eth_keys import KeyAPI
+
 
 CAR_CACHE = './cars'
 DID_CACHE = './dids'
@@ -29,7 +33,7 @@ DID_DIRECTORY = 'https://plc.directory'
 # Later we will probably add this information to the SkeetGateway contract.
 # (It shouldn't change so it should be cacheable after you meet each bot for the first time.)
 def isReplyParentContentNeededByBot(botName):
-    if botName == "@answerv1.bot.reality.eth":
+    if botName == "@answerv1.bot.reality.eth.link":
         return True
     else:
         return False
@@ -69,6 +73,7 @@ def loadCar(did, rkey):
         os.mkdir(DID_CACHE)
 
     did_file = DID_CACHE+'/'+did
+    addresses = []
     if not os.path.exists(did_file):
         did_url = DID_DIRECTORY + '/' + did
         urllib.request.urlretrieve(did_url, did_file)
@@ -77,6 +82,8 @@ def loadCar(did, rkey):
     with open(did_file, mode="r") as didf:
         data = json.load(didf)
         endpoint = data['service'][0]['serviceEndpoint']
+        for vm in data['verificationMethod']: 
+            addresses.append(vm['publicKeyMultibase'])
 
     # NB You have to get the right endpoint here, BSky service won't tell you about other people's PDSes.
     car_file = CAR_CACHE + '/' + did + '-' + rkey + '.car'
@@ -87,9 +94,24 @@ def loadCar(did, rkey):
     with open(car_file, mode="rb") as cf:
         contents = cf.read()
         car_file = CAR.from_bytes(contents)
-        return car_file
+        return (car_file, addresses)
 
-def generatePayload(car_file, did, rkey):
+def recoverVParam(sighash, r, s, addresses):
+    sig0 = KeyAPI.Signature(vrs=(0, int.from_bytes(r, byteorder='big'), int.from_bytes(s, byteorder='big')))
+    pubkey0 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig0).to_compressed_bytes()
+
+    sig1 = KeyAPI.Signature(vrs=(1, int.from_bytes(r, byteorder='big'), int.from_bytes(s, byteorder='big')))
+    pubkey1 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig1).to_compressed_bytes()
+
+    for a in addresses:
+        if decode(a)[2:] == pubkey0:
+            return 27
+        if decode(a)[2:] == pubkey1:
+            return 28
+
+    raise Exception("Could not find a v value matching the signature for a key in the did record")
+
+def generatePayload(car_file, did, rkey, addresses):
 
     # Output sorts keys alphabetically for compatibility with Forge json parsing.
     # The DID and rkey are only there to help keep track of things, they're not used by handleSkeet.
@@ -102,7 +124,8 @@ def generatePayload(car_file, did, rkey):
         "nodeHints": [],
         "r": None,
         "rkey": rkey,
-        "s": None
+        "s": None,
+        "v": None
     }
 
     target_content = None
@@ -127,6 +150,7 @@ def generatePayload(car_file, did, rkey):
             # Reencode the commit node with the signature stripped
             # This will be needed for verification
             output['commitNode'] = "0x"+libipld.encode_dag_cbor(b).hex()
+            output['v'] = recoverVParam(hashlib.sha256(libipld.encode_dag_cbor(b)).digest(), signature[0:32], signature[32:64], addresses)
         elif 'text' in b:
             target_content = b
             print("Found text:")
@@ -152,7 +176,7 @@ def generatePayload(car_file, did, rkey):
                 parent_cid = b['reply']['parent']['cid']
                 parent_uri = b['reply']['parent']['uri']
                 (parent_did, parent_rkey) = atURIToDidAndRkey(parent_uri)
-                parent_car = loadCar(parent_did, parent_rkey)
+                (parent_car, ignore) = loadCar(parent_did, parent_rkey)
                 parent_block = parent_car.blocks[parent_cid]
                 if 'text' not in parent_car.blocks[parent_cid]:
                     raise Exception("Post we replied to does not appear to contain text")
@@ -251,10 +275,14 @@ if __name__ == '__main__':
 
     (param_did, param_rkey) = atURIToDidAndRkey(at_addr)
     
-    car = loadCar(param_did, param_rkey)
-    output = generatePayload(car, param_did, param_rkey)
+    (car, addresses) = loadCar(param_did, param_rkey)
+    output = generatePayload(car, param_did, param_rkey, addresses)
 
-    out_file = OUT_DIR + '/' + param_did + '-' + param_rkey + '.json'
+    out_file = None
+    if len(sys.argv) > 2:
+        out_file = sys.argv[2]
+    else:
+        out_file = OUT_DIR + '/' + param_did + '-' + param_rkey + '.json'
 
     with open(out_file, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=4, sort_keys=True)

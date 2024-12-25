@@ -86,6 +86,15 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         gateway.assertCommitNodeContainsData(someOtherHash, proof.commitNode);
     }
 
+    function testSameSigner() public {
+        SkeetProof memory proof = _loadProofFixture("ask.json");
+        address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.v, proof.r, proof.s);
+        SkeetProof memory proof2 = _loadProofFixture("answer.json");
+        address expectedSigner2 = gateway.predictSignerAddressFromSig(sha256(proof2.commitNode), proof.v, proof2.r, proof2.s);
+        assertEq(expectedSigner, expectedSigner2, "Same sender should get the same signer");
+        assertEq(expectedSigner, 0x69f2163DE8accd232bE4CD84559F823CdC808525);
+    }
+
     function testActualSkeetBBSPost() public {
         vm.recordLogs();
 
