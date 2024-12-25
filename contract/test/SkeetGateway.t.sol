@@ -122,7 +122,6 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
     }
 
     function testReplayProtection() public {
-
         SkeetProof memory proof = _loadProofFixture("bbs_blah_example_com.json");
         gateway.handleSkeet(
             proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
@@ -131,7 +130,6 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         gateway.handleSkeet(
             proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
         );
-
     }
 
     function testAddressRecovery() public {
