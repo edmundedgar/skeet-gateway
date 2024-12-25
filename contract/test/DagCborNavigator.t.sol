@@ -38,11 +38,6 @@ contract DagCborNavigatorClient {
     function parseCborHeader(bytes calldata cbor, uint256 byteIndex) external pure returns (uint8, uint64, uint256) {
         return DagCborNavigator.parseCborHeader(cbor, byteIndex);
     }
-
-    function logBytesSliceToString(bytes calldata cbor, uint256 start, uint256 end) public view {
-        console.logBytes(cbor[start:end]);
-        console.log(string(cbor[start:end]));
-    }
 }
 
 contract DagCborNavigatorTest is Test {
@@ -315,7 +310,6 @@ contract DagCborNavigatorTest is Test {
         uint64 extra;
         uint256 cursor;
         (, extra, cursor) = client.parseCborHeader(cbor, foundCursor);
-        // client.logBytesSliceToString(cbor, cursor, cursor+extra);
     }
 
     function testMultiSelector2() public {
@@ -340,6 +334,5 @@ contract DagCborNavigatorTest is Test {
         //bytes memory uri = bytes(cbor[foundCursor:end]);
         //console.log(string(uri));
         //(,uint256 cursor,) = client.parseCborHeader(cbor, foundCursor);
-        //client.logBytesSliceToString(cbor, foundCursor, end);
     }
 }

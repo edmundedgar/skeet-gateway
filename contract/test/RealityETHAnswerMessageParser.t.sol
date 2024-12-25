@@ -34,7 +34,7 @@ contract RealityETHAnswerMessageParserTest is Test, SkeetProofLoader {
         parser = new RealityETHAnswerMessageParser(realityETH, linkURLPrefix);
     }
 
-    function testSetup() public {
+    function testSetup() public view {
         uint256 template0Block = RealityETH_v3_0(realityETH).templates(uint256(0));
         assertTrue(template0Block > 0, "Template 0 should have been created at some block");
         uint256 template1Block = RealityETH_v3_0(realityETH).templates(uint256(1));

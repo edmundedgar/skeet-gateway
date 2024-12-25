@@ -17,7 +17,7 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
         parser = new PayMessageParser();
     }
 
-    function testFullMessageParsing() external {
+    function testFullMessageParsing() external view {
         SkeetProof memory proof = _loadProofFixture("pay_unconsensus_com.json");
         address to;
         uint256 value;

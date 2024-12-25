@@ -12,6 +12,7 @@ contract PayMessageParser is IMessageParser {
 
     function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
         external
+        pure
         returns (address, uint256 value, bytes memory)
     {
         bytes calldata message = content[0][messageStart:messageEnd];

@@ -15,6 +15,7 @@ contract RealityETHQuestionMessageParser is IMessageParser {
 
     function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
         external
+        view
         returns (address, uint256 value, bytes memory)
     {
         bytes memory data = abi.encodeWithSignature(
