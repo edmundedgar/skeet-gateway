@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {AtprotoMSTProver} from "../src/AtprotoMSTProver.sol";
 import {SignerSafe} from "../src/SignerSafe.sol";
 import {IMessageParser} from "../src/parsers/IMessageParser.sol";
+import {IMessageParserFull} from "../src/parsers/IMessageParserFull.sol";
 import {console} from "forge-std/console.sol";
 
 contract SkeetGateway is AtprotoMSTProver {
@@ -87,20 +88,19 @@ contract SkeetGateway is AtprotoMSTProver {
         uint256 textStart;
         uint256 textEnd;
         (textStart, textEnd) = indexOfMessageText(content[0]);
-        bytes calldata message = content[0][textStart:textEnd];
-        require(bytes1(message[0:1]) == bytes1(hex"40"), "Message should begin with @");
+        require(bytes1(content[0][textStart:textStart + 1]) == bytes1(hex"40"), "Message should begin with @");
 
         // Look up the bot name which should be in the first <256 bytes of the message followed by a space
-        Bot memory bot = bots[keccak256(message[1:1 + botNameLength])];
+        Bot memory bot = bots[keccak256(content[0][textStart + 1:textStart + 1 + botNameLength])];
         address parser = bot.parser;
 
         require(address(parser) != address(0), "Bot not found");
-        require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
+        require(bytes1(content[0][textStart + 1 + botNameLength:textStart + 1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
         if (bot.needFullMessage) {
-            return IMessageParser(parser).parseFullMessage(content, textStart + 1 + botNameLength + 1, textEnd);
+            return IMessageParserFull(parser).parseFullMessage(content, textStart + 1 + botNameLength + 1, textEnd);
         } else {
-            return IMessageParser(parser).parseMessage(message[1 + botNameLength + 1:textEnd]);
+            return IMessageParser(parser).parseMessage(content[0][textStart + 1 + botNameLength + 1:textEnd]);
         }
     }
 

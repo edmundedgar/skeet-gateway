@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import {IMessageParser} from "../IMessageParser.sol";
+import {IMessageParserFull} from "../IMessageParserFull.sol";
 import {ParserUtil} from "../ParserUtil.sol";
 import {IRealityETH} from "./IRealityETH.sol";
 import {DagCborNavigator} from "../../DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
-contract RealityETHAnswerMessageParser is IMessageParser {
+contract RealityETHAnswerMessageParser is IMessageParserFull {
     // Should be no longer than 4 bytes or see comment about bytes4
     string constant NATIVE_TOKEN_SYMBOL = "ETH";
     uint8 constant NATIVE_TOKEN_DECIMALS = 18;
