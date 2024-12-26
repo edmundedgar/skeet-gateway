@@ -5,7 +5,13 @@ import {Script, console} from "forge-std/Script.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
 
 contract AddBot is Script {
-    function run(address _gateway, address _parser, string calldata _domain, string calldata _bot, string calldata _metadata) public {
+    function run(
+        address _gateway,
+        address _parser,
+        string calldata _domain,
+        string calldata _bot,
+        string calldata _metadata
+    ) public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
