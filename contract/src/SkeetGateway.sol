@@ -200,7 +200,7 @@ contract SkeetGateway is AtprotoMSTProver {
 
         // The user's smart wallet should recognize this contract as their owner and execute what we send it.
         // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
-        signerSafes[signer].executeOwnerCall(to, value, payloadData);
+        require(signerSafes[signer].executeOwnerCall(to, value, payloadData), "Code execution reverted");
         emit LogExecutePayload(signer, to, value, payloadData);
     }
 }

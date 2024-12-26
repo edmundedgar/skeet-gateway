@@ -10,9 +10,9 @@ contract SignerSafe {
 
     receive() external payable {}
 
-    function executeOwnerCall(address to, uint256 value, bytes memory data) external {
+    function executeOwnerCall(address to, uint256 value, bytes memory data) external returns (bool) {
         require(msg.sender == owner, "I can only be controlled by the SkeetGateway that created me");
-        executeCall(to, value, data);
+        return executeCall(to, value, data);
     }
 
     // Copied from Gnosis Safe
