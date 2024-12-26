@@ -65,7 +65,9 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param domain The domain, eg "somedomain.example.com"
     /// @param parser A contract implementing IMessageParser that can handle messages for it
     /// @param metadata Optional json-encoded settings to tell the caller what content to send, eg if the bot needs reply data
-    function addBot(string calldata subdomain, string calldata domain, address parser, string calldata metadata) external {
+    function addBot(string calldata subdomain, string calldata domain, address parser, string calldata metadata)
+        external
+    {
         require(msg.sender == domainOwners[keccak256(abi.encodePacked(domain))], "Not your domain");
         require(parser != address(0), "Address not specified");
         bytes32 key = keccak256(abi.encodePacked(string.concat(string.concat(subdomain, "."), domain)));
