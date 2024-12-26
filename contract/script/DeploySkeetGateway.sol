@@ -21,7 +21,7 @@ contract DeploySkeetGateway is Script {
         // Set up with an initial domain and bot
         // You can add more later from the account you deployed this with
         gateway.addDomain(_domain, address(tx.origin));
-        gateway.addBot(_bot, _domain, address(bbsParser));
+        gateway.addBot(_bot, _domain, address(bbsParser), false);
 
         vm.stopBroadcast();
     }

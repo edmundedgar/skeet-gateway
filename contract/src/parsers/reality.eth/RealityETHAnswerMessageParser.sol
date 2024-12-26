@@ -27,7 +27,7 @@ contract RealityETHAnswerMessageParser is IMessageParser {
         require(bytes(linkURLPrefix).length > 0, "missing linkURLPrefix");
     }
 
-    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256)
+    function parseFullMessage(bytes[] calldata content, uint256 messageStart, uint256)
         external
         returns (address, uint256 value, bytes memory)
     {

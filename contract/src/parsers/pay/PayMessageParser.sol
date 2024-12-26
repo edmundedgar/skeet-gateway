@@ -10,12 +10,7 @@ contract PayMessageParser is IMessageParser {
     string constant NATIVE_TOKEN_SYMBOL = "ETH";
     uint8 constant NATIVE_TOKEN_DECIMALS = 18;
 
-    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
-        external
-        pure
-        returns (address, uint256 value, bytes memory)
-    {
-        bytes calldata message = content[0][messageStart:messageEnd];
+    function parseMessage(bytes calldata message) external pure returns (address, uint256 value, bytes memory) {
         uint256 cursor = 0;
 
         // 42 bytes of address

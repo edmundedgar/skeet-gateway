@@ -50,7 +50,7 @@ contract RealityETHAnswerMessageParserTest is Test, SkeetProofLoader {
         address to;
         uint256 value;
         bytes memory data;
-        (to, value, data) = parser.parseMessage(proof.content, 34, 34 + 13);
+        (to, value, data) = parser.parseFullMessage(proof.content, 34, 34 + 13);
         assertEq(value, 300000000000000, "value should be 0.0003 * 10^18");
         assertEq(address(realityETH), to, "Expected address found");
     }

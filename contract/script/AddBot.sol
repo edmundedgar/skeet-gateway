@@ -11,7 +11,8 @@ contract AddBot is Script {
 
         SkeetGateway gateway = SkeetGateway(_gateway);
 
-        gateway.addBot(_bot, _domain, _parser);
+        // TODO: set the needsFullMessage param based on user input
+        gateway.addBot(_bot, _domain, _parser, false);
 
         vm.stopBroadcast();
     }

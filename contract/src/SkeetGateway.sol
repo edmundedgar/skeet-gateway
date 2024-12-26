@@ -13,6 +13,7 @@ contract SkeetGateway is AtprotoMSTProver {
         string domain;
         string subdomain;
         address parser;
+        bool needFullMessage;
     }
 
     mapping(bytes32 => Bot) public bots;
@@ -34,7 +35,7 @@ contract SkeetGateway is AtprotoMSTProver {
 
     event LogAddDomain(address indexed owner, string domain);
 
-    event LogAddBot(address indexed parser, string domain, string subdomain);
+    event LogAddBot(address indexed parser, string domain, string subdomain, bool needFullMessage);
 
     event LogChangeOwner(address indexed owner);
 
@@ -64,13 +65,13 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param subdomain The subdomain, eg "bbs"
     /// @param domain The domain, eg "somedomain.example.com"
     /// @param parser A contract implementing IMessageParser that can handle messages for it
-    function addBot(string calldata subdomain, string calldata domain, address parser) external {
+    function addBot(string calldata subdomain, string calldata domain, address parser, bool needFullMessage) external {
         require(msg.sender == domainOwners[keccak256(abi.encodePacked(domain))], "Not your domain");
         require(parser != address(0), "Address not specified");
         bytes32 key = keccak256(abi.encodePacked(string.concat(string.concat(subdomain, "."), domain)));
         require(address(bots[key].parser) == address(0), "Subdomain already registered");
-        bots[key] = Bot(domain, subdomain, parser);
-        emit LogAddBot(parser, domain, subdomain);
+        bots[key] = Bot(domain, subdomain, parser, needFullMessage);
+        emit LogAddBot(parser, domain, subdomain, needFullMessage);
     }
 
     /// @notice Translate a data node containing a message into a contract address, value and transaction bytecode
@@ -90,11 +91,17 @@ contract SkeetGateway is AtprotoMSTProver {
         require(bytes1(message[0:1]) == bytes1(hex"40"), "Message should begin with @");
 
         // Look up the bot name which should be in the first <256 bytes of the message followed by a space
-        address bot = bots[keccak256(message[1:1 + botNameLength])].parser;
-        require(address(bot) != address(0), "Bot not found");
+        Bot memory bot = bots[keccak256(message[1:1 + botNameLength])];
+        address parser = bot.parser;
+
+        require(address(parser) != address(0), "Bot not found");
         require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
-        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd);
+        if (bot.needFullMessage) {
+            return IMessageParser(parser).parseFullMessage(content, textStart + 1 + botNameLength + 1, textEnd);
+        } else {
+            return IMessageParser(parser).parseMessage(message[1 + botNameLength + 1:textEnd]);
+        }
     }
 
     /// @notice Predict the address that the specified signer will be assigned if they make a SignerSafe

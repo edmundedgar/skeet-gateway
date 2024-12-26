@@ -13,12 +13,8 @@ contract BBSMessageParser is IMessageParser {
 
     // TODO: If it doesn't cost too much maybe pass the whole message cbor as a parameter
     // This will allow the parser to check other things like replies
-    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
-        external
-        view
-        returns (address, uint256 value, bytes memory)
-    {
-        bytes memory data = abi.encodeWithSignature("postMessage(string)", content[0][messageStart:messageEnd]);
+    function parseMessage(bytes[] calldata message) external view returns (address, uint256 value, bytes memory) {
+        bytes memory data = abi.encodeWithSignature("postMessage(string)", message);
         return (bbs, 0, data);
     }
 }
