@@ -17,6 +17,7 @@ contract SendPayload is Script {
         bytes32 r;
         string rkey;
         bytes32 s;
+        uint8 v;
     }
 
     function run(address _gateway, string calldata _file) public {
