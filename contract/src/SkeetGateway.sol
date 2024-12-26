@@ -34,7 +34,7 @@ contract SkeetGateway is AtprotoMSTProver {
 
     event LogAddDomain(address indexed owner, string domain);
 
-    event LogAddBot(address indexed parser, string domain, string subdomain);
+    event LogAddBot(address indexed parser, string domain, string subdomain, string metadata);
 
     event LogChangeOwner(address indexed owner);
 
@@ -64,13 +64,14 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param subdomain The subdomain, eg "bbs"
     /// @param domain The domain, eg "somedomain.example.com"
     /// @param parser A contract implementing IMessageParser that can handle messages for it
-    function addBot(string calldata subdomain, string calldata domain, address parser) external {
+    /// @param metadata Optional json-encoded settings to tell the caller what content to send, eg if the bot needs reply data
+    function addBot(string calldata subdomain, string calldata domain, address parser, string calldata metadata) external {
         require(msg.sender == domainOwners[keccak256(abi.encodePacked(domain))], "Not your domain");
         require(parser != address(0), "Address not specified");
         bytes32 key = keccak256(abi.encodePacked(string.concat(string.concat(subdomain, "."), domain)));
         require(address(bots[key].parser) == address(0), "Subdomain already registered");
         bots[key] = Bot(domain, subdomain, parser);
-        emit LogAddBot(parser, domain, subdomain);
+        emit LogAddBot(parser, domain, subdomain, metadata);
     }
 
     /// @notice Translate a data node containing a message into a contract address, value and transaction bytecode

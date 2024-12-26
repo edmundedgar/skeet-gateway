@@ -30,7 +30,7 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
     function testActualSkeetPayPost() public {
         SkeetGateway gateway = new SkeetGateway();
         gateway.addDomain("unconsensus.com", address(this));
-        gateway.addBot("pay", "unconsensus.com", address(parser));
+        gateway.addBot("pay", "unconsensus.com", address(parser), "");
 
         SkeetProof memory proof = _loadProofFixture("pay_unconsensus_com.json");
         address expectedSafe =

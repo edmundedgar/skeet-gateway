@@ -19,7 +19,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
         gateway.addDomain("blah.example.com", address(this));
-        gateway.addBot("bbs", "blah.example.com", address(bbsParser));
+        gateway.addBot("bbs", "blah.example.com", address(bbsParser), "");
     }
 
     function testChangeOwner() public {

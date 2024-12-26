@@ -33,13 +33,13 @@ Other commands reference the gateway so you may want to set the environmental va
 The SkeetGateway has a modular design where you can add new functionality by registering a bot with its own name (eg "bbs") as a subdomain of a domain you are in charge of (the first test uses unconsensus.com), along with a parser contract that translates text into an action expressed in EVM bytecode. See `BBSMessageParser.sol` for a simple example of such a parser contract.
 
 ```
-forge script --chain sepolia script/AddBot.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string,string)' <gateway> <parser address> <domain> <name of bot>
+forge script --chain sepolia script/AddBot.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string,string,string)' <gateway> <parser address> <domain> <name of bot> <metadata>
 ```
 
 eg
 
 ```
-forge script --chain sepolia script/AddBot.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string,string)' $SKEET_GATEWAY 0xE7c13ff094869bcffC7D0cb4943D568d3AaB2aFC unconsensus.com bbs2
+forge script --chain sepolia script/AddBot.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --broadcast --sig 'run(address,address,string,string)' $SKEET_GATEWAY 0xE7c13ff094869bcffC7D0cb4943D568d3AaB2aFC unconsensus.com bbs2 ""
 ```
 
 

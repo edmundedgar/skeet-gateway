@@ -25,11 +25,11 @@ contract AddBotRealityETHBots is Script {
         gateway.addDomain(_domain, owner);
 
         RealityETHQuestionMessageParser questionParser = new RealityETHQuestionMessageParser(_realityETH, _arbitrator);
-        gateway.addBot(_questionBot, _domain, address(questionParser));
+        gateway.addBot(_questionBot, _domain, address(questionParser), "");
 
         RealityETHAnswerMessageParser answerParser =
             new RealityETHAnswerMessageParser(_realityETH, _realityETHURLPrefix);
-        gateway.addBot(_answerBot, _domain, address(answerParser));
+        gateway.addBot(_answerBot, _domain, address(answerParser), '{"reply": true}');
 
         vm.stopBroadcast();
     }
