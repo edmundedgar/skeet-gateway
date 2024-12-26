@@ -157,17 +157,17 @@ contract SkeetGateway is AtprotoMSTProver {
         bytes32 _s
     ) external {
         {
-            bytes32 target = sha256(abi.encodePacked(content[0]));
-            (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
-            require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
-            assertCommitNodeContainsData(rootHash, commitNode);
-        }
-
-        {
             bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
             address signer = ecrecover(commitNodeHash, _v, _r, _s);
 
             executePayload(signer, content, botNameLength);
+        }
+
+        {
+            bytes32 target = sha256(abi.encodePacked(content[0]));
+            (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
+            require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
+            assertCommitNodeContainsData(rootHash, commitNode);
         }
     }
 
