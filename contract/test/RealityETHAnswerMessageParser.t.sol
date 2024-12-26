@@ -54,5 +54,4 @@ contract RealityETHAnswerMessageParserTest is Test, SkeetProofLoader {
         assertEq(value, 300000000000000, "value should be 0.0003 * 10^18");
         assertEq(address(realityETH), to, "Expected address found");
     }
-
 }
