@@ -159,7 +159,6 @@ contract SkeetGateway is AtprotoMSTProver {
         {
             bytes32 target = sha256(abi.encodePacked(content[0]));
             (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
-            // TODO: Add replay protection
             require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
             assertCommitNodeContainsData(rootHash, commitNode);
         }
