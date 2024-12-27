@@ -86,7 +86,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         gateway.assertCommitNodeContainsData(someOtherHash, proof.commitNode);
     }
 
-    function testSameSigner() public {
+    function testSameSigner() public view {
         SkeetProof memory proof = _loadProofFixture("ask.json");
         address expectedSigner =
             gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.v, proof.r, proof.s);
