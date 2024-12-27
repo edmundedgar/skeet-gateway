@@ -6,6 +6,8 @@ import {Test, console} from "forge-std/Test.sol";
 
 abstract contract SkeetProofLoader is Test {
     struct SkeetProof {
+        string atURI;
+        string botName;
         uint8 botNameLength;
         bytes commitNode;
         bytes[] content;

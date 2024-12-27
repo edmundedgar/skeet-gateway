@@ -8,6 +8,8 @@ import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 
 contract SendPayload is Script {
     struct SkeetProof {
+        string atURI;
+        string botName;
         uint8 botNameLength;
         bytes commitNode;
         bytes[] content;
