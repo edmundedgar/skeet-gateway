@@ -1,0 +1,47 @@
+# Bots and parsing modules
+
+You have an address created for you by the gateway. You may want to use this address before you use the gateway.
+
+You may want to do the following and keep the same address
+ - Upgrade to a new gateway
+ - Change to a more secure form of control
+
+Changing contract
+ - You can change gateway by skeeting @select.bot.something 2
+   This will remove the selected gateway and create a new one or select it if it already exists
+
+ - You can change the contract controlling the safe by skeeting @controller.bot.something 0xdeadbeeef
+
+ISSUE: 
+  It's OK to select a contract that you don't own if it will take instructions from you. 
+  But we shouldn't let users think that the fact that you're sending it instructions means you own it.
+
+
+Parser modules
+
+Each module may will a parsing rule to some contract data. Each action will be represented by a different account.
+eg tip.bot.something <address> <amount> will send a tip of the specified amount to the specified address
+eg add.dao.bot.something <mydao> <address> will add an address to control a DAO by the name <mydao>
+
+We want to be able to add parser modules later.
+
+This means users will need to enable them in their active SignerSafe
+eg enable.bot.something <address>
+
+Alternatively we could have a curated directory (kleros curate or similar) mapping contract addresses to bots names and we could do
+eg enable.bot.something somebot.bot.something
+
+
+Structure
+
+a) There is a single SkeetGateway. It reads the address at the start of the comment and uses it to select the parsing module.
+   It then sends the rest of the message to the parsing module.
+   The parsing module returns an address and calldata which it executes.
+
+   This approach makes the parsing modules very simple and easy to check.
+
+b) Each module has its own SkeetGateway. The core functionality is in a library from which it can inherit.
+   A single common contract works as the AccountDirectory. This is responsible for creating your SignerSafe and keeping track of it.
+   There is a Controller module that is responsible for making changes to a user's contract.
+
+   This approach makes upgrades quite seamless, because you can just opt into using a new bot.
