@@ -202,7 +202,10 @@ abstract contract AtprotoMSTProver {
                 uint256 lastByte = nodes[n].length;
                 if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3B)) {
                     require(bytes32(nodes[n][lastByte - 32:lastByte]) == proveMe, "l value mismatch");
-                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B), "Unexpected CID prefix");
+                    require(
+                        bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B),
+                        "Unexpected CID prefix"
+                    );
                     require(
                         bytes2(nodes[n][lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B,
                         "l prefix mismatch"
@@ -268,7 +271,7 @@ abstract contract AtprotoMSTProver {
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
-                    (, , cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
+                    (,, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
                 }
 
                 ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2B);
