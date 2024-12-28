@@ -81,7 +81,7 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
     /// @return target The contract to call from the user's smart wallet
     /// @return value The value to send from the user's smart wallet
-    /// @return botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
+    /// @return data The data to execute from the user's smart wallet
     function _parsePayload(bytes[] calldata content, uint8 botNameLength)
         internal
         returns (address, uint256 value, bytes memory)
@@ -145,7 +145,7 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param nodes An array of CBOR-encoded tree nodes, ending in the root node for the MST
     /// @param nodeHints An array of indexes to help the verifier find the relevant data in the tree nodes
     /// @param commitNode The commit node at the top of the tree, CBOR-encoded with the signature removed
-    /// @param _v The v parameter of the signature (probably 28)
+    /// @param _v The v parameter of the signature (27 or 28)
     /// @param _r The r parameter of the signature
     /// @param _s The s parameter of the signature
     function handleSkeet(
