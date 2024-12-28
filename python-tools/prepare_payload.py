@@ -22,6 +22,8 @@ from eth_keys import KeyAPI
 
 import skeet_queue
 
+skeet_queue.prepare()
+
 CAR_CACHE = './cars'
 DID_CACHE = './dids'
 SKEET_CACHE = './skeets'
@@ -76,7 +78,7 @@ def loadCar(did, rkey):
     if not os.path.exists(DID_CACHE):
         os.mkdir(DID_CACHE)
 
-    did_file = DID_CACHE+'/'+did
+    did_file = DID_CACHE + '/' + hashlib.sha256(did.encode()).hexdigest()
     addresses = []
     if not os.path.exists(did_file):
         did_url = DID_DIRECTORY + '/' + did
@@ -90,7 +92,8 @@ def loadCar(did, rkey):
             addresses.append(vm['publicKeyMultibase'])
 
     # NB You have to get the right endpoint here, BSky service won't tell you about other people's PDSes.
-    car_file = CAR_CACHE + '/' + did + '-' + rkey + '.car'
+    raw_filename = did + '-' + rkey
+    car_file = CAR_CACHE + '/' + hashlib.sha256(raw_filename.encode()).hexdigest() + '.car'
     if not os.path.exists(car_file):
         car_url = endpoint + '/xrpc/com.atproto.sync.getRecord?did='+did+'&collection=app.bsky.feed.post&rkey='+rkey
         urllib.request.urlretrieve(car_url, car_file)
@@ -159,14 +162,14 @@ def generatePayload(car_file, did, rkey, addresses, at_uri):
             output['v'] = recoverVParam(hashlib.sha256(libipld.encode_dag_cbor(b)).digest(), signature[0:32], signature[32:64], addresses)
         elif 'text' in b:
             target_content = b
-            print("Found text:")
+            # print("Found text:")
             print(b)
             text = b['text']
             if not text.startswith('@'):
                 raise Exception("Post should begin with @")
             message_bits = b['text'].split()
             bot_name = message_bits[0]
-            print("bot is " + bot_name)
+            # print("bot is " + bot_name)
             if bot_name[0:1] != '@':
                 raise Exception("Bot name did not behing with @")
             bot_name = bot_name[1:]

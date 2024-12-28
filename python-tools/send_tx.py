@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+skeet_queue.prepare()
+
 url = os.getenv('SEPOLIA_RPC_URL')
 w3 = web3.Web3(web3.HTTPProvider(url))
 
@@ -53,8 +55,6 @@ def sendTX(item):
         #gas = w3.eth.estimateGas(tx)
         #print("gas is" + str(gas))
     except web3.exceptions.ContractLogicError as err:
-        #print(repr(err.message))
-        print("tx prep failed")
         return (False, err.message)
     signed_tx = w3.eth.account.sign_transaction(tx, private_key=ACCOUNT.key).raw_transaction
     tx_hash = w3.eth.send_raw_transaction(signed_tx)
@@ -75,14 +75,17 @@ def handleItem(item):
     result, detail = sendTX(item)
     if result:
         item['receipt'] = detail
+        print("Completed: " + at_uri + " (" + bot + ")")
         skeet_queue.updateStatus(at_uri, bot, "tx", "completed", item)
     else:
         if not 'x_history' in item:
             item['x_history'] = [] 
         item['x_history'].append({str(time.time()): detail}) 
         if detail == 'execution reverted: Already handled':
+            print("Was already completed: " + at_uri + " (" + bot + ")")
             skeet_queue.updateStatus(at_uri, bot, "tx", "completed", item)
         else:
+            print("Failed, queued for retry: " + at_uri + " (" + bot + ")")
             skeet_queue.updateStatus(at_uri, bot, "tx", "tx_retry", item)
 
 if __name__ == '__main__':

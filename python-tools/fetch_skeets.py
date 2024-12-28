@@ -5,6 +5,8 @@ import json
 
 import skeet_queue
 
+skeet_queue.prepare()
+
 parsers = {}
 with open('parser_config.json') as f:
     parsers = json.load(f)
