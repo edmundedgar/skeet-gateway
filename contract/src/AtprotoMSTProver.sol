@@ -25,6 +25,7 @@ import {console} from "forge-std/console.sol";
 
 bytes1 constant CBOR_NULL_1B = hex"f6";
 
+// CBOR mappings are encoded with the following initial bytes, indicating the number of entries:
 bytes1 constant CBOR_MAPPING_2_ENTRIES_1B = hex"a2"; // tree node has 2 fields
 bytes1 constant CBOR_MAPPING_4_ENTRIES_1B = hex"a4"; // tree node entry field has 4 fields
 bytes1 constant CBOR_MAPPING_5_ENTRIES_1B = hex"a5"; // sig node has 5 fields when unsigned
@@ -38,13 +39,13 @@ bytes2 constant CBOR_HEADER_E_2B = bytes2(hex"6165");
 bytes2 constant CBOR_HEADER_L_2B = bytes2(hex"616c");
 bytes3 constant CBOR_HEADER_L_NULL_3B = bytes3(hex"616cf6"); // l followed by a null
 
-// e contains k, p, t, v
+// Each e entry contains k, p, t, v
 bytes2 constant CBOR_HEADER_K_2B = bytes2(hex"616b");
 bytes2 constant CBOR_HEADER_P_2B = bytes2(hex"6170");
 bytes2 constant CBOR_HEADER_T_2B = bytes2(hex"6174");
 bytes2 constant CBOR_HEADER_V_2B = bytes2(hex"6176");
 
-// commit nodes contain did, rev, data, prev and version (which must be 3)
+// Commit nodes contain did, rev, data, prev and version (which must be 3)
 bytes4 constant CBOR_HEADER_DID_4B = bytes4(hex"63646964"); // text, did
 bytes4 constant CBOR_HEADER_REV_4B = bytes4(hex"63726576"); // text, rev
 bytes5 constant CBOR_HEADER_DATA_5B = bytes5(hex"6464617461"); // text, data
@@ -201,7 +202,7 @@ abstract contract AtprotoMSTProver {
                 uint256 lastByte = nodes[n].length;
                 if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3B)) {
                     require(bytes32(nodes[n][lastByte - 32:lastByte]) == proveMe, "l value mismatch");
-                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B));
+                    require(bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B), "Unexpected CID prefix");
                     require(
                         bytes2(nodes[n][lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B,
                         "l prefix mismatch"
@@ -267,7 +268,7 @@ abstract contract AtprotoMSTProver {
                     cursor = cursor + 2;
 
                     // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
+                    (, , cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
                 }
 
                 ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2B);
