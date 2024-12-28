@@ -2,10 +2,14 @@ import web3
 import os
 import json
 
-url = os.environ['SEPOLIA_RPC_URL']
+from dotenv import load_dotenv
+
+load_dotenv()
+
+url = os.getenv('SEPOLIA_RPC_URL')
 w3 = web3.Web3(web3.HTTPProvider(url))
 
-GATEWAY_ADDRESS = os.environ['SKEET_GATEWAY']
+GATEWAY_ADDRESS = os.getenv('SKEET_GATEWAY')
 
 ABI_FILE = "../contract/out/SkeetGateway.sol/SkeetGateway.json"
 

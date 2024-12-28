@@ -20,6 +20,7 @@ from multibase import encode, decode
 import sha3
 from eth_keys import KeyAPI
 
+import skeet_queue
 
 CAR_CACHE = './cars'
 DID_CACHE = './dids'
@@ -27,16 +28,19 @@ SKEET_CACHE = './skeets'
 OUT_DIR = './out'
 
 DID_DIRECTORY = 'https://plc.directory'
+PARSER_CONFIG = 'parser_config.json'
 
 # Returns whether or not the bot needs us to send it content of the skeet they're replying to.
 # Hard-coding this for now. 
 # Later we will probably add this information to the SkeetGateway contract.
 # (It shouldn't change so it should be cacheable after you meet each bot for the first time.)
 def isReplyParentContentNeededByBot(botName):
-    if botName == "@answerv1.bot.reality.eth.link":
-        return True
-    else:
-        return False
+    with open(PARSER_CONFIG, mode="r") as cf:
+        data = json.load(cf)
+        bot_entry = data[botName]
+        if 'metadata' in bot_entry and 'reply' in bot_entry['metadata']:
+            return bool(bot_entry['metadata']['reply'])
+    return False
 
 def fetchAtURIForSkeetURL(skeet_url):
 
@@ -111,11 +115,13 @@ def recoverVParam(sighash, r, s, addresses):
 
     raise Exception("Could not find a v value matching the signature for a key in the did record")
 
-def generatePayload(car_file, did, rkey, addresses):
+def generatePayload(car_file, did, rkey, addresses, at_uri):
 
     # Output sorts keys alphabetically for compatibility with Forge json parsing.
     # The DID and rkey are only there to help keep track of things, they're not used by handleSkeet.
     output = {
+        "atURI": at_uri,
+        "botName": None,
         "botNameLength": None,
         "commitNode": None,
         "content": [],
@@ -161,14 +167,19 @@ def generatePayload(car_file, did, rkey, addresses):
             message_bits = b['text'].split()
             bot_name = message_bits[0]
             print("bot is " + bot_name)
-            bot_name_length = len(bot_name) -1
+            if bot_name[0:1] != '@':
+                raise Exception("Bot name did not behing with @")
+            bot_name = bot_name[1:]
+            bot_name_length = len(bot_name)
             if bot_name_length == 0 or bot_name_length > 100:
                 raise Exception("Bot name "+ bot_name + " is not the expected length")
+            output['botName'] = bot_name
+            output['botNameLength'] = bot_name_length
+
             # Currently we only use 1 entry for content, the node with the text in it.
             # However we use an array as in future we may want to support other entries
             # In particularly we may want to pass the skeet we are replying to
             output['content'] = ["0x"+libipld.encode_dag_cbor(b).hex()]
-            output['botNameLength'] = bot_name_length
 
             if isReplyParentContentNeededByBot(bot_name):
                 if not 'reply' in b or not 'parent' in b['reply']:
@@ -258,25 +269,44 @@ def atURIToDidAndRkey(at_uri):
     rkey = m.group(2)
     return (did, rkey)
 
+def processQueuedPayloads():
+    while True:
+        item = skeet_queue.readNext("payload")
+        if item is None:
+            break
+
+        print(item)
+        at_uri = item['at_uri']
+        bot = item['bot']
+        (param_did, param_rkey) = atURIToDidAndRkey(at_uri)
+        (car, addresses) = loadCar(param_did, param_rkey)
+        item = generatePayload(car, param_did, param_rkey, addresses, at_uri)
+        # item['payload'] = generatePayload(car, param_did, param_rkey, addresses)
+        skeet_queue.updateStatus(at_uri, bot, "payload", "tx", item)
+
 if __name__ == '__main__':
+
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] == "queue"):
+        processQueuedPayloads()
+        sys.exit(0)
 
     if len(sys.argv) < 2:
         raise Exception("Usage: python prove_car.py <at://<did:plc:something>/app.bsky.feed.post/something>> ")
 
-    at_addr = None
+    at_uri = None
 
     # Secret feature: You can just past a bsky skeet URL in here and we'll get the at:// URL
     # If we get a post URL grab the at:// address 
     # It just scrapes the HTML so we don't have to futz with API keys so it will break one day without warning
     if sys.argv[1].startswith('https://bsky.app'):
-        at_addr = fetchAtURIForSkeetURL(sys.argv[1])
+        at_uri = fetchAtURIForSkeetURL(sys.argv[1])
     else:
-        at_addr = sys.argv[1]
+        at_uri = sys.argv[1]
 
-    (param_did, param_rkey) = atURIToDidAndRkey(at_addr)
+    (param_did, param_rkey) = atURIToDidAndRkey(at_uri)
     
     (car, addresses) = loadCar(param_did, param_rkey)
-    output = generatePayload(car, param_did, param_rkey, addresses)
+    output = generatePayload(car, param_did, param_rkey, addresses, at_uri)
 
     out_file = None
     if len(sys.argv) > 2:
