@@ -30,7 +30,9 @@ contract SkeetGateway is AtprotoMSTProver {
 
     event LogCreateSignerSafe(address indexed signer, address indexed signerSafe);
 
-    event LogExecutePayload(address indexed signer, address indexed to, uint256 value, bytes data);
+    event LogExecutePayload(
+        bytes32 indexed contentHash, address indexed signer, address indexed to, uint256 value, bytes data
+    );
 
     event LogAddDomain(address indexed owner, string domain);
 
@@ -202,6 +204,6 @@ contract SkeetGateway is AtprotoMSTProver {
         // The user's smart wallet should recognize this contract as their owner and execute what we send it.
         // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
         require(signerSafes[signer].executeOwnerCall(to, value, payloadData), "Code execution reverted");
-        emit LogExecutePayload(signer, to, value, payloadData);
+        emit LogExecutePayload(contentHash, signer, to, value, payloadData);
     }
 }
