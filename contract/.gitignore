@@ -2,6 +2,7 @@
 cache/
 out/*
 contract/out/*
+lib/*
 
 # Ignores development broadcast logs
 /broadcast
