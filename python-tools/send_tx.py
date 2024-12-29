@@ -5,6 +5,8 @@ import json
 import time
 import sys
 
+import hashlib
+
 import skeet_queue
 
 from dotenv import load_dotenv
@@ -61,6 +63,23 @@ def sendTX(item):
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     return (True, receipt)
 
+def diagnosisDetail(item):
+    commit_node = bytes.fromhex(item['commitNode'][2:])
+    sighash = hashlib.sha256(commit_node).digest()
+    signer = gateway.functions.predictSignerAddressFromSig(sighash, item['v'], item['r'], item['s']).call()
+    signer_safe = gateway.functions.predictSafeAddressFromSig(sighash, item['v'], item['r'], item['s']).call()
+    balance = w3.eth.get_balance(signer_safe)
+    code_len = len(w3.eth.get_code(signer_safe))
+    is_deployed = False
+    if code_len > 0:
+        is_deployed = True
+    return {
+        'signer': signer,
+        'signerSafe': signer_safe,
+        'balance': balance,
+        'isDeployed': is_deployed 
+    }
+
 def processQueue():
     while True:
         item = skeet_queue.readNext("tx")
@@ -73,14 +92,18 @@ def handleItem(item):
     bot = item['botName']
     #print(at_uri)
     result, detail = sendTX(item)
+    if not 'x_history' in item:
+        item['x_history'] = [] 
+    item['x_history'].append({
+        str(time.time()): {
+            "diagnosis": diagnosisDetail(item)
+        }
+    })
     if result:
-        item['receipt'] = detail
         print("Completed: " + at_uri + " (" + bot + ")")
+        item['x_tx_hash'] = detail.transactionHash.to_0x_hex()
         skeet_queue.updateStatus(at_uri, bot, "tx", "completed", item)
     else:
-        if not 'x_history' in item:
-            item['x_history'] = [] 
-        item['x_history'].append({str(time.time()): detail}) 
         if detail == 'execution reverted: Already handled':
             print("Was already completed: " + at_uri + " (" + bot + ")")
             skeet_queue.updateStatus(at_uri, bot, "tx", "completed", item)
