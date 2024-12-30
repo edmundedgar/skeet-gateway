@@ -12,6 +12,17 @@ Run `forge build`.
 
 ## Deployment
 
+### Deploy everything
+
+Deploy the SkeetGateway and various bots as definied in `/script/input/deploy_parameters.json`
+
+```
+forge script --chain sepolia script/DeployEvenything.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --etherscan-api-key $ETHERSCAN_API_KEY --broadcast --verify
+
+```
+
+### Limited deployment
+
 ```
 forge script --chain sepolia script/DeploySkeetGateway.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --etherscan-api-key $ETHERSCAN_API_KEY --broadcast --verify --sig 'run(string,string)' <domain> <BBS bot>
 ```
