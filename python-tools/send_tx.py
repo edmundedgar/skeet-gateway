@@ -102,11 +102,11 @@ def handleItem(item):
     if result:
         print("Completed: " + at_uri + " (" + bot + ")")
         item['x_tx_hash'] = detail.transactionHash.to_0x_hex()
-        skeet_queue.updateStatus(at_uri, bot, "tx", "completed", item)
+        skeet_queue.updateStatus(at_uri, bot, "tx", "sent", item)
     else:
         if detail == 'execution reverted: Already handled':
             print("Was already completed: " + at_uri + " (" + bot + ")")
-            skeet_queue.updateStatus(at_uri, bot, "tx", "completed", item)
+            skeet_queue.updateStatus(at_uri, bot, "tx", "sent", item)
         else:
             print("Failed, queued for retry: " + at_uri + " (" + bot + ")")
             skeet_queue.updateStatus(at_uri, bot, "tx", "tx_retry", item)
