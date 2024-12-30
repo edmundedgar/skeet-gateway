@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 
-statuses = ['payload', 'payload_retry', 'tx', 'tx_retry', 'completed', 'abandoned']
+statuses = ['payload', 'payload_retry', 'tx', 'tx_retry', 'report', 'report_retry', 'abandoned', 'completed']
 
 QUEUE_ROOT = "queue"
 
