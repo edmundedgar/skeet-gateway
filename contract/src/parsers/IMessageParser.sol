@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.28;
 
 interface IMessageParser {
     function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)

@@ -3,7 +3,7 @@
 
 import {console} from "forge-std/console.sol";
 
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.28;
 
 /// @notice This library provides functions to find data inside DAG-CBOR-encoded calldata
 /// @author Edmund Edgar

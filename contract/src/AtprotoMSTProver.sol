@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.28;
 
 // Contract to extract DAG-CBOR-encoded Atproto Merkle Search Tree data
 // https://atproto.com/specs/repository

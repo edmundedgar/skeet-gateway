@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.28;
 
 import {IMessageParser} from "../IMessageParser.sol";
 import {IRealityETH} from "./IRealityETH.sol";
