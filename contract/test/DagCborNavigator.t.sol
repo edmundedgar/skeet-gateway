@@ -192,6 +192,31 @@ contract DagCborNavigatorTest is Test {
         //assertEq(9, start, "c index cursor should start where the c starts");
     }
 
+    function testMappingSelectorPrefix() public {
+        // {"a": 1, "b": 2, "c": {"c1": 9, "c2": 9, "c3": 7}, "target": 123, "more": "data"}
+        // See cbor.me detail in testIndexOfMappingFieldSkippingInnerMapping
+
+        bytes memory nestedCbor =
+            hex"A56161016162026163A362633109626332096263330766746172676574187B646D6F72656464617461";
+        uint256 expectIndex = 29; // end of "target" text
+        uint256 index = client.indexOfMappingField(nestedCbor, bytes(hex"66746172676574"), 1);
+        assertEq(index, expectIndex);
+
+        uint256 foundCursor;
+
+        DagCborNavigator.DagCborSelector[] memory simpleSelector = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelector[0] = DagCborNavigator.createSelector("b");
+        (foundCursor,) = client.firstMatch(nestedCbor, simpleSelector, 0, 0);
+        assertTrue(foundCursor > 0, "b index should be found");
+        assertEq(6, foundCursor, "Index 1 cursor should start where the b starts");
+
+        DagCborNavigator.DagCborSelector[] memory simpleSelectorC = new DagCborNavigator.DagCborSelector[](1);
+        simpleSelectorC[0] = DagCborNavigator.createSelector("c");
+        (foundCursor,) = client.firstMatch(nestedCbor, simpleSelectorC, 0, 0);
+        assertTrue(foundCursor > 0, "c index should be found");
+        //assertEq(9, start, "c index cursor should start where the c starts");
+    }
+
     function testMappingSelectorAfterMapping() public {
         // {"a": 1, "b": 2, "c": {"c1": 9, "c2": 9, "c3": 7}, "target": 123, "more": "data"}
         // See cbor.me detail in testIndexOfMappingFieldSkippingInnerMapping

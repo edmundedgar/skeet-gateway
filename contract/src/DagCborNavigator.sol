@@ -11,33 +11,39 @@ library DagCborNavigator {
     // Each level in the tree gets a selector consisting of a key/index (which may be empty to try all),
     //  mapping text: "oink" | array 3: "oink"
 
+    enum ValueMatch {
+        Any,
+        Exact,
+        Prefix
+    }
+
     struct DagCborSelector {
         string fieldName; // The field we should match (unless you set isKeyAny)
         uint256 arrayIndex; // The array index we should match (unless you set isKeyAny)
         bytes fieldValue; // The field value we should match (unless you set isValueAny)
         bool isKeyAny; // Whether we should match any mapping field / array index
-        bool isValueAny; // Whether we should match any value
+        ValueMatch valueMatch; // Whether we should match any value
         bool unpackValue; // Should we return the whole field including the header, or its value
     }
 
     function createTargetSelector(string memory fieldName) external pure returns (DagCborSelector memory) {
-        return DagCborSelector(fieldName, 0, bytes(hex""), false, true, true);
+        return DagCborSelector(fieldName, 0, bytes(hex""), false, ValueMatch.Any, true);
     }
 
     function createSelector(string memory fieldName) external pure returns (DagCborSelector memory) {
-        return DagCborSelector(fieldName, 0, bytes(hex""), false, true, false);
+        return DagCborSelector(fieldName, 0, bytes(hex""), false, ValueMatch.Any, false);
     }
 
     function createSelector(uint256 idx) external pure returns (DagCborSelector memory) {
-        return DagCborSelector("", idx, bytes(hex""), false, true, false);
+        return DagCborSelector("", idx, bytes(hex""), false, ValueMatch.Any, false);
     }
 
     function createSelector() external pure returns (DagCborSelector memory) {
-        return DagCborSelector("", 0, bytes(hex""), true, true, false);
+        return DagCborSelector("", 0, bytes(hex""), true, ValueMatch.Any, false);
     }
 
     function createSelector(uint256 idx, bytes memory fieldValue) external pure returns (DagCborSelector memory) {
-        return DagCborSelector("", idx, fieldValue, false, false, false);
+        return DagCborSelector("", idx, fieldValue, false, ValueMatch.Exact, false);
     }
 
     function createSelector(string memory fieldName, string memory fieldValue)
@@ -45,7 +51,7 @@ library DagCborNavigator {
         pure
         returns (DagCborSelector memory)
     {
-        return DagCborSelector(fieldName, 0, bytes(fieldValue), false, false, false);
+        return DagCborSelector(fieldName, 0, bytes(fieldValue), false, ValueMatch.Exact, false);
     }
 
     // Runs through nested arrays and mappings in cbor and finds the first entry matching the selector, then returns its start and end
@@ -89,10 +95,15 @@ library DagCborNavigator {
                     fieldStart = cursor;
                     (maj, extra, cursor) = parseCborHeader(cbor, cursor);
                     if (
-                        sel.isValueAny
+                        sel.valueMatch == ValueMatch.Any
                             || (
-                                extra == bytes(sel.fieldValue).length
+                                sel.valueMatch == ValueMatch.Exact && extra == bytes(sel.fieldValue).length
                                     && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldValue))
+                            )
+                            || (
+                                sel.valueMatch == ValueMatch.Prefix && extra >= bytes(sel.fieldValue).length
+                                    && keccak256(cbor[cursor:cursor + bytes(sel.fieldValue).length])
+                                        == keccak256(bytes(sel.fieldValue))
                             )
                     ) {
                         if (currentLevel == 1) {
@@ -133,10 +144,15 @@ library DagCborNavigator {
                 if (sel.isKeyAny || sel.arrayIndex == mf) {
                     (maj, extra, cursor) = parseCborHeader(cbor, cursor); // TODO: handle if this is an int
                     if (
-                        sel.isValueAny
+                        sel.valueMatch == ValueMatch.Any
                             || (
-                                extra == bytes(sel.fieldValue).length
+                                sel.valueMatch == ValueMatch.Exact && extra == bytes(sel.fieldValue).length
                                     && keccak256(cbor[cursor:cursor + extra]) == keccak256(bytes(sel.fieldValue))
+                            )
+                            || (
+                                sel.valueMatch == ValueMatch.Prefix && extra >= bytes(sel.fieldValue).length
+                                    && keccak256(cbor[cursor:cursor + bytes(sel.fieldValue).length])
+                                        == keccak256(bytes(sel.fieldValue))
                             )
                     ) {
                         if (currentLevel == 1) {

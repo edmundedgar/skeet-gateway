@@ -62,12 +62,11 @@ contract RealityETHAnswerMessageParser is IMessageParser {
 
         // {'text': 'Will this question show up on sepolia reality.eth?  #fe8880c...0229f78\n\n⇒Answer', '$type': 'app.bsky.feed.post', 'facets': [{'index': {'byteEnd': 81, 'byteStart': 71}, 'features': [{'uri': 'https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0xfe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': 'app.bsky.richtext.facet#link'}]}, {'index': {'byteEnd': 70, 'byteStart': 52}, 'features': [{'tag': 'fe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': 'app.bsky.richtext.facet#tag'}]}], 'createdAt': '2024-12-19T21:08:48.000Z'}
 
-        // TODO: This fetches any uri
-        // Maybe we should filter it by prefix in the selector
-
-        // facets > any item > features > any item > uri
+        // facets > any item > features > any item > uri=https://reality.eth.link...
         DagCborNavigator.DagCborSelector[] memory urlSelector = new DagCborNavigator.DagCborSelector[](5);
-        urlSelector[0] = DagCborNavigator.createTargetSelector("uri");
+        urlSelector[0] = DagCborNavigator.DagCborSelector(
+            "uri", 0, bytes(linkURLPrefix), false, DagCborNavigator.ValueMatch.Prefix, true
+        );
         urlSelector[1] = DagCborNavigator.createSelector();
         urlSelector[2] = DagCborNavigator.createSelector("features");
         urlSelector[3] = DagCborNavigator.createSelector();
