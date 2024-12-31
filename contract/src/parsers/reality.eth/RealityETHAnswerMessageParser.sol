@@ -76,10 +76,6 @@ contract RealityETHAnswerMessageParser is IMessageParser {
         (cursor, fieldEnd) = DagCborNavigator.firstMatch(content[1], urlSelector, 0, 0);
         require(cursor > 0, "uri field not found");
 
-        require(
-            keccak256(content[1][cursor:fieldEnd - 64]) == keccak256(bytes(linkURLPrefix)), "URL found in CBOR wrong"
-        );
-
         bytes32 questionId = ParserUtil.hexStrToBytes32(string(content[1][fieldEnd - 64:fieldEnd]));
         // TODO: Check the current answer to make sure we're changing it
 
