@@ -20,7 +20,7 @@ library DagCborNavigator {
     struct DagCborSelector {
         string fieldName; // The field we should match (unless you set isKeyAny)
         uint256 arrayIndex; // The array index we should match (unless you set isKeyAny)
-        bytes fieldValue; // The field value we should match (unless you set isValueAny)
+        bytes fieldValue; // The field value we should match (unless you set ValueMatch.Any)
         bool isKeyAny; // Whether we should match any mapping field / array index
         ValueMatch valueMatch; // Whether we should match any value
         bool unpackValue; // Should we return the whole field including the header, or its value
