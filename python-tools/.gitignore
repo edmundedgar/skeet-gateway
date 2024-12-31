@@ -4,5 +4,7 @@ skeets
 out
 queue
 parser_config.json
+bot_login.json
+tx_hist.json
 __pycache__
 .env
