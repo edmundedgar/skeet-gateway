@@ -9,12 +9,15 @@ import {IMessageParser} from "../src/parsers/IMessageParser.sol";
 import {PayMessageParser} from "../src/parsers/pay/PayMessageParser.sol";
 import {BBS} from "../src/parsers/bbs/BBS.sol";
 import {console} from "forge-std/console.sol";
+import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
 
 contract PayMessageParserTest is Test, SkeetProofLoader {
     PayMessageParser parser;
+    Safe safeSingleton;
 
     function setUp() public {
         parser = new PayMessageParser();
+        safeSingleton = new Safe();
     }
 
     function testFullMessageParsing() external view {
@@ -28,7 +31,7 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
     }
 
     function testActualSkeetPayPost() public {
-        SkeetGateway gateway = new SkeetGateway();
+        SkeetGateway gateway = new SkeetGateway(address(safeSingleton));
         gateway.addDomain("unconsensus.com", address(this));
         gateway.addBot("pay", "unconsensus.com", address(parser), "");
 

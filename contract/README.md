@@ -104,5 +104,5 @@ eg
 ```
 forge script --chain sepolia script/AddRealityETHBots.sol --private-key $PRIVATE_KEY --rpc-url $SEPOLIA_RPC_URL --sig "run(address,address,address,string,string,string,string)" $SKEET_GATEWAY 0xaf33DcB6E8c5c4D9dDF579f53031b514d19449CA 0x05b942faecfb3924970e3a28e0f230910cedff45 'https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x' "bot.reality.eth.link" "askqv1" "answerv1" --broadcast
 
-You should fund your SignerSafe before trying to use the "answer question" feature of the reality.eth bot.
+You should fund your Safe before trying to use the "answer question" feature of the reality.eth bot.
 ```
