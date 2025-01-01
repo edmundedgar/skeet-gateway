@@ -129,7 +129,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         assertEq(entries[1].topics[1], bytes32(uint256(uint160(expectedSigner))), "topic 1 should be signer");
         assertEq(entries[1].topics[2], bytes32(uint256(uint160(expectedSafe))), "topic 2 should be safe");
 
-        // assertEq(gateway.signerSafes(expectedSigner).owner(), address(gateway));
+        assertEq(gateway.signerSafes(expectedSigner).getOwners()[0], address(gateway));
 
         assertEq(bbs.messages(createdSafe), "post this my pretty");
         assertNotEq(bbs.messages(createdSafe), "oinK");
