@@ -236,7 +236,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
                 value,
                 payloadData,
                 Enum.Operation.Call,
-                200000,
+                0,
                 0,
                 0,
                 address(0),
