@@ -13,7 +13,7 @@ contract RealityETHQuestionMessageParser is IMessageParser {
         arbitrator = _arbitrator;
     }
 
-    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
+    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd, address)
         external
         view
         returns (address, uint256 value, bytes memory)

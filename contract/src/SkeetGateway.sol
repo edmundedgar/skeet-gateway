@@ -93,7 +93,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @return target The contract to call from the user's smart wallet
     /// @return value The value to send from the user's smart wallet
     /// @return data The data to execute from the user's smart wallet
-    function _parsePayload(bytes[] calldata content, uint8 botNameLength)
+    function _parsePayload(bytes[] calldata content, uint8 botNameLength, address signerSafe)
         internal
         returns (address, uint256 value, bytes memory)
     {
@@ -108,7 +108,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         require(address(bot) != address(0), "Bot not found");
         require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
-        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd);
+        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd, signerSafe);
     }
 
     /// @notice Predict the address that the specified signer will be assigned if they make a Safe
@@ -226,12 +226,13 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         }
 
         // Parsing will map the text of the message in the data node to a contract to interact with and some EVM code to execute against it.
-        (address to, uint256 value, bytes memory payloadData) = _parsePayload(content, botNameLength);
+        (address to, uint256 value, bytes memory payloadData) =
+            _parsePayload(content, botNameLength, address(signerSafe));
 
         // The user's smart wallet should recognize this contract as their owner and execute what we send it.
         // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
         require(
-            signerSafes[signer].execTransaction(
+            signerSafe.execTransaction(
                 to,
                 value,
                 payloadData,

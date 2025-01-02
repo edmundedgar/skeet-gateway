@@ -25,7 +25,7 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
         address to;
         uint256 value;
         bytes memory data;
-        (to, value, data) = parser.parseMessage(proof.content, 29, 141);
+        (to, value, data) = parser.parseMessage(proof.content, 29, 141, address(0));
         assertEq(value, 12300000000000000, "value should be 0.0123 * 10^18");
         assertEq(address(0xB6aaa1DAd9D09d689dc6111dcc6EA2A0d641b406), to, "Expected address found");
     }

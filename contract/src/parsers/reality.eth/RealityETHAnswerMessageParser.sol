@@ -27,38 +27,42 @@ contract RealityETHAnswerMessageParser is IMessageParser {
         require(bytes(linkURLPrefix).length > 0, "missing linkURLPrefix");
     }
 
-    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256)
-        external
-        returns (address, uint256 value, bytes memory)
-    {
-        uint256 cursor = messageStart;
-
-        bytes32 answer;
-        console.logBytes(content[0][cursor:]);
-        if (bytes4(content[0][cursor:cursor + 4]) == bytes4("Yes ")) {
-            answer = bytes32(uint256(1));
-            cursor = cursor + 4;
-        } else if (bytes3(content[0][cursor:cursor + 3]) == bytes3("No ")) {
-            answer = bytes32(uint256(0));
-            cursor = cursor + 3;
-        } else {
-            revert("Answer not recognized");
+    function _answerBytes32(bytes calldata content, uint256 cursor) internal pure returns (bytes32, uint256) {
+        if (bytes4(content[cursor:cursor + 4]) == bytes4("Yes ")) {
+            return (bytes32(uint256(1)), cursor + 4);
+        } else if (bytes3(content[cursor:cursor + 3]) == bytes3("No ")) {
+            return (bytes32(uint256(0)), cursor + 3);
         }
+        revert("Answer not recognized");
+    }
 
+    function _bondAmount(bytes calldata content, uint256 cursor) internal pure returns (uint256, uint256) {
         uint256 amount;
         uint256 lengthInBytes;
         (amount, lengthInBytes) =
-            ParserUtil.stringStartingWithDecimalsToUint256(string(content[0][cursor:]), NATIVE_TOKEN_DECIMALS);
+            ParserUtil.stringStartingWithDecimalsToUint256(string(content[cursor:]), NATIVE_TOKEN_DECIMALS);
         cursor = cursor + lengthInBytes;
 
-        require(bytes1(content[0][cursor:cursor + 1]) == bytes1(hex"20"), "Need a space after the amount");
+        require(bytes1(content[cursor:cursor + 1]) == bytes1(hex"20"), "Need a space after the amount");
         cursor = cursor + 1;
 
         // NB If you set a longer symbol than 4 bytes for NATIVE_TOKEN_SYMBOL you need to change the bytes4:
         require(
-            bytes4(content[0][cursor:cursor + bytes(NATIVE_TOKEN_SYMBOL).length]) == bytes4(bytes(NATIVE_TOKEN_SYMBOL)),
+            bytes4(content[cursor:cursor + bytes(NATIVE_TOKEN_SYMBOL).length]) == bytes4(bytes(NATIVE_TOKEN_SYMBOL)),
             "Must specify correct token"
         );
+        return (amount, cursor);
+    }
+
+    function parseMessage(bytes[] calldata content, uint256 cursor, uint256, address)
+        external
+        returns (address, uint256 value, bytes memory)
+    {
+        bytes32 answer;
+        uint256 amount;
+
+        (answer, cursor) = _answerBytes32(content[0], cursor);
+        (amount, cursor) = _bondAmount(content[0], cursor);
 
         // {'text': 'Will this question show up on sepolia reality.eth?  #fe8880c...0229f78\n\n⇒Answer', '$type': 'app.bsky.feed.post', 'facets': [{'index': {'byteEnd': 81, 'byteStart': 71}, 'features': [{'uri': 'https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0xfe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': 'app.bsky.richtext.facet#link'}]}, {'index': {'byteEnd': 70, 'byteStart': 52}, 'features': [{'tag': 'fe8880cf92120dd15c4ef6d8897a7852b308cfcfb0741bcd1839517bb0229f78', '$type': 'app.bsky.richtext.facet#tag'}]}], 'createdAt': '2024-12-19T21:08:48.000Z'}
 
