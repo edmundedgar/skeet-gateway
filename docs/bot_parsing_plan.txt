@@ -1,47 +1,37 @@
 # Bots and parsing modules
 
-You have an address created for you by the gateway. You may want to use this address before you use the gateway.
+## Examples
 
-You may want to do the following and keep the same address
- - Upgrade to a new gateway
- - Change to a more secure form of control
+ `tip.bot.something <address> <amount>` will send a tip of the specified amount to the specified address
 
-Changing contract
- - You can change gateway by skeeting @select.bot.something 2
-   This will remove the selected gateway and create a new one or select it if it already exists
+ `add.dao.bot.something <mydao> <address>` will add an address to control a DAO by the name <mydao>
 
- - You can change the contract controlling the safe by skeeting @controller.bot.something 0xdeadbeeef
+## Principles
 
-ISSUE: 
-  It's OK to select a contract that you don't own if it will take instructions from you. 
-  But we shouldn't let users think that the fact that you're sending it instructions means you own it.
+A single gateway, the SkeetGateway, is responsible for handling all kinds of different bots. These may be build and operated by different people.
 
+In principle, sending a message addressed to a bot is considered a sign that you know what that bot does and you assent to let it control your assets.
 
-Parser modules
+However, as far as possible the naming should make it obvious that you are messaging an asset-controlling bot. It should also prevent people from retroactively attaching meaning to existing skeets.
 
-Each module may will a parsing rule to some contract data. Each action will be represented by a different account.
-eg tip.bot.something <address> <amount> will send a tip of the specified amount to the specified address
-eg add.dao.bot.something <mydao> <address> will add an address to control a DAO by the name <mydao>
+## The domain allow-list
 
-We want to be able to add parser modules later.
+The SkeetGateway manages a list of domains, and an owner address for each domain that has the permission to add bots under it. Currently the ability to add domains is permissioned.
 
-This means users will need to enable them in their active SignerSafe
-eg enable.bot.something <address>
+TODO: We might want to let signers add their own domains, eg by calling `@enable.bot.something somedomain.com`. Alternatively we could put this in the control of a curated directory (kleros curate or similar).
 
-Alternatively we could have a curated directory (kleros curate or similar) mapping contract addresses to bots names and we could do
-eg enable.bot.something somebot.bot.something
+## Parser modules
 
+Each bot name, eg `pay.skeetgateway.eth.link`, is paired with a parser contract implementing the interface `IMessageParser`.
 
-Structure
+When handling a message, the SkeetGateway will first read the initial characters representing the bot name and to find out which parser it should use to interpret the message.
 
-a) There is a single SkeetGateway. It reads the address at the start of the comment and uses it to select the parsing module.
-   It then sends the rest of the message to the parsing module.
-   The parsing module returns an address and calldata which it executes.
+It will then send the content to the parser contract. The parser contract returns an address, a value and some calldata, and the SkeetGateway executes this from the signer's currently selected Safe.
 
-   This approach makes the parsing modules very simple and easy to check.
+## Registering parsers
 
-b) Each module has its own SkeetGateway. The core functionality is in a library from which it can inherit.
-   A single common contract works as the AccountDirectory. This is responsible for creating your SignerSafe and keeping track of it.
-   There is a Controller module that is responsible for making changes to a user's contract.
+You can register a parser under a domain you control by calling the SkeetGateway with the method `addBot`.
 
-   This approach makes upgrades quite seamless, because you can just opt into using a new bot.
+## Caller metadata
+
+Some parsers may need additional context that is not needed by others. For example, the reality.eth "answer question" bot needs the reply parent content so it knows what question you are replying to. This can be signalled when registering the parser by passing in a string representing a JSON-encoded list of settings. Currently the only value recognized is `{reply: 1}`.
