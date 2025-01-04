@@ -51,6 +51,7 @@ def sendTX(item):
             payload['r'],
             payload['s']
         ).build_transaction({
+            "gas": 1000000,
             "from": ACCOUNT.address,
             "nonce": w3.eth.get_transaction_count(ACCOUNT.address),
         })
@@ -102,11 +103,11 @@ def handleItem(item):
     if result:
         print("Completed: " + at_uri + " (" + bot + ")")
         item['x_tx_hash'] = detail.transactionHash.to_0x_hex()
-        skeet_queue.updateStatus(at_uri, bot, "tx", "sent", item)
+        skeet_queue.updateStatus(at_uri, bot, "tx", "report", item)
     else:
         if detail == 'execution reverted: Already handled':
             print("Was already completed: " + at_uri + " (" + bot + ")")
-            skeet_queue.updateStatus(at_uri, bot, "tx", "sent", item)
+            skeet_queue.updateStatus(at_uri, bot, "tx", "report", item)
         else:
             print("Failed, queued for retry: " + at_uri + " (" + bot + ")")
             skeet_queue.updateStatus(at_uri, bot, "tx", "tx_retry", item)
