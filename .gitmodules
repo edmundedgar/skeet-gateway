@@ -7,3 +7,6 @@
 [submodule "contract/lib/openzeppelin-contracts"]
 	path = contract/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "contract/lib/base58-solidity"]
+	path = contract/lib/base58-solidity
+	url = https://github.com/storyicon/base58-solidity
