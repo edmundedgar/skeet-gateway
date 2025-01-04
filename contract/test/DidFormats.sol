@@ -7,6 +7,9 @@ import {DidFormats} from "../src/DidFormats.sol";
 
 contract DidFormatClient is DidFormats {
 
+    function callDidKeyToBytes(string calldata pubkey) public pure returns (bytes memory) {
+        return didKeyToBytes(string(pubkey[9:]));
+    }
 }
 
 contract DidVerifierTest is Test{
@@ -24,6 +27,21 @@ contract DidVerifierTest is Test{
     }
 
     function testDidKeyToBytes() public view {
+        string memory origEncodedPubkey = "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg";
+        bytes memory origDecodedPubkey = bytes(hex"0325f4891e63128b8ab689e862b8e11428f24095e3e57b9ea987eb70d1b59af9df");
+        bytes memory decodedPubkey = client.callDidKeyToBytes(origEncodedPubkey);
+        assertEq(keccak256(origDecodedPubkey), keccak256(bytes(decodedPubkey)), "pubkey should decode to what we prepared earlier");
+    }
+
+    function testBase32CidToSha256() public view {
+        bytes memory origDecodedCidSha = bytes(hex"7e32bcc27e0e9b889c1f930b1c7a3514dfc0d2983e59e3a7bb619c00d6ca5b1c");
+        string memory encodedCid = "bafyreid6gk6me7qotoejyh4tbmohuniu37anfgb6lhr2po3btqannss3dq";
+
+        // eg https://cid.ipfs.tech/?ref=filebase.com#bafyreid6gk6me7qotoejyh4tbmohuniu37anfgb6lhr2po3btqannss3dq
+
+
+        // "decoded": "0x342b7199d6ea83667d1529e48c6a9da2b72213c4774ce644d42e16e5e4ff58c6",
+        // "encoded": "bafyreibufnyztvxkqnth2fjj4sggvhncw4rbhrdxjttejvboc3s6j72yyy"
 
     }
 

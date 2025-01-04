@@ -40,15 +40,20 @@ contract DidVerifier is DidFormats {
 
         require(ecrecover(sha256(entry), uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64])) == nextRotationKey, "Signature did not match rotation key");
 
+        // encode nextPrev to a cid with the Base32 lib at https://github.com/0x00000002/ipfs-cid-solidity/blob/main/contracts/Base32.sol
+        // search for prev: nextPrev in the cbor
+
         // Now make sure that the prev in this entry matches the CID of the previous entry
         // Unlike the CID encoding in status updates, the DID updates CBOR-encoding a string that was already encoded
         // eg https://cid.ipfs.tech/?ref=filebase.com#bafyreid6gk6me7qotoejyh4tbmohuniu37anfgb6lhr2po3btqannss3dq
+        string memory cid = sha256ToBase32CID(nextPrev);
 
-        cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), cursor);
+        cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), 1);
         (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
-        bytes32 prev = base32CidToSha256(string(entry[cursor:cursor + nextLen]));
+        require(bytes(cid).length == nextLen, "prev length mismatch");
+        require(keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(cid)), "prev hash does not match supplied entry");
+        // bytes32 prev = base32CidToSha256(string(entry[cursor:cursor + nextLen]));
 
-        require(prev == nextPrev, "prev hash does not match supplied prev entry");
     }
 
     // TODO: Might be able to save from cbor reading by passing in an later cursor
