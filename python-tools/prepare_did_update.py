@@ -40,9 +40,16 @@ PARSER_CONFIG = 'parser_config.json'
 def recoverPubkeyAndVParam(sighash, r, s, addresses):
     sig0 = KeyAPI.Signature(vrs=(0, int.from_bytes(r, byteorder='big'), int.from_bytes(s, byteorder='big')))
     pubkey0 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig0).to_compressed_bytes()
+    #print("pubkey0")
+    #print(pubkey0.hex())
+    #print(len(pubkey0))
+    #print(KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig0).to_checksum_address())
 
     sig1 = KeyAPI.Signature(vrs=(1, int.from_bytes(r, byteorder='big'), int.from_bytes(s, byteorder='big')))
     pubkey1 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig1).to_compressed_bytes()
+    #print("pubkey1")
+    #print(pubkey1.hex())
+    #print(KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig1).to_checksum_address())
 
     addr_idx = 0
     for a in addresses:
@@ -125,9 +132,7 @@ def generatePayload(did, did_history):
         "insertSigAt": [],
         "keySigningOp": [],
         "ops": [],
-        "r": [],
-        "s": [],
-        "v": [] 
+        "sigs": [],
     }
 
     # These aren't needed for normal operation but we can use them to create test vectors for our various encoding needs
@@ -204,9 +209,13 @@ def generatePayload(did, did_history):
 
         sig_hash = hashlib.sha256(signable_cbor).digest()
         #print("made sig_hash")
-        #print(sig_hash)
+        #print(sig_hash.hex())
 
         v, rotation_key_idx = recoverPubkeyAndVParam(sig_hash, r, s, active_rotation_keys)
+        sig = b''.join([r, s, v.to_bytes(1, byteorder="big")])
+        #print("rs")
+        #print(r.hex());
+        #print(s.hex());
 
         # TODO: In solidity, see if it's easier to pass the sig then base64-url-encode it to recreate the signed cbor
         # ...or pass the full signed cbor and base64-url-decode it to make the signature
@@ -214,11 +223,9 @@ def generatePayload(did, did_history):
         output["keySigningOp"].append(rotation_key_idx)
         output["insertSigAt"].append(sig_start_idx)
         output["ops"].append("0x"+signable_cbor.hex())
-        output["v"].append(v)
-        output["r"].append("0x"+r.hex())
-        output["s"].append("0x"+s.hex())
+        output["sigs"].append("0x"+sig.hex())
             
-                #print(cbor)
+        #print(cbor)
         #print(cid_hash)
 
         if is_first:

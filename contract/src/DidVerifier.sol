@@ -20,25 +20,37 @@ bytes5 constant CBOR_HEADER_PREV_5B = bytes5(hex"6470726576"); // text, prev
 bytes13 constant CBOR_HEADER_ROTATIONKEYS_13B = bytes13(hex"6c726f746174696f6e4b657973"); // text, rotationKeys
 
 contract DidVerifier is DidFormats {
-
-    function calculateCIDSha256(bytes calldata entry, bytes calldata sigRS, uint256 insertAtIdx) public pure returns (bytes32){
-
-        // The mapping has 1 more entry 
-        bytes1 mappingHeaderWithSig = bytes1(uint8(bytes1(entry[0:1]))+1);
+    function calculateCIDSha256(bytes calldata entry, bytes calldata sigRS, uint256 insertAtIdx)
+        public
+        pure
+        returns (bytes32)
+    {
+        // The mapping has 1 more entry
+        bytes1 mappingHeaderWithSig = bytes1(uint8(bytes1(entry[0:1])) + 1);
 
         bytes memory encodedSig = sigToBase64URLEncoded(sigRS);
         return sha256(bytes.concat(mappingHeaderWithSig, entry[1:insertAtIdx], encodedSig, entry[insertAtIdx:]));
-
     }
 
-    function verifyEntry(bytes calldata entry, bytes calldata sig, bytes32 nextPrev, address nextRotationKey) pure public {
+    function verifyEntry(bytes calldata entry, bytes calldata sig, bytes32 nextPrev, address nextRotationKey)
+        public
+        pure
+    {
         uint256 cursor;
         uint256 nextLen;
 
         require(nextPrev != bytes32(0), "prev not set");
         require(nextRotationKey != address(0), "rotation key not set");
 
-        require(ecrecover(sha256(entry), uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64])) == nextRotationKey, "Signature did not match rotation key");
+        bytes32 r = bytes32(sig[0:32]);
+        bytes32 s = bytes32(sig[32:64]);
+        uint8 v = uint8(bytes1(sig[64:65]));
+        console.log(v);
+        console.logBytes32(r);
+        console.logBytes32(s);
+
+        address foundKey = ecrecover(sha256(entry), v, r, s);
+        require(foundKey == nextRotationKey, "Signature did not match rotation key");
 
         // encode nextPrev to a cid with the Base32 lib at https://github.com/0x00000002/ipfs-cid-solidity/blob/main/contracts/Base32.sol
         // search for prev: nextPrev in the cbor
@@ -51,34 +63,47 @@ contract DidVerifier is DidFormats {
         cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), 1);
         (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
         require(bytes(cid).length == nextLen, "prev length mismatch");
-        require(keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(cid)), "prev hash does not match supplied entry");
-        // bytes32 prev = base32CidToSha256(string(entry[cursor:cursor + nextLen]));
-
+        require(
+            keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(cid)),
+            "prev hash does not match supplied entry"
+        );
     }
 
     // TODO: Might be able to save from cbor reading by passing in an later cursor
     function extractRotationKey(bytes calldata entry, uint256 nextRotationKeyIdx) public pure returns (address) {
-
         // Get the rotation key that will be used to sign the next entry
-        // TODO: The first rotation key entry is never read 
+        // TODO: The first rotation key entry is never read
         // We couli pass in an arra
 
-        uint256 cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ROTATIONKEYS_13B), 0);
+        uint256 cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ROTATIONKEYS_13B), 1);
+        console.log("rotation keys start ");
+        console.log(cursor);
 
         uint256 numEntries;
         (, numEntries, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
         require(numEntries > nextRotationKeyIdx, "Rotation key index higher than the highest rotation key we found");
+        console.log("found # keys:");
+        console.log(numEntries);
 
         uint256 nextLen;
-        for(uint256 i=0; i<=nextRotationKeyIdx; i++) {
+        for (uint256 i = 0; i <= nextRotationKeyIdx; i++) {
             (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+            console.log(nextLen);
             if (i == nextRotationKeyIdx) {
-                return didKeyToAddress(string(entry[cursor:cursor + nextLen]));
+                console.logBytes(entry[cursor:cursor + nextLen]);
+                // strip the did:key:
+                require(nextLen > 10, "Key should be at least 10 bytes, probably lots more");
+                require(bytes8(entry[cursor:cursor + 8]) == bytes8(bytes("did:key:")), "did should start with did:key:");
+                uint256 keyEnd = cursor + nextLen;
+                // console.log("pubky:");
+                // console.logBytes(didKeyToBytes(string(entry[cursor+9:keyEnd])));
+                return didKeyToAddress(string(entry[cursor + 9:keyEnd]));
             } else {
                 cursor = cursor + nextLen;
             }
         }
 
+        revert("This should be unreachable");
     }
 
     // We assume the first entry is already verified.
@@ -86,15 +111,18 @@ contract DidVerifier is DidFormats {
     // You probably only stored its hash so I hope you checked the hash you stored matches the entry before you passed it here
     // Return the sighash (the hash of the update without its signature, not the CID which includes it) of the resulting entry
     // NB we store sighashes not CIDs because the CIDs might get malleated (possibly, not sure???)
-    function verifyDidTransition(bytes[] calldata entries, bytes[] calldata sigs, uint256[] calldata rotationKeyIndexes, uint256[] calldata insertAtIdx) pure public returns (bytes32) {
-
+    function verifyDidTransition(
+        bytes[] calldata entries,
+        bytes[] calldata sigs,
+        uint256[] calldata rotationKeyIndexes,
+        uint256[] calldata insertAtIdx
+    ) public pure returns (bytes32) {
         bytes32 nextPrev;
         address nextRotationKey;
 
         require(entries.length > 1, "You need at least 2 entries to prove a transition");
 
-        for(uint256 i=0; i<entries.length; i++) {
-
+        for (uint256 i = 0; i < entries.length; i++) {
             // The first entry must be the one we already have and you should already have verified it
 
             if (i > 0) {
@@ -112,11 +140,10 @@ contract DidVerifier is DidFormats {
             }
 
             nextRotationKey = extractRotationKey(entries[i], rotationKeyIndexes[i + 1]);
-
+            console.log("rot key");
+            console.log(nextRotationKey);
         }
 
         revert("This should be unreachable");
-
     }
-
 }
