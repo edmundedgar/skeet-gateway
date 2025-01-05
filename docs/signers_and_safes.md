@@ -72,13 +72,13 @@ However, if possible we want to avoid people losing access to their accounts if 
 
 We therefore allow keys to be changed in the following ways:
 
-1. Manually adding and removing. Any signer can add or remove keys for that account without reference to DID updates. This may include locking itself out.
+1. Manually adding and removing. Any signer can add or remove keys for that account without reference to DID updates. You can lock accidentally yourself out by this method, although you may be able to rescure the situation with method (3) below.
 
-eg `addsigner.skeetgateway.eth.link 0xdeaddeef` adds the key 0xdeaddeef.
+eg `addsigner.skeetgateway.eth.link 0xdeaddeef` adds the key `0xdeaddeef` as a controller of the account.
 
-2. Opt-in DID updates. You can skeet the most recent revision of your DID that you accept, and optionally a deadline. Until that deadline, the first revision by keys in the current version of the directory will be accepted on receipt. You can change this policy at any time with another skeet, as long as your signer has not already been removed by DID updates.
+2. Opt-in DID updates. A signer in control of the account can skeet the most recent revision of your DID that they accept, and optionally a deadline. Until that deadline, the first revision by keys in the current version of the directory will be accepted on receipt. You can change this policy at any time with another skeet, as long as your signer has not already been removed by DID updates.
 
 eg `did.skeetgateway.eth.link bafyreifbilrkm7ktlamiqslrjq33bbnhs6pj4pstasnpg4ly5mimmjxjam 2025-02-25`
-...declares the final revision shown at https://plc.directory/did:plc:pyzlzqt6b2nyrha7smfry6rv/log/audit to be valid for that signer, and will accept the next 2 rotation messages from the rotation keys it specifies.
+...declares the final revision shown at https://plc.directory/did:plc:pyzlzqt6b2nyrha7smfry6rv/log/audit to be valid for that signer, and will accept and apply any DID message in the order received until 2025-02-25.
 
-3. Uncontested DID updates. If a DID message is published, and no conflicting message is published within 96 hours, it will be accepted and any other keys specified in the DID usable for the same account. If you have specified a previous revision with `did.skeetgateway.eth.link, only messages subsequent to that will be accepted. Note that if your early rotation keys were compromised and you have not since specified a DID revision, an attacker will have the ability to stop this method working for you, until such time as you do specify a DID revision.
+3. Uncontested DID updates. If a DID message is published, and no conflicting message is published within 96 hours, it will be accepted and any other keys specified in the DID usable for the same account. If you have specified a previous revision with `did.skeetgateway.eth.link, only messages subsequent to that will be accepted. Note that if your early rotation keys were compromised and you have not since specified a DID revision, an attacker will have the ability to stop this method working for you, until such time as you do specify a DID revision after the conflicting messages.
