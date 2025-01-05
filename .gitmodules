@@ -13,6 +13,3 @@
 [submodule "contract/lib/ipfs-cid-solidity"]
 	path = contract/lib/ipfs-cid-solidity
 	url = https://github.com/0x00000002/ipfs-cid-solidity
-[submodule "contract/lib/secp256k1-solidity"]
-	path = contract/lib/secp256k1-solidity
-	url = https://github.com/0xcyphered/secp256k1-solidity
