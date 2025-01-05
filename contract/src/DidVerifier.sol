@@ -8,6 +8,8 @@ pragma solidity ^0.8.28;
 import {DagCborNavigator} from "./DagCborNavigator.sol";
 import {DidFormats} from "./DidFormats.sol";
 
+import {SECP256K1} from "0xcyphered/secp256k1-solidity/contracts/SECP256K1.sol";
+
 import {console} from "forge-std/console.sol";
 
 bytes1 constant CBOR_MAPPING_2_ENTRIES_1B = hex"a2";
@@ -32,7 +34,7 @@ contract DidVerifier is DidFormats {
         return sha256(bytes.concat(mappingHeaderWithSig, entry[1:insertAtIdx], encodedSig, entry[insertAtIdx:]));
     }
 
-    function verifyEntry(bytes calldata entry, bytes calldata sig, bytes32 nextPrev, address nextRotationKey)
+    function verifyEntry(bytes calldata entry, bytes calldata sig, bytes32 nextPrev, bytes memory nextRotationKey)
         public
         pure
     {
@@ -40,7 +42,7 @@ contract DidVerifier is DidFormats {
         uint256 nextLen;
 
         require(nextPrev != bytes32(0), "prev not set");
-        require(nextRotationKey != address(0), "rotation key not set");
+        require(nextRotationKey.length > 0, "rotation key not set");
 
         bytes32 r = bytes32(sig[0:32]);
         bytes32 s = bytes32(sig[32:64]);
@@ -49,8 +51,12 @@ contract DidVerifier is DidFormats {
         console.logBytes32(r);
         console.logBytes32(s);
 
-        address foundKey = ecrecover(sha256(entry), v, r, s);
-        require(foundKey == nextRotationKey, "Signature did not match rotation key");
+        uint256 pubkeyL;
+        uint256 pubkeyR;
+        (pubkeyL, pubkeyR) = SECP256K1.recover(uint256(sha256(entry)), v, uint256(r), uint256(s));
+
+        // This probably needs the initial 03 etc slicing off the start of nextRotationKey
+        require(bytes32(pubkeyL) == bytes32(nextRotationKey), "Signature did not match rotation key");
 
         // encode nextPrev to a cid with the Base32 lib at https://github.com/0x00000002/ipfs-cid-solidity/blob/main/contracts/Base32.sol
         // search for prev: nextPrev in the cbor
@@ -70,7 +76,7 @@ contract DidVerifier is DidFormats {
     }
 
     // TODO: Might be able to save from cbor reading by passing in an later cursor
-    function extractRotationKey(bytes calldata entry, uint256 nextRotationKeyIdx) public pure returns (address) {
+    function extractRotationKey(bytes calldata entry, uint256 nextRotationKeyIdx) public pure returns (bytes memory) {
         // Get the rotation key that will be used to sign the next entry
         // TODO: The first rotation key entry is never read
         // We couli pass in an arra
@@ -97,7 +103,7 @@ contract DidVerifier is DidFormats {
                 uint256 keyEnd = cursor + nextLen;
                 // console.log("pubky:");
                 // console.logBytes(didKeyToBytes(string(entry[cursor+9:keyEnd])));
-                return didKeyToAddress(string(entry[cursor + 9:keyEnd]));
+                return didKeyToBytes(string(entry[cursor + 9:keyEnd]));
             } else {
                 cursor = cursor + nextLen;
             }
@@ -118,7 +124,7 @@ contract DidVerifier is DidFormats {
         uint256[] calldata insertAtIdx
     ) public pure returns (bytes32) {
         bytes32 nextPrev;
-        address nextRotationKey;
+        bytes memory nextRotationKey;
 
         require(entries.length > 1, "You need at least 2 entries to prove a transition");
 
@@ -141,7 +147,7 @@ contract DidVerifier is DidFormats {
 
             nextRotationKey = extractRotationKey(entries[i], rotationKeyIndexes[i + 1]);
             console.log("rot key");
-            console.log(nextRotationKey);
+            console.logBytes(nextRotationKey);
         }
 
         revert("This should be unreachable");
