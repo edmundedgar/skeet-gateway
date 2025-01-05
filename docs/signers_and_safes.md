@@ -66,13 +66,19 @@ The old SkeetGateway will interpret this by adding the address of the new SkeetG
 
 ## Key rotation
 
-If you migrate your account from one PDS to another, this will result in you being assigned new Signer keys. These are published to the DID directory.
+The contract cannot automatically follow DID directory updates because the validity of updates depends on the order in which they are received, which cannot be trustlessly verified. So for example, if one of the early rotation keys was compromised, and the contract has not received the message about this, it could be used to steal accounts at a later date.
 
-You can migrate your account before this happens by adding the expected key as an owner of your Safe. Then when you show up with the new key, select that safe for the new signer.
+However, if possible we want to avoid people losing access to their accounts if they forget to add a signer before migrating server.
 
-The contract cannot automatically follow DID directory updates because the validity of updates depends on the order in which they are received. So for example, if one of the early rotation keys was compromised, and the contract has not received the message about this, it could be used to steal accounts at a later date.
+We therefore allow keys to be changed in the following ways:
 
-The best we may be able to do is to make a DID-shadowing contract that manages possible forks of a DID history. You could then instruct the SkeetGateway that it should upgrade your Safe keys to follow any legal update of the the specified fork. 
+1. Manually adding and removing. Any signer can add or remove keys for that account without reference to DID updates. This may include locking itself out.
 
-eg `did.skeetgateway.eth.link bafyreifbilrkm7ktlamiqslrjq33bbnhs6pj4pstasnpg4ly5mimmjxjam 2`
+eg `addsigner.skeetgateway.eth.link 0xdeaddeef` adds the key 0xdeaddeef.
+
+2. Opt-in DID updates. You can skeet the most recent revision of your DID that you accept, and optionally a deadline. Until that deadline, the first revision by keys in the current version of the directory will be accepted on receipt. You can change this policy at any time with another skeet, as long as your signer has not already been removed by DID updates.
+
+eg `did.skeetgateway.eth.link bafyreifbilrkm7ktlamiqslrjq33bbnhs6pj4pstasnpg4ly5mimmjxjam 2025-02-25`
 ...declares the final revision shown at https://plc.directory/did:plc:pyzlzqt6b2nyrha7smfry6rv/log/audit to be valid for that signer, and will accept the next 2 rotation messages from the rotation keys it specifies.
+
+3. Uncontested DID updates. If a DID message is published, and no conflicting message is published within 96 hours, it will be accepted and any other keys specified in the DID usable for the same account. If you have specified a previous revision with `did.skeetgateway.eth.link, only messages subsequent to that will be accepted. Note that if your early rotation keys were compromised and you have not since specified a DID revision, an attacker will have the ability to stop this method working for you, until such time as you do specify a DID revision.
