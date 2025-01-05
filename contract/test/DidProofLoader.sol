@@ -8,8 +8,9 @@ abstract contract DidProofLoader is Test {
     struct DidProof {
         string did;
         uint256[] insertSigAt;
-        uint256[] keySigningOp;
         bytes[] ops;
+        uint256[] pubkeyIndexes;
+        bytes[] pubkeys;
         bytes[] sigs;
     }
 

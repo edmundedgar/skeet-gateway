@@ -29,7 +29,17 @@ contract DidVerifier is DidFormats {
         bytes1 mappingHeaderWithSig = bytes1(uint8(bytes1(entry[0:1])) + 1);
 
         bytes memory encodedSig = sigToBase64URLEncoded(sigRS);
-        return sha256(bytes.concat(mappingHeaderWithSig, entry[1:insertAtIdx], encodedSig, entry[insertAtIdx:]));
+        return sha256(
+            bytes.concat(
+                mappingHeaderWithSig,
+                entry[1:insertAtIdx],
+                CBOR_HEADER_SIG_4B,
+                bytes(hex"78"),
+                bytes1(uint8(encodedSig.length)),
+                encodedSig,
+                entry[insertAtIdx:]
+            )
+        );
     }
 
     function verifyEntry(bytes calldata entry, bytes calldata sig, bytes32 nextPrev, address nextRotationKey)
@@ -59,9 +69,13 @@ contract DidVerifier is DidFormats {
         // Unlike the CID encoding in status updates, the DID updates CBOR-encoding a string that was already encoded
         // eg https://cid.ipfs.tech/?ref=filebase.com#bafyreid6gk6me7qotoejyh4tbmohuniu37anfgb6lhr2po3btqannss3dq
         string memory cid = sha256ToBase32CID(nextPrev);
+        console.log("cid is");
+        console.log(cid);
 
         cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), 1);
+        console.log("prev is");
         (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+        console.log(string(entry[cursor:cursor + nextLen]));
         require(bytes(cid).length == nextLen, "prev length mismatch");
         require(
             keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(cid)),
@@ -70,7 +84,11 @@ contract DidVerifier is DidFormats {
     }
 
     // TODO: Might be able to save from cbor reading by passing in an later cursor
-    function extractRotationKey(bytes calldata entry, uint256 nextRotationKeyIdx) public pure returns (address) {
+    function extractRotationKey(bytes calldata entry, bytes calldata pubkey, uint256 nextRotationKeyIdx)
+        public
+        pure
+        returns (address)
+    {
         // Get the rotation key that will be used to sign the next entry
         // TODO: The first rotation key entry is never read
         // We couli pass in an arra
@@ -90,14 +108,14 @@ contract DidVerifier is DidFormats {
             (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
             console.log(nextLen);
             if (i == nextRotationKeyIdx) {
-                console.logBytes(entry[cursor:cursor + nextLen]);
-                // strip the did:key:
-                require(nextLen > 10, "Key should be at least 10 bytes, probably lots more");
-                require(bytes8(entry[cursor:cursor + 8]) == bytes8(bytes("did:key:")), "did should start with did:key:");
-                uint256 keyEnd = cursor + nextLen;
-                // console.log("pubky:");
-                // console.logBytes(didKeyToBytes(string(entry[cursor+9:keyEnd])));
-                return didKeyToAddress(string(entry[cursor + 9:keyEnd]));
+                string memory encodedKey = pubkeyBytesToDidKey(pubkey[0:33]);
+                require(nextLen == bytes(encodedKey).length, "pubkey not expected length");
+                require(
+                    keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(encodedKey)),
+                    "Key not found at expected index"
+                );
+                // TODO: Add the onCurve check from https://github.com/androlo/standard-contracts/blob/master/contracts/src/crypto/Secp256k1.sol
+                return address(uint160(uint256(keccak256(pubkey[1:]))));
             } else {
                 cursor = cursor + nextLen;
             }
@@ -114,7 +132,8 @@ contract DidVerifier is DidFormats {
     function verifyDidTransition(
         bytes[] calldata entries,
         bytes[] calldata sigs,
-        uint256[] calldata rotationKeyIndexes,
+        bytes[] calldata pubkeys,
+        uint256[] calldata pubkeyIndexes,
         uint256[] calldata insertAtIdx
     ) public pure returns (bytes32) {
         bytes32 nextPrev;
@@ -139,7 +158,7 @@ contract DidVerifier is DidFormats {
                 return nextPrev;
             }
 
-            nextRotationKey = extractRotationKey(entries[i], rotationKeyIndexes[i + 1]);
+            nextRotationKey = extractRotationKey(entries[i], pubkeys[i + 1], pubkeyIndexes[i + 1]);
             console.log("rot key");
             console.log(nextRotationKey);
         }

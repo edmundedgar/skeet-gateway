@@ -18,9 +18,9 @@ contract DidVerifierTest is Test, DidProofLoader {
         DidProof memory proof = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.json");
 
         // Imagine we start by knowing this one
-        bytes32 initialSigHash = sha256(proof.ops[0]);
+        // bytes32 initialSigHash = sha256(proof.ops[0]);
 
         // Our goal it to transition to the final one
-        bytes32 goal = didVerifier.verifyDidTransition(proof.ops, proof.sigs, proof.keySigningOp, proof.insertSigAt);
+        didVerifier.verifyDidTransition(proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes, proof.insertSigAt);
     }
 }

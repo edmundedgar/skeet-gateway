@@ -13,26 +13,16 @@ abstract contract DidFormats {
         return Base32.encodeToString(bytes.concat(prefix, hash));
     }
 
-    function didKeyToBytes(string calldata key) public pure returns (bytes memory) {
-        bytes memory decoded = Base58.decodeFromString(key);
-        return bytes(substring(string(decoded), 2, decoded.length));
-    }
-
-    function didKeyToAddress(string calldata key) public pure returns (address) {
-        bytes32 hash = keccak256(didKeyToBytes(key));
-        return address(uint160(uint256(hash)));
+    // see https://w3c-ccg.github.io/did-method-key/#bib-multibase
+    function pubkeyBytesToDidKey(bytes calldata pubkey) public pure returns (string memory) {
+        // e7 means secp256k1-pub - Secp256k1 public key (compressed)
+        // 01 seems to be there???
+        bytes memory prefix = bytes(hex"e701");
+        bytes memory encoded = Base58.encode(bytes.concat(prefix, pubkey[0:33]));
+        return string.concat("did:key:z", string(encoded));
     }
 
     function sigToBase64URLEncoded(bytes calldata rs) public pure returns (bytes memory) {
         return bytes(Base64.encodeURL(rs));
-    }
-
-    function substring(string memory str, uint256 startIndex, uint256 endIndex) public pure returns (string memory) {
-        bytes memory strBytes = bytes(str);
-        bytes memory result = new bytes(endIndex - startIndex);
-        for (uint256 i = startIndex; i < endIndex; i++) {
-            result[i - startIndex] = strBytes[i];
-        }
-        return string(result);
     }
 }

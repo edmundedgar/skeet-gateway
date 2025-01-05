@@ -5,13 +5,11 @@ import {Test, console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {DidFormats} from "../src/DidFormats.sol";
 
-contract DidFormatClient is DidFormats {
-    function callDidKeyToBytes(string calldata pubkey) public pure returns (bytes memory) {
-        return didKeyToBytes(string(pubkey[9:]));
-    }
+import {Base58} from "@base58-solidity/contracts/Base58.sol";
 
-    function callDidKeyToAddress(string calldata pubkey) public pure returns (address) {
-        return didKeyToAddress(string(pubkey[9:]));
+contract DidFormatClient is DidFormats {
+    function callPubkeyBytesToDidKey(bytes calldata pubkey) public view returns (string memory) {
+        return pubkeyBytesToDidKey(pubkey[0:33]);
     }
 }
 
@@ -32,6 +30,22 @@ contract DidFormatsTest is Test {
         assertEq(keccak256(encodedSig), keccak256(bytes(origEncodedSig)), "sig should match after reencoding");
     }
 
+    function testPubkeyBytesToDidKey() public view {
+        string memory origEncodedDidKey = "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK";
+        bytes memory decompressedPubkey = bytes(
+            hex"038fe3769f5055088b448ca064bcecd7b6844239c355c98d4556d5c9c8c522de784fdc4cd480dc7b99d505243ec026409569a69842dbae649940cf7e8496efa31d"
+        );
+        string memory recoveredDidKey = client.callPubkeyBytesToDidKey(decompressedPubkey);
+        //console.log(recoveredDidKey);
+        //console.log(origEncodedDidKey);
+        assertEq(
+            keccak256(bytes(origEncodedDidKey)),
+            keccak256(bytes(recoveredDidKey)),
+            "did key should encode to what we prepared earlier"
+        );
+    }
+
+    /*
     function testDidKeyToBytes() public view {
         string memory origEncodedPubkey = "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg";
         bytes memory origDecodedPubkey = bytes(hex"0325f4891e63128b8ab689e862b8e11428f24095e3e57b9ea987eb70d1b59af9df");
@@ -50,6 +64,7 @@ contract DidFormatsTest is Test {
             origAddr, client.callDidKeyToAddress(origEncodedPubkey), "address should match what we checked in python"
         );
     }
+    */
 
     function testBase32CidToSha256() public view {
         bytes32 origDecodedCidSha = 0x7e32bcc27e0e9b889c1f930b1c7a3514dfc0d2983e59e3a7bb619c00d6ca5b1c;

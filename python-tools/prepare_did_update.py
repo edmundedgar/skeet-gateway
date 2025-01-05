@@ -37,18 +37,33 @@ PARSER_CONFIG = 'parser_config.json'
 # https://plc.directory/did:plc:pyzlzqt6b2nyrha7smfry6rv/log/audit
 
 
+def pubkeyCompressedAndUncompressed(pubkey):
+    # return the uncompressed pubkey
+    # but with the 02 or 03 for the compressed pubkey prepended on the front
+    # that way we can get whichever we need as a calldata slice
+    uncompressed = str(pubkey)[2:] # trim the 0x
+    compressed = pubkey.to_compressed_bytes().hex() # no leading 0x
+    return "0x" + compressed[0:2] + uncompressed
+
 def recoverPubkeyAndVParam(sighash, r, s, addresses):
     sig0 = KeyAPI.Signature(vrs=(0, int.from_bytes(r, byteorder='big'), int.from_bytes(s, byteorder='big')))
-    pubkey0 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig0).to_compressed_bytes()
+    pubkey0 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig0)
+
+    #print(repr(pubkey0))
+    #print(pubkey0.to_compressed_bytes().hex())
     #print("pubkey0")
+    #print(KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig0))
     #print(pubkey0.hex())
     #print(len(pubkey0))
     #print(KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig0).to_checksum_address())
 
     sig1 = KeyAPI.Signature(vrs=(1, int.from_bytes(r, byteorder='big'), int.from_bytes(s, byteorder='big')))
-    pubkey1 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig1).to_compressed_bytes()
-    #print("pubkey1")
+    pubkey1 = KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig1)
+    #print(repr(pubkey1))
+    #print("pubkey0")
+    #print(KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig1))
     #print(pubkey1.hex())
+    #print("pubkey1")
     #print(KeyAPI.PublicKey.recover_from_msg_hash(sighash, sig1).to_checksum_address())
 
     addr_idx = 0
@@ -57,10 +72,10 @@ def recoverPubkeyAndVParam(sighash, r, s, addresses):
         #print(a.hex())
         #print(pubkey0.hex())
         #print(pubkey1.hex())
-        if a == pubkey0:
-            return 27, addr_idx 
-        if a == pubkey1:
-            return 28, addr_idx
+        if a == pubkey0.to_compressed_bytes():
+            return pubkeyCompressedAndUncompressed(pubkey0), 27, addr_idx
+        if a == pubkey1.to_compressed_bytes():
+            return pubkeyCompressedAndUncompressed(pubkey1), 28, addr_idx
         addr_idx = addr_idx + 1
         #if decode(a)[2:] == pubkey0:
         #    return 27
@@ -130,9 +145,10 @@ def generatePayload(did, did_history):
     output = {
         "did": did,
         "insertSigAt": [],
-        "keySigningOp": [],
         "ops": [],
-        "sigs": [],
+        "pubkeyIndexes": [],
+        "pubkeys": [],
+        "sigs": []
     }
 
     # These aren't needed for normal operation but we can use them to create test vectors for our various encoding needs
@@ -148,6 +164,7 @@ def generatePayload(did, did_history):
     is_first = True
     last_signed_op_hash = None
     for entry in did_history:
+        #print(entry)
         # {"did":"did:plc:pyzlzqt6b2nyrha7smfry6rv","operation":{"sig":"qI31xjIX949GGbwWqsSGU5FZLVrfbv9N_695lr61w_MYgfsJE_k-oG8SQVLjWk20esEdhA55pFUCeQEJ7hZGDw","prev":"bafyreibufnyztvxkqnth2fjj4sggvhncw4rbhrdxjttejvboc3s6j72yyy","type":"plc_operation","services":{"atproto_pds":{"type":"AtprotoPersonalDataServer","endpoint":"https://lionsmane.us-east.host.bsky.network"}},"alsoKnownAs":["at://goat.navy"],"rotationKeys":["did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg","did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"],"verificationMethods":{"atproto":"did:key:zQ3shRQWmWxEtxRa317rpYnVo7nWxYAsDS4mBwdDLgLfkkDtR"}},"cid":"bafyreifbilrkm7ktlamiqslrjq33bbnhs6pj4pstasnpg4ly5mimmjxjam","nullified":false,"createdAt":"2024-09-08T09:30:26.927Z"}]
         op = entry["operation"]
         cbor_bytes = libipld.encode_dag_cbor(op)
@@ -167,6 +184,10 @@ def generatePayload(did, did_history):
             didk_base58btc = didk.lstrip("did:key:")
             # base58btc
             did_decoded = decode(didk_base58btc)[2:]
+            #print("upnpacking did")
+            #print(didk)
+            #print(did_decoded.hex())
+            #print("\n")
             #print(len(did_decoded))
             #print(did_decoded.hex())
             next_rotation_keys.append(did_decoded)
@@ -211,7 +232,7 @@ def generatePayload(did, did_history):
         #print("made sig_hash")
         #print(sig_hash.hex())
 
-        v, rotation_key_idx = recoverPubkeyAndVParam(sig_hash, r, s, active_rotation_keys)
+        pubkey_str, v, rotation_key_idx = recoverPubkeyAndVParam(sig_hash, r, s, active_rotation_keys)
         sig = b''.join([r, s, v.to_bytes(1, byteorder="big")])
         #print("rs")
         #print(r.hex());
@@ -220,9 +241,10 @@ def generatePayload(did, did_history):
         # TODO: In solidity, see if it's easier to pass the sig then base64-url-encode it to recreate the signed cbor
         # ...or pass the full signed cbor and base64-url-decode it to make the signature
 
-        output["keySigningOp"].append(rotation_key_idx)
         output["insertSigAt"].append(sig_start_idx)
         output["ops"].append("0x"+signable_cbor.hex())
+        output["pubkeyIndexes"].append(rotation_key_idx)
+        output["pubkeys"].append(pubkey_str)
         output["sigs"].append("0x"+sig.hex())
             
         #print(cbor)
