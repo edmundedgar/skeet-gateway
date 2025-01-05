@@ -8,7 +8,7 @@ import {DidFormats} from "../src/DidFormats.sol";
 import {Base58} from "@base58-solidity/contracts/Base58.sol";
 
 contract DidFormatClient is DidFormats {
-    function callPubkeyBytesToDidKey(bytes calldata pubkey) public view returns (string memory) {
+    function callPubkeyBytesToDidKey(bytes calldata pubkey) public pure returns (string memory) {
         return pubkeyBytesToDidKey(pubkey[0:33]);
     }
 }
