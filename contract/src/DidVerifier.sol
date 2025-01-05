@@ -55,9 +55,6 @@ contract DidVerifier is DidFormats {
         bytes32 r = bytes32(sig[0:32]);
         bytes32 s = bytes32(sig[32:64]);
         uint8 v = uint8(bytes1(sig[64:65]));
-        console.log(v);
-        console.logBytes32(r);
-        console.logBytes32(s);
 
         address foundKey = ecrecover(sha256(entry), v, r, s);
         require(foundKey == nextRotationKey, "Signature did not match rotation key");
@@ -69,13 +66,9 @@ contract DidVerifier is DidFormats {
         // Unlike the CID encoding in status updates, the DID updates CBOR-encoding a string that was already encoded
         // eg https://cid.ipfs.tech/?ref=filebase.com#bafyreid6gk6me7qotoejyh4tbmohuniu37anfgb6lhr2po3btqannss3dq
         string memory cid = sha256ToBase32CID(nextPrev);
-        console.log("cid is");
-        console.log(cid);
 
         cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), 1);
-        console.log("prev is");
         (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
-        console.log(string(entry[cursor:cursor + nextLen]));
         require(bytes(cid).length == nextLen, "prev length mismatch");
         require(
             keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(cid)),
@@ -94,19 +87,14 @@ contract DidVerifier is DidFormats {
         // We couli pass in an arra
 
         uint256 cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ROTATIONKEYS_13B), 1);
-        console.log("rotation keys start ");
-        console.log(cursor);
 
         uint256 numEntries;
         (, numEntries, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
         require(numEntries > nextRotationKeyIdx, "Rotation key index higher than the highest rotation key we found");
-        console.log("found # keys:");
-        console.log(numEntries);
 
         uint256 nextLen;
         for (uint256 i = 0; i <= nextRotationKeyIdx; i++) {
             (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
-            console.log(nextLen);
             if (i == nextRotationKeyIdx) {
                 string memory encodedKey = pubkeyBytesToDidKey(pubkey[0:33]);
                 require(nextLen == bytes(encodedKey).length, "pubkey not expected length");
@@ -159,8 +147,6 @@ contract DidVerifier is DidFormats {
             }
 
             nextRotationKey = extractRotationKey(entries[i], pubkeys[i + 1], pubkeyIndexes[i + 1]);
-            console.log("rot key");
-            console.log(nextRotationKey);
         }
 
         revert("This should be unreachable");
