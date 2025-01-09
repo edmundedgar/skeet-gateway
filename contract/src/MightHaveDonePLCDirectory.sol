@@ -51,28 +51,28 @@ contract MightHaveDonePLCDirectory is DidVerifier {
 
     mapping(bytes32 => Did) public dids;
 
-    function isAtTip(bytes32 didGenesisHash, bytes32 updateHash) external returns (bool) {
+    function isAtTip(bytes32 didGenesisHash, bytes32 updateHash) external view returns (bool) {
         return (dids[didGenesisHash].updates[updateHash].countChildren > 0);
     }
 
-    function uncontroversialTip(bytes32 didGenesisHash) external returns (bytes32) {
+    function uncontroversialTip(bytes32 didGenesisHash) external view returns (bytes32) {
         return dids[didGenesisHash].uncontroversialTip;
     }
 
-    function uncontroversialVerificationAddress(bytes32 didGenesisHash) external returns (address) {
-        bytes32 uncontroversialTip = dids[didGenesisHash].uncontroversialTip;
-        if (uncontroversialTip == bytes32(0)) {
+    function uncontroversialVerificationAddress(bytes32 didGenesisHash) external view returns (address) {
+        bytes32 tip = dids[didGenesisHash].uncontroversialTip;
+        if (tip == bytes32(0)) {
             return address(0);
         }
-        return dids[didGenesisHash].updates[uncontroversialTip].verificationMethod;
+        return dids[didGenesisHash].updates[tip].verificationMethod;
     }
 
-    function isForkedAt(bytes32 didGenesisHash, bytes32 updateHash) external returns (bool) {
+    function isForkedAt(bytes32 didGenesisHash, bytes32 updateHash) external view returns (bool) {
         return (dids[didGenesisHash].updates[updateHash].countChildren > 1);
     }
 
     // Returns the address of the verification method as of the update, or 0x0 if it has not been stored
-    function verificationAddressAt(bytes32 didGenesisHash, bytes32 updateHash) external returns (address) {
+    function verificationAddressAt(bytes32 didGenesisHash, bytes32 updateHash) external view returns (address) {
         return dids[didGenesisHash].updates[updateHash].verificationMethod;
     }
 

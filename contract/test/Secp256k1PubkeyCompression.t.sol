@@ -6,7 +6,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {Secp256k1PubkeyCompression} from "../src/Secp256k1PubkeyCompression.sol";
 
 contract Secp256k1PubkeyCompressionClient is Secp256k1PubkeyCompression {
-    function callIsPubkeyOnCurve(bytes calldata pubkey) public returns (bool) {
+    function callIsPubkeyOnCurve(bytes calldata pubkey) public pure returns (bool) {
         return isPubkeyOnCurve(pubkey);
     }
 }
