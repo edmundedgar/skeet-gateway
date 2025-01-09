@@ -136,8 +136,8 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     /// @dev NB You can pass any content you like here and we'll make a DID record for its hash
     /// @dev If you want to make a did entry for a picture of your cat that's fine, go right ahead
     /// @dev We only care what's in the record if you try to query or update it
-    function registerGenesis(bytes32 entryHash, bytes calldata entry, bytes calldata sig) internal returns (bytes32) {
-        bytes32 did = genesisHashToDidKey(calculateCIDSha256(entry, sig[:64], 1));
+    function registerGenesis(bytes32 entryHash, bytes32 nextPrev) internal returns (bytes32) {
+        bytes32 did = genesisHashToDidKey(nextPrev);
         dids[did].entryHash = entryHash;
         dids[did].uncontroversialTip = entryHash;
         dids[did].updates[entryHash].recordedTimestamp = uint128(block.timestamp);
@@ -177,39 +177,38 @@ contract MightHaveDonePLCDirectory is DidVerifier {
 
             // We never try to verify the first entry.
             // It should either be the genesis entry, in which case there's nothing to verify...
-            // ...or a subsequent entry which must have already been registered or registerUpdate() will revert next time.
+            // ...or a subsequent entry which should already have been registered and we just need it to extract the prev/key
             if (i == 0) {
+                // To calculate the DID we will need the hash of the signed version of the entry.
+                // entries[i] has the signature removed, so we need to put it back in then hash the resulting CBOR
+                // We trim off the final "v" at byte 65
+                // This will also be used to validate the next entry
+                nextPrev = calculateCIDSha256(entries[i], sigs[i][:64], 1);
                 if (did == bytes32(0)) {
-                    did = registerGenesis(entryHash, entries[i], sigs[i]);
+                    did = registerGenesis(entryHash, nextPrev);
                 }
             } else {
                 require(nextParent != bytes32(0), "entry 1 and later must have a nextParent");
                 verifyEntry(entries[i], sigs[i], entryHash, nextPrev, nextRotationKey);
                 registerUpdate(did, entryHash, nextParent);
+
+                // Hash the signed version to verify the next entry, if there is one.
+                if (i < entries.length - 1) {
+                    nextPrev = calculateCIDSha256(entries[i], sigs[i][:64], 1);
+                }
             }
 
-            // Verifying the next entry will need the rotation key and CID value for this entry.
-
-            // last entry
-            if (i == entries.length - 1) {
+            if (i < entries.length - 1) {
+                // Next entry also needs our unsigned hash and the rotation key it will sign with
+                nextParent = entryHash;
+                nextRotationKey = extractRotationKey(entries[i], pubkeys[i], rotationKeyIndexes[i]);
+            } else {
                 // We'll store the verification key so you can query it.
                 // You probably only care about the key at the tip so we store only the final entry to save gas.
                 // But if you want to store an intermediate key for some reason you can call storeVerificationMethod() on it later
-                // NB the last pubkey entry is for the verification key, not a rotation key
+                // NB this last pubkey entry is for the verification key, not a rotation key
                 _storeVerificationMethod(did, entryHash, entries[i], pubkeys[i]);
-
-                // If there is no next entry then we're done.
-                return;
             }
-
-            nextParent = entryHash;
-
-            // To validate "prev" in the next entry we'll need the hash corresponding to the CID
-            // entries[i] has the signature removed, so we need to put it back in then hash the resulting CBOR
-            // We trim off the final "v" at byte 65
-            nextPrev = calculateCIDSha256(entries[i], sigs[i][:64], 1);
-
-            nextRotationKey = extractRotationKey(entries[i], pubkeys[i], rotationKeyIndexes[i]);
         }
     }
 
