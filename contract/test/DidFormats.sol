@@ -7,11 +7,7 @@ import {DidFormats} from "../src/DidFormats.sol";
 
 import {Base58} from "@base58-solidity/contracts/Base58.sol";
 
-contract DidFormatClient is DidFormats {
-    function callPubkeyBytesToDidKey(bytes calldata pubkey) public pure returns (string memory) {
-        return pubkeyBytesToDidKey(pubkey[0:33]);
-    }
-}
+contract DidFormatClient is DidFormats {}
 
 contract DidFormatsTest is Test {
     DidFormatClient client;
@@ -33,9 +29,9 @@ contract DidFormatsTest is Test {
     function testPubkeyBytesToDidKey() public view {
         string memory origEncodedDidKey = "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK";
         bytes memory decompressedPubkey = bytes(
-            hex"038fe3769f5055088b448ca064bcecd7b6844239c355c98d4556d5c9c8c522de784fdc4cd480dc7b99d505243ec026409569a69842dbae649940cf7e8496efa31d"
+            hex"8fe3769f5055088b448ca064bcecd7b6844239c355c98d4556d5c9c8c522de784fdc4cd480dc7b99d505243ec026409569a69842dbae649940cf7e8496efa31d"
         );
-        string memory recoveredDidKey = client.callPubkeyBytesToDidKey(decompressedPubkey);
+        string memory recoveredDidKey = client.pubkeyBytesToDidKey(decompressedPubkey);
         //console.log(recoveredDidKey);
         //console.log(origEncodedDidKey);
         assertEq(

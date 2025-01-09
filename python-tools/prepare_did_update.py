@@ -73,9 +73,11 @@ def recoverPubkeyAndVParam(sighash, r, s, addresses):
         #print(pubkey0.hex())
         #print(pubkey1.hex())
         if a == pubkey0.to_compressed_bytes():
-            return pubkeyCompressedAndUncompressed(pubkey0), 27, addr_idx
+            #return pubkeyCompressedAndUncompressed(pubkey0), 27, addr_idx
+            return str(pubkey0), 27, addr_idx
         if a == pubkey1.to_compressed_bytes():
-            return pubkeyCompressedAndUncompressed(pubkey1), 28, addr_idx
+            #return pubkeyCompressedAndUncompressed(pubkey1), 28, addr_idx
+            return str(pubkey1), 28, addr_idx
         addr_idx = addr_idx + 1
         #if decode(a)[2:] == pubkey0:
         #    return 27
@@ -179,21 +181,22 @@ def generatePayload(did, did_history):
             "decoded": "0x"+sig.hex()
         })
         
+        # print(op)
+        # only really needed for the last item
+        entry_verification_key = None
+        if 'verificationMethods' in op and 'atproto' in op['verificationMethods']:
+            ver_key = op["verificationMethods"]["atproto"]
+            ver_key_base58btc = ver_key.lstrip("did:key:")
+            entry_verification_key = decode(ver_key_base58btc)[2:]
+
         next_rotation_keys = []
-        for didk in op["rotationKeys"]:
-            didk_base58btc = didk.lstrip("did:key:")
-            # base58btc
-            did_decoded = decode(didk_base58btc)[2:]
-            #print("upnpacking did")
-            #print(didk)
-            #print(did_decoded.hex())
-            #print("\n")
-            #print(len(did_decoded))
-            #print(did_decoded.hex())
-            next_rotation_keys.append(did_decoded)
+        for did_key in op["rotationKeys"]:
+            did_key_base58btc = did_key.lstrip("did:key:")
+            did_key_decoded = decode(did_key_base58btc)[2:]
+            next_rotation_keys.append(did_key_decoded)
             test_vectors['rotationKeys'].append({
-                "encoded": didk,
-                "decoded": "0x"+did_decoded.hex()
+                "encoded": did_key,
+                "decoded": "0x"+did_key_decoded.hex()
             })
                 
 
@@ -268,6 +271,16 @@ def generatePayload(did, did_history):
         is_first = False
         active_rotation_keys = next_rotation_keys
 
+
+    # Shift the pubkeys and indexes up 1 as we sign with the pubkey from the previous entry
+    output['pubkeys'] = output['pubkeys'][1:]
+    output['pubkeyIndexes'] = output['pubkeyIndexes'][1:]
+
+    validator_pubkey = KeyAPI.PublicKey.from_compressed_bytes(entry_verification_key)
+    output['pubkeys'].append(str(validator_pubkey))
+    # print("address:")
+    # print(validator_pubkey.to_checksum_address())
+
     return output, test_vectors
 
 def atURIToDidAndRkey(at_uri):
@@ -282,7 +295,7 @@ def processQueuedPayloads():
         if item is None:
             break
 
-        print(item)
+        # print(item)
         at_uri = item['at_uri']
         bot = item['bot']
         (param_did, param_rkey) = atURIToDidAndRkey(at_uri)

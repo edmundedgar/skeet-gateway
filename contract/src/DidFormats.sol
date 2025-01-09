@@ -7,7 +7,9 @@ import {Base32} from "@0x00000002/ipfs-cid-solidity/contracts/Base32.sol";
 
 import {console} from "forge-std/console.sol";
 
-abstract contract DidFormats {
+import {Secp256k1PubkeyCompression} from "./Secp256k1PubkeyCompression.sol";
+
+abstract contract DidFormats is Secp256k1PubkeyCompression {
     function sha256ToBase32CID(bytes32 hash) public pure returns (string memory) {
         bytes memory prefix = bytes(hex"01711220");
         return Base32.encodeToString(bytes.concat(prefix, hash));
@@ -18,7 +20,15 @@ abstract contract DidFormats {
         // e7 means secp256k1-pub - Secp256k1 public key (compressed)
         // 01 seems to be there???
         bytes memory prefix = bytes(hex"e701");
-        bytes memory encoded = Base58.encode(bytes.concat(prefix, pubkey[0:33]));
+        bytes1 compressionByte = compressionByte(bytes32(pubkey[32:]));
+        bytes memory encoded = Base58.encode(bytes.concat(prefix, compressionByte, pubkey[0:32]));
+        return string.concat("did:key:z", string(encoded));
+    }
+
+    function genesisHashToDidKey(bytes32 genesisHash) public pure returns (string memory) {
+        // e7 means secp256k1-pub - Secp256k1 public key (compressed)
+        // 01 seems to be there???
+        bytes memory encoded = Base58.encode(bytes.concat(genesisHash));
         return string.concat("did:key:z", string(encoded));
     }
 
