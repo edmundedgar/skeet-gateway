@@ -25,11 +25,27 @@ abstract contract DidFormats is Secp256k1PubkeyCompression {
         return string.concat("did:key:z", string(encoded));
     }
 
-    function genesisHashToDidKey(bytes32 genesisHash) public pure returns (string memory) {
-        // e7 means secp256k1-pub - Secp256k1 public key (compressed)
-        // 01 seems to be there???
-        bytes memory encoded = Base58.encode(bytes.concat(genesisHash));
-        return string.concat("did:key:z", string(encoded));
+    // see https://github.com/did-method-plc/did-method-plc?tab=readme-ov-file#operation-serialization-signing-and-validation
+    function genesisHashToDidKey(bytes32 signedGenesisHash) public pure returns (bytes32) {
+        // In pseudo-code: did:plc:${base32Encode(sha256(createOp)).slice(0,24)}
+
+        bytes memory did = new bytes(32);
+
+        bytes memory didPrefix = bytes(string.concat("did:plc:"));
+        for (uint256 i = 0; i < 8; i++) {
+            did[i] = didPrefix[i];
+        }
+
+        // This will prepend a spurious "b" to the start for some multihash reason
+        bytes memory didSuffix = Base32.encode(bytes.concat(signedGenesisHash));
+
+        for (uint256 i = 0; i < 24; i++) {
+            // did starts at index 8 after did:plc:
+            // suffix starts at index 1 after the spurious b
+            did[8 + i] = didSuffix[1 + i];
+        }
+
+        return bytes32(did);
     }
 
     function sigToBase64URLEncoded(bytes calldata rs) public pure returns (bytes memory) {

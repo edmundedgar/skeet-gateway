@@ -5,8 +5,6 @@ import {Test, console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {DidFormats} from "../src/DidFormats.sol";
 
-import {Base58} from "@base58-solidity/contracts/Base58.sol";
-
 contract DidFormatClient is DidFormats {}
 
 contract DidFormatsTest is Test {
@@ -41,27 +39,6 @@ contract DidFormatsTest is Test {
         );
     }
 
-    /*
-    function testDidKeyToBytes() public view {
-        string memory origEncodedPubkey = "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg";
-        bytes memory origDecodedPubkey = bytes(hex"0325f4891e63128b8ab689e862b8e11428f24095e3e57b9ea987eb70d1b59af9df");
-        bytes memory decodedPubkey = client.callDidKeyToBytes(origEncodedPubkey);
-        assertEq(
-            keccak256(origDecodedPubkey),
-            keccak256(bytes(decodedPubkey)),
-            "pubkey should decode to what we prepared earlier"
-        );
-    }
-
-    function testDidKeyToAddress() public view {
-        string memory origEncodedPubkey = "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg";
-        address origAddr = address(0x52FC60077f9712b9D6bd927738edBFB41de9A78E);
-        assertEq(
-            origAddr, client.callDidKeyToAddress(origEncodedPubkey), "address should match what we checked in python"
-        );
-    }
-    */
-
     function testBase32CidToSha256() public view {
         bytes32 origDecodedCidSha = 0x7e32bcc27e0e9b889c1f930b1c7a3514dfc0d2983e59e3a7bb619c00d6ca5b1c;
         string memory origEncodedCid = "bafyreid6gk6me7qotoejyh4tbmohuniu37anfgb6lhr2po3btqannss3dq";
@@ -76,5 +53,15 @@ contract DidFormatsTest is Test {
             keccak256(bytes(encodedCid2)),
             "should get expected cid back this time too"
         );
+    }
+
+    function testGenesisHashToDidKey() public view {
+        // The initial update of did:plc:pyzlzqt6b2nyrha7smfry6rv
+        bytes memory genesis = bytes(
+            hex"a7637369677856322d473444395958464342364c547276616c7132336f377665793157374b63535644662d496b66555f783841464156556e3256747853585474434d723574416537324b7950537a7a77306b6156304d38384a754345416470726576f664747970656d706c635f6f7065726174696f6e687365727669636573a16b617470726f746f5f706473a264747970657819417470726f746f506572736f6e616c4461746153657276657268656e64706f696e747368747470733a2f2f62736b792e736f6369616c6b616c736f4b6e6f776e417381781c61743a2f2f65646d756e6465646761722e62736b792e736f6369616c6c726f746174696f6e4b6579738278396469643a6b65793a7a513373686843475571444b6a53747a754478506b54784e36756a64645034526b454b4a4a6f754a4752526b614c47626778396469643a6b65793a7a51337368704b6e62645078336733436d5066356352565450653148745377566e356973683377536e44505143624c4a4b73766572696669636174696f6e4d6574686f6473a167617470726f746f78396469643a6b65793a7a51337368586a486569427552434b6d4d33366375596e6d3759454d7a68476e436d437957393273524a39707269625346"
+        );
+        bytes32 genesisHash = sha256(genesis);
+        bytes32 did = client.genesisHashToDidKey(genesisHash);
+        assertEq(did, bytes32(bytes("did:plc:pyzlzqt6b2nyrha7smfry6rv")));
     }
 }
