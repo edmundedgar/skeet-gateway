@@ -30,9 +30,9 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     }
 
     struct Did {
-        bytes32 entryHash;
-        mapping(bytes32 => UpdateOp) updates;
+        bytes32 entryHash; // The hash of the unsigned first entry
         bytes32 uncontroversialTip; // The tip of the chain, or 0x0 if the chain has forked
+        mapping(bytes32 => UpdateOp) updates;
     }
 
     mapping(bytes32 => Did) public dids;
@@ -136,29 +136,17 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     /// @dev NB You can pass any content you like here and we'll make a DID record for its hash
     /// @dev If you want to make a did entry for a picture of your cat that's fine, go right ahead
     /// @dev We only care what's in the record if you try to query or update it
-    function registerGenesis(bytes32 did, bytes32 entryHash, bytes calldata entry, bytes calldata sig) internal {
-        bytes32 recoveredDid = genesisHashToDidKey(calculateCIDSha256(entry, sig[:64], 1));
-        console.log(string(bytes.concat(did)));
-        console.log(string(bytes.concat(recoveredDid)));
-        require(did == recoveredDid, "did not registered but first entry was not its genesis update");
-
+    function registerGenesis(bytes32 entryHash, bytes calldata entry, bytes calldata sig) internal returns (bytes32) {
+        bytes32 did = genesisHashToDidKey(calculateCIDSha256(entry, sig[:64], 1));
         dids[did].entryHash = entryHash;
-        dids[did].updates[entryHash].recordedTimestamp = uint128(block.timestamp);
         dids[did].uncontroversialTip = entryHash;
+        dids[did].updates[entryHash].recordedTimestamp = uint128(block.timestamp);
         emit LogRegisterUpdate(did, bytes32(0), entryHash);
-    }
-
-    function registerGenesisIfGenesis(bytes32 did, bytes32 entryHash, bytes calldata entry, bytes calldata sig)
-        internal
-    {
-        if (dids[did].entryHash == bytes32(0)) {
-            registerGenesis(did, entryHash, entry, sig);
-        }
+        return did;
     }
 
     /// @notice Register a series of update operations to the DID registry
-    /// @param did The hash of the first entry which creates the DID ID
-    /// @dev If you're starting from genesis you can leave did empty and we'll work it out
+    /// @param did The did you want to update, or 0x0 if you are creating it for the first time
     /// @param entries CBOR-encoded bytes representing operations, without their signatures
     /// @dev The first entry you supply should already be registered, unless it's the genesis operation
     /// @param sigs Signatures for each update: 32-byte r, 32-byte s, 1-byte v
@@ -191,13 +179,9 @@ contract MightHaveDonePLCDirectory is DidVerifier {
             // It should either be the genesis entry, in which case there's nothing to verify...
             // ...or a subsequent entry which must have already been registered or registerUpdate() will revert next time.
             if (i == 0) {
-                // For convenience you can send an empty did for genesis and let us hash it
-                //if (did == bytes32(0)) {
-                //    did = entryHash;
-                //}
-                // If the did isn't registered, we register it.
-                // This is the only time we construct the DID for ourselves
-                registerGenesisIfGenesis(did, entryHash, entries[i], sigs[i]);
+                if (did == bytes32(0)) {
+                    did = registerGenesis(entryHash, entries[i], sigs[i]);
+                }
             } else {
                 require(nextParent != bytes32(0), "entry 1 and later must have a nextParent");
                 verifyEntry(entries[i], sigs[i], entryHash, nextPrev, nextRotationKey);
