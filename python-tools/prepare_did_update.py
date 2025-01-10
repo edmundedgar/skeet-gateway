@@ -146,11 +146,10 @@ def generatePayload(did, did_history):
     # The DID and rkey are only there to help keep track of things, they're not used by handleSkeet.
     output = {
         "did": did,
-        "insertSigAt": [],
         "ops": [],
-        "pubkeyIndexes": [],
         "pubkeys": [],
-        "sigs": []
+        "rotationKeyIndexes": [],
+        "vs": []
     }
 
     # These aren't needed for normal operation but we can use them to create test vectors for our various encoding needs
@@ -170,8 +169,10 @@ def generatePayload(did, did_history):
         # {"did":"did:plc:pyzlzqt6b2nyrha7smfry6rv","operation":{"sig":"qI31xjIX949GGbwWqsSGU5FZLVrfbv9N_695lr61w_MYgfsJE_k-oG8SQVLjWk20esEdhA55pFUCeQEJ7hZGDw","prev":"bafyreibufnyztvxkqnth2fjj4sggvhncw4rbhrdxjttejvboc3s6j72yyy","type":"plc_operation","services":{"atproto_pds":{"type":"AtprotoPersonalDataServer","endpoint":"https://lionsmane.us-east.host.bsky.network"}},"alsoKnownAs":["at://goat.navy"],"rotationKeys":["did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg","did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"],"verificationMethods":{"atproto":"did:key:zQ3shRQWmWxEtxRa317rpYnVo7nWxYAsDS4mBwdDLgLfkkDtR"}},"cid":"bafyreifbilrkm7ktlamiqslrjq33bbnhs6pj4pstasnpg4ly5mimmjxjam","nullified":false,"createdAt":"2024-09-08T09:30:26.927Z"}]
         op = entry["operation"]
         cbor_bytes = libipld.encode_dag_cbor(op)
-        sig_in_base64_url = op["sig"]
 
+        output["ops"].append("0x"+cbor_bytes.hex())
+
+        sig_in_base64_url = op["sig"]
         # apparently the base64 lib gets mad about too little padding at the end, but doesn't care if you give it too much
         sig = base64.urlsafe_b64decode(op["sig"] + '===') 
         r = sig[0:32]
@@ -236,7 +237,6 @@ def generatePayload(did, did_history):
         #print(sig_hash.hex())
 
         pubkey_str, v, rotation_key_idx = recoverPubkeyAndVParam(sig_hash, r, s, active_rotation_keys)
-        sig = b''.join([r, s, v.to_bytes(1, byteorder="big")])
         #print("rs")
         #print(r.hex());
         #print(s.hex());
@@ -244,11 +244,9 @@ def generatePayload(did, did_history):
         # TODO: In solidity, see if it's easier to pass the sig then base64-url-encode it to recreate the signed cbor
         # ...or pass the full signed cbor and base64-url-decode it to make the signature
 
-        output["insertSigAt"].append(sig_start_idx)
-        output["ops"].append("0x"+signable_cbor.hex())
-        output["pubkeyIndexes"].append(rotation_key_idx)
         output["pubkeys"].append(pubkey_str)
-        output["sigs"].append("0x"+sig.hex())
+        output["rotationKeyIndexes"].append(rotation_key_idx)
+        output["vs"].append(v)
             
         #print(cbor)
         #print(cid_hash)
@@ -274,7 +272,7 @@ def generatePayload(did, did_history):
 
     # Shift the pubkeys and indexes up 1 as we sign with the pubkey from the previous entry
     output['pubkeys'] = output['pubkeys'][1:]
-    output['pubkeyIndexes'] = output['pubkeyIndexes'][1:]
+    output['rotationKeyIndexes'] = output['rotationKeyIndexes'][1:]
 
     validator_pubkey = KeyAPI.PublicKey.from_compressed_bytes(entry_verification_key)
     output['pubkeys'].append(str(validator_pubkey))

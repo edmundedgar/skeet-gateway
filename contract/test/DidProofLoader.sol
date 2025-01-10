@@ -7,11 +7,10 @@ import {Test, console} from "forge-std/Test.sol";
 abstract contract DidProofLoader is Test {
     struct DidProof {
         string did;
-        uint256[] insertSigAt;
         bytes[] ops;
-        uint256[] pubkeyIndexes;
         bytes[] pubkeys;
-        bytes[] sigs;
+        uint256[] rotationKeyIndexes;
+        uint8[] vs;
     }
 
     function _loadProofFixture(string memory fixtureName) internal view returns (DidProof memory) {

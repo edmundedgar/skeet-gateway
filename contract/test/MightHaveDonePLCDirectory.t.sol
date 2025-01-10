@@ -16,7 +16,7 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
         DidProof memory proof = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.json");
         finalUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         did = bytes32(bytes(proof.did));
-        repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
+        repo.registerUpdates(bytes32(0), proof.ops, proof.vs, proof.pubkeys, proof.rotationKeyIndexes);
     }
 
     function testRegisterUpdates() public view {

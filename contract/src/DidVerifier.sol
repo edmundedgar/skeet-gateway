@@ -29,61 +29,29 @@ bytes20 constant CBOR_HEADER_VERIFICATIONMETHODS_20B = bytes20(hex"7376657269666
 bytes8 constant CBOR_HEADER_ATPROTO_8B = bytes8(hex"67617470726F746F");
 
 contract DidVerifier is DidFormats {
-    /// @notice Calculate the hash used to make the CID of a DID update operation
-    /// @dev This handles a CBOR operation with its signature stripped, which you do not usually encounter in nature
-    /// @param entry CBOR-encoded bytes representing the operation, without its signature
-    /// @param sigRS The r and s parameters (32 bytes each) of the signature of the update
-    /// @param insertAtIdx The index where the signature should be added to recover the signed CBOR (so far always 1)
-    /// @return The hash that will be used to calculate a CID (this part will require extra encoding steps)
-    function calculateCIDSha256(bytes calldata entry, bytes calldata sigRS, uint256 insertAtIdx)
-        public
-        pure
-        returns (bytes32)
-    {
-        // The mapping has 1 more entry
-        bytes1 mappingHeaderWithSig = bytes1(uint8(bytes1(entry[0:1])) + 1);
+    function separateSignature(bytes calldata entry) internal pure returns (bytes calldata, bytes32, uint256) {
+        bytes1 mappingHeaderWithoutSig = bytes1(uint8(bytes1(entry[0:1])) - 1);
+        uint256 cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_SIG_4B), 1);
 
-        bytes memory encodedSig = sigToBase64URLEncoded(sigRS);
-        return sha256(
-            bytes.concat(
-                mappingHeaderWithSig,
-                entry[1:insertAtIdx],
-                CBOR_HEADER_SIG_4B,
-                bytes(hex"78"),
-                bytes1(uint8(encodedSig.length)),
-                encodedSig,
-                entry[insertAtIdx:]
-            )
-        );
-    }
-
-    /// @notice Verify that an operation is signed with a key from an earlier update listed in its "prev" field
-    /// @param entry CBOR-encoded bytes representing the operation, without its signature
-    /// @param sig a signature, made up of 32 bytes r, 32 bytes s and 1 byte v
-    /// @param prev the CID that should be specified in the "prev" field of this entry
-    /// @param rotationKey The address corresponding to the pubkey that signed this entry
-    function verifyEntry(bytes calldata entry, bytes calldata sig, bytes32 entryHash, bytes32 prev, address rotationKey)
-        public
-        pure
-    {
-        uint256 cursor;
         uint256 nextLen;
 
-        require(prev != bytes32(0), "prev not set");
-        require(rotationKey != address(0), "rotation key not set");
-
-        bytes32 r = bytes32(sig[0:32]);
-        bytes32 s = bytes32(sig[32:64]);
-        uint8 v = uint8(bytes1(sig[64:65]));
-
-        require(ecrecover(entryHash, v, r, s) == rotationKey, "Signature did not match rotation key");
-
-        // Now make sure that the prev in this entry matches the CID of the previous entry
-        // Unlike the CID encoding in status updates, the DID updates CBOR-encoding a string that was already encoded
-        string memory cid = sha256ToBase32CID(prev);
-
-        cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), 1);
+        // This advances to the end of the CBOR_HEADER_SIG_4B so we need to back up 4 bytes to find what we need to remove
+        uint256 sigNameValueStart = cursor - 4;
         (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+        uint256 sigEnd = cursor + nextLen;
+        bytes32 entryHash = sha256(bytes.concat(mappingHeaderWithoutSig, entry[1:sigNameValueStart], entry[sigEnd:]));
+        return (entry[cursor:sigEnd], entryHash, sigEnd);
+    }
+
+    function verifyPrev(bytes calldata entry, bytes32 nextPrev, uint256 cursor) internal pure {
+        // If there's no prev it's the first time and there's nothing to verify
+        if (nextPrev == bytes32(0)) {
+            return;
+        }
+        uint256 nextLen;
+        cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), cursor);
+        (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+        string memory cid = sha256ToBase32CID(nextPrev);
         require(bytes(cid).length == nextLen, "prev length mismatch");
         require(
             keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(cid)),
@@ -91,19 +59,60 @@ contract DidVerifier is DidFormats {
         );
     }
 
+    // todo: sig should just be v if that
+    function processSignedCBOR(bytes calldata entry, uint8 sigv, bytes32 nextPrev, address nextKey)
+        public
+        pure
+        returns (bytes32, uint256)
+    {
+        bytes32 entryHash;
+        bytes calldata sig;
+        uint256 cursor;
+
+        (sig, entryHash, cursor) = separateSignature(entry);
+
+        if (nextPrev != bytes32(0)) {
+            // If we didn't get a prev (and rotationKey) it means it's the first item, which we don't have to verify
+            require(nextKey != address(0), "Rotation key for verification not supplied");
+            verifySignature(sig, sigv, entryHash, nextKey);
+            verifyPrev(entry, nextPrev, cursor);
+        }
+
+        return (entryHash, cursor);
+    }
+
+    /// @notice Verify that an operation is signed by the specified key
+    /// @param sigRS a signature, made up of 32 bytes r, 32 bytes s and 1 byte v
+    /// @param v a signature v param
+    /// @param entryHash CBOR-encoded bytes representing the operation, without its signature
+    /// @param rotationKey The address corresponding to the pubkey that signed this entry
+    function verifySignature(bytes calldata sigRS, uint8 v, bytes32 entryHash, address rotationKey) public pure {
+        // If there's no rotationKey it's the first time and there's nothing to verify
+        if (rotationKey == address(0)) {
+            return;
+        }
+
+        require(rotationKey != address(0), "rotation key not set");
+
+        bytes32 r = bytes32(sigRS[0:32]);
+        bytes32 s = bytes32(sigRS[32:64]);
+
+        require(ecrecover(entryHash, v, r, s) == rotationKey, "Signature did not match rotation key");
+    }
+
     /// @notice Return the address of the rotation key that will be used to sign the next entry
     /// @dev The key is passed in as a parameter but this will check it is actually part of the entry before converting it to an address
     /// @param entry CBOR-encoded bytes representing the operation, without its signature
     /// @param pubkey Uncompressed pubkey of the expected rotation key
     /// @param rotationKeyIdx The address corresponding to the pubkey that signed this entry
+    /// @param cursor The index to start looking for entry, will be for some earlier field
     /// @return The address corresponding to this key that we can use to check the next signature with ecrecover
-    function extractRotationKey(bytes calldata entry, bytes calldata pubkey, uint256 rotationKeyIdx)
+    function extractRotationKey(bytes calldata entry, bytes calldata pubkey, uint256 rotationKeyIdx, uint256 cursor)
         public
         pure
         returns (address)
     {
-        // TODO: Might be able to save from cbor reading by passing in an later cursor
-        uint256 cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ROTATIONKEYS_13B), 1);
+        cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ROTATIONKEYS_13B), cursor);
 
         uint256 numEntries;
         (, numEntries, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
@@ -140,10 +149,12 @@ contract DidVerifier is DidFormats {
         revert("This should be unreachable");
     }
 
-    function extractVerificationMethod(bytes calldata entry, bytes calldata pubkey) public pure returns (address) {
-        // TODO: Might be able to save from cbor reading by passing in an later cursor
-        uint256 cursor =
-            DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_VERIFICATIONMETHODS_20B), 1);
+    function extractVerificationMethod(bytes calldata entry, bytes calldata pubkey, uint256 cursor)
+        public
+        pure
+        returns (address)
+    {
+        cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_VERIFICATIONMETHODS_20B), cursor);
 
         uint256 nextLen;
         uint256 numEntries;

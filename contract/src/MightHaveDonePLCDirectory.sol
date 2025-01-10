@@ -147,9 +147,9 @@ contract MightHaveDonePLCDirectory is DidVerifier {
 
     /// @notice Register a series of update operations to the DID registry
     /// @param did The did you want to update, or 0x0 if you are creating it for the first time
-    /// @param entries CBOR-encoded bytes representing operations, without their signatures
+    /// @param entries CBOR-encoded bytes representing operations, with their signatures
     /// @dev The first entry you supply should already be registered, unless it's the genesis operation
-    /// @param sigs Signatures for each update: 32-byte r, 32-byte s, 1-byte v
+    /// @param vs 1-byte v parameter for each signature
     /// @dev The v parameters are not included in the signed CBOR updates, but we need them for ecrecover
     /// @param pubkeys Uncompressed pubkeys of each rotation key used for signing, then the last verification key
     /// @dev Another way would be to recover these by decompressing what we find in the CBOR data, but this way avoids the dependency
@@ -157,7 +157,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     function registerUpdates(
         bytes32 did,
         bytes[] calldata entries,
-        bytes[] calldata sigs,
+        uint8[] calldata vs,
         bytes[] calldata pubkeys,
         uint256[] calldata rotationKeyIndexes
     ) public {
@@ -170,44 +170,39 @@ contract MightHaveDonePLCDirectory is DidVerifier {
 
         // Rotation key that will sign the next entry.
         // There may be many keys so we have the user tell us which we need next with rotationKeyIndexes
-        address nextRotationKey;
+        address nextKey;
 
         for (uint256 i = 0; i < entries.length; i++) {
-            bytes32 entryHash = sha256(entries[i]);
+            bytes32 entryHash;
 
-            // We never try to verify the first entry.
-            // It should either be the genesis entry, in which case there's nothing to verify...
-            // ...or a subsequent entry which should already have been registered and we just need it to extract the prev/key
-            if (i == 0) {
-                // To calculate the DID we will need the hash of the signed version of the entry.
-                // entries[i] has the signature removed, so we need to put it back in then hash the resulting CBOR
-                // We trim off the final "v" at byte 65
-                // This will also be used to validate the next entry
-                nextPrev = calculateCIDSha256(entries[i], sigs[i][:64], 1);
-                if (did == bytes32(0)) {
-                    did = registerGenesis(entryHash, nextPrev);
-                }
+            uint256 cursor;
+
+            // The first time we process with no nextPrev there will be no validation, we just want the entryHash and nextKey to validate the next item
+            // After that we will validate and also extract either the rotation key or (for the final item) the verification key
+            (entryHash, cursor) = processSignedCBOR(entries[i], vs[i], nextPrev, nextKey);
+
+            if (i == entries.length - 1) {
+                nextKey = extractVerificationMethod(entries[i], pubkeys[i], cursor);
             } else {
-                require(nextParent != bytes32(0), "entry 1 and later must have a nextParent");
-                verifyEntry(entries[i], sigs[i], entryHash, nextPrev, nextRotationKey);
-                registerUpdate(did, entryHash, nextParent);
-
-                // Hash the signed version to verify the next entry, if there is one.
-                if (i < entries.length - 1) {
-                    nextPrev = calculateCIDSha256(entries[i], sigs[i][:64], 1);
-                }
+                nextKey = extractRotationKey(entries[i], pubkeys[i], rotationKeyIndexes[i], cursor);
             }
 
-            if (i < entries.length - 1) {
-                // Next entry also needs our unsigned hash and the rotation key it will sign with
-                nextParent = entryHash;
-                nextRotationKey = extractRotationKey(entries[i], pubkeys[i], rotationKeyIndexes[i]);
+            nextPrev = sha256(entries[i]);
+            if (did == bytes32(0)) {
+                did = registerGenesis(entryHash, nextPrev);
             } else {
+                require(nextParent != bytes32(0), "entry 1 and later must have a nextParent");
+                registerUpdate(did, entryHash, nextParent);
+            }
+
+            nextParent = entryHash;
+
+            if (i == entries.length - 1) {
                 // We'll store the verification key so you can query it.
                 // You probably only care about the key at the tip so we store only the final entry to save gas.
                 // But if you want to store an intermediate key for some reason you can call storeVerificationMethod() on it later
                 // NB this last pubkey entry is for the verification key, not a rotation key
-                _storeVerificationMethod(did, entryHash, entries[i], pubkeys[i]);
+                _storeVerificationMethod(did, entryHash, nextKey);
             }
         }
     }
@@ -215,15 +210,13 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     /// @notice Store the verification method address for an update
     /// @param did The hash of the first entry which creates the DID ID
     /// @param entryHash The hash of the first entry which creates the DID ID
-    /// @param entry The entry in which we should find the pubkey
-    /// @param pubkey The pubkey we expect to find, but as an uncompressed pubkey
-    function _storeVerificationMethod(bytes32 did, bytes32 entryHash, bytes calldata entry, bytes calldata pubkey)
-        internal
-    {
+    /// @param verificationMethod The address corresponding to the verificationMethod key
+    function _storeVerificationMethod(bytes32 did, bytes32 entryHash, address verificationMethod) internal {
         require(dids[did].updates[entryHash].recordedTimestamp > 0, "entry not found");
-        dids[did].updates[entryHash].verificationMethod = extractVerificationMethod(entry, pubkey);
+        dids[did].updates[entryHash].verificationMethod = verificationMethod;
     }
 
+    /*
     /// @notice Store the verification method address for an update which is otherwise already registered
     /// @dev This is stored automatically by registerUpdates when adding to the tip.
     /// @dev You only need it if you want to be able to read the address of an intermediate update for some reason.
@@ -234,4 +227,5 @@ contract MightHaveDonePLCDirectory is DidVerifier {
         bytes32 entryHash = sha256(entry);
         _storeVerificationMethod(did, entryHash, entry, pubkey);
     }
+    */
 }
