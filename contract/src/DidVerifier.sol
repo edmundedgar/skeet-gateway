@@ -33,15 +33,15 @@ contract DidVerifier is DidFormats {
     /// @dev This handles a CBOR operation with its signature stripped, which you do not usually encounter in nature
     /// @param entry CBOR-encoded bytes representing the operation, without its signature
     /// @param sigRS The r and s parameters (32 bytes each) of the signature of the update
-    /// @param insertAtIdx The index where the signature should be added to recover the signed CBOR (so far always 1)
     /// @return The hash that will be used to calculate a CID (this part will require extra encoding steps)
-    function calculateCIDSha256(bytes calldata entry, bytes calldata sigRS, uint256 insertAtIdx)
-        public
-        pure
-        returns (bytes32)
-    {
-        // The mapping has 1 more entry
+    function calculateCIDSha256(bytes calldata entry, bytes calldata sigRS) public pure returns (bytes32) {
+        // The mapping will have 1 more entry once we add a signature
         bytes1 mappingHeaderWithSig = bytes1(uint8(bytes1(entry[0:1])) + 1);
+
+        // Find the index where the sig field belongs
+        // On all entries we currently see it's 1 (first mapping field)
+        // If we're confident this will remain true we could just put 1.
+        uint256 insertAtIdx = DagCborNavigator.indexToInsertMappingField(entry, bytes.concat(CBOR_HEADER_SIG_4B), 1);
 
         bytes memory encodedSig = sigToBase64URLEncoded(sigRS);
         return sha256(
@@ -49,7 +49,7 @@ contract DidVerifier is DidFormats {
                 mappingHeaderWithSig,
                 entry[1:insertAtIdx],
                 CBOR_HEADER_SIG_4B,
-                bytes(hex"78"),
+                bytes(hex"78"), // CBOR header for text 23-255 bytes long, length in next byte
                 bytes1(uint8(encodedSig.length)),
                 encodedSig,
                 entry[insertAtIdx:]

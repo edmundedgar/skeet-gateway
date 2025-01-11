@@ -200,6 +200,43 @@ library DagCborNavigator {
         revert("fieldHeader not found");
     }
 
+    /// @notice Return the index where a field with this header should be added to the CBOR
+    /// @dev We use this when we have cbor with "sig" stripped and we need to put it back to hash the data
+    /// @dev This is similar to indexOfMappingField about except that it's for adding a field so:
+    /// @dev   1) It returns the index of the field after the specified one in dag-cbor key sort order
+    /// @dev   2) It returns the start of the name field not the value field
+    /// @dev   3) If it reaches the end of the cbor it gives you the end index instead of reverting
+    /// @param cbor encoded mapping content (data must end when the mapping does)
+    /// @param fieldHeader The field you want to insert
+    /// @param cursor Cursor to start at to read the actual data
+    /// @return uint256 Start of the field
+    function indexToInsertMappingField(bytes calldata cbor, bytes memory fieldHeader, uint256 cursor)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 fieldHeaderLength = fieldHeader.length;
+
+        // at 23 bytes the cbor name header needs 2 bytes which would need extra tests
+        // (but should Just Work)
+        // 23 bytes should be enough for anyone
+        require(fieldHeaderLength < 24, "field too long");
+
+        uint256 endIndex = cbor.length - fieldHeaderLength;
+
+        while (cursor < endIndex) {
+            if (uint256(bytes32(cbor[cursor:cursor + fieldHeaderLength])) > uint256(bytes32(fieldHeader))) {
+                return cursor;
+            } else {
+                // field for the name
+                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                // field for the value
+                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+            }
+        }
+        return cursor;
+    }
+
     // Based on the parseCborHeader function from:
     // https://github.com/filecoin-project/filecoin-solidity/blob/master/contracts/v0.8/utils/CborDecode.sol
     // Uses calldata instead of memory copying

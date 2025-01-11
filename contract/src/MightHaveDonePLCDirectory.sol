@@ -183,7 +183,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
                 // entries[i] has the signature removed, so we need to put it back in then hash the resulting CBOR
                 // We trim off the final "v" at byte 65
                 // This will also be used to validate the next entry
-                nextPrev = calculateCIDSha256(entries[i], sigs[i][:64], 1);
+                nextPrev = calculateCIDSha256(entries[i], sigs[i][:64]);
                 if (did == bytes32(0)) {
                     did = registerGenesis(entryHash, nextPrev);
                 }
@@ -194,7 +194,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
 
                 // Hash the signed version to verify the next entry, if there is one.
                 if (i < entries.length - 1) {
-                    nextPrev = calculateCIDSha256(entries[i], sigs[i][:64], 1);
+                    nextPrev = calculateCIDSha256(entries[i], sigs[i][:64]);
                 }
             }
 
