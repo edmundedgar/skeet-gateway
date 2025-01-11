@@ -28,8 +28,10 @@ bytes13 constant CBOR_HEADER_ROTATIONKEYS_13B = bytes13(hex"6c726f746174696f6e4b
 bytes20 constant CBOR_HEADER_VERIFICATIONMETHODS_20B = bytes20(hex"73766572696669636174696f6e4d6574686f6473"); // text, verificationMethods
 bytes8 constant CBOR_HEADER_ATPROTO_8B = bytes8(hex"67617470726F746F");
 
-bytes1 constant CBOR_MAPPING_5_ENTRIES_1B = hex"a5"; // sig node has 5 fields when unsigned
+bytes1 constant CBOR_MAPPING_5_ENTRIES_1B = hex"a5"; // update entries have 5 fields when unsigned
 bytes1 constant CBOR_MAPPING_14_ENTRIES_1B = hex"ae"; // arbitrary maximum
+
+bytes1 constant CBOR_MEDIUM_TEXT_HEADER_1B = hex"78"; // CBOR header for text 23-255 bytes long, length in next byte
 
 contract DidVerifier is DidFormats {
     /// @notice Calculate the hash used to make the CID of a DID update operation
@@ -38,7 +40,7 @@ contract DidVerifier is DidFormats {
     /// @param sigRS The r and s parameters (32 bytes each) of the signature of the update
     /// @return The hash that will be used to calculate a CID (this part will require extra encoding steps)
     function calculateCIDSha256(bytes calldata entry, bytes calldata sigRS) public pure returns (bytes32) {
-        // The did records have 7 fields excluding sig.
+        // The did update records have 5 fields excluding sig.
         // Sanity-check up to 14 to allow for some to be added within reason
         // This range keeps the cbor header stuff simple (1 byte, incrementing)
         bytes1 mappingHeader = bytes1(entry[0:1]);
@@ -59,7 +61,7 @@ contract DidVerifier is DidFormats {
                 mappingHeader,
                 entry[1:insertAtIdx],
                 CBOR_HEADER_SIG_4B,
-                bytes(hex"78"), // CBOR header for text 23-255 bytes long, length in next byte
+                CBOR_MEDIUM_TEXT_HEADER_1B,
                 bytes1(uint8(encodedSig.length)),
                 encodedSig,
                 entry[insertAtIdx:]
