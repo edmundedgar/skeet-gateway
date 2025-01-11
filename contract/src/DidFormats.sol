@@ -9,19 +9,19 @@ import {console} from "forge-std/console.sol";
 
 import {Secp256k1PubkeyCompression} from "./Secp256k1PubkeyCompression.sol";
 
+bytes2 constant MULTICODEC_SECP256K1_UNSIGNED_VARIANT = hex"e701";
+bytes4 constant MULTIHASH_CID_DAGCBOR_SHA2_256 = hex"01711220";
+
 abstract contract DidFormats is Secp256k1PubkeyCompression {
     function sha256ToBase32CID(bytes32 hash) public pure returns (string memory) {
-        bytes memory prefix = bytes(hex"01711220");
-        return Base32.encodeToString(bytes.concat(prefix, hash));
+        return Base32.encodeToString(bytes.concat(MULTIHASH_CID_DAGCBOR_SHA2_256, hash));
     }
 
     // see https://w3c-ccg.github.io/did-method-key/#bib-multibase
     function pubkeyBytesToDidKey(bytes calldata pubkey) public pure returns (string memory) {
-        // e7 means secp256k1-pub - Secp256k1 public key (compressed)
-        // 01 seems to be there???
-        bytes memory prefix = bytes(hex"e701");
         bytes1 compressionByte = compressionByte(bytes32(pubkey[32:]));
-        bytes memory encoded = Base58.encode(bytes.concat(prefix, compressionByte, pubkey[0:32]));
+        bytes memory encoded =
+            Base58.encode(bytes.concat(MULTICODEC_SECP256K1_UNSIGNED_VARIANT, compressionByte, pubkey[0:32]));
         return string.concat("did:key:z", string(encoded));
     }
 
