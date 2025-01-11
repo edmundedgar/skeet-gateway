@@ -188,7 +188,7 @@ library DagCborNavigator {
         uint256 endIndex = cbor.length - fieldHeaderLength;
 
         while (cursor < endIndex) {
-            if (bytes8(cbor[cursor:cursor + fieldHeaderLength]) == bytes8(fieldHeader)) {
+            if (keccak256(cbor[cursor:cursor + fieldHeaderLength]) == keccak256(fieldHeader)) {
                 return cursor + fieldHeaderLength;
             } else {
                 // field for the name
