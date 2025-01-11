@@ -146,7 +146,6 @@ def generatePayload(did, did_history):
     # The DID and rkey are only there to help keep track of things, they're not used by handleSkeet.
     output = {
         "did": did,
-        "insertSigAt": [],
         "ops": [],
         "pubkeyIndexes": [],
         "pubkeys": [],
@@ -244,7 +243,6 @@ def generatePayload(did, did_history):
         # TODO: In solidity, see if it's easier to pass the sig then base64-url-encode it to recreate the signed cbor
         # ...or pass the full signed cbor and base64-url-decode it to make the signature
 
-        output["insertSigAt"].append(sig_start_idx)
         output["ops"].append("0x"+signable_cbor.hex())
         output["pubkeyIndexes"].append(rotation_key_idx)
         output["pubkeys"].append(pubkey_str)

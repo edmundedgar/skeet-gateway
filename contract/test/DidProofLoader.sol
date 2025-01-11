@@ -7,7 +7,6 @@ import {Test, console} from "forge-std/Test.sol";
 abstract contract DidProofLoader is Test {
     struct DidProof {
         string did;
-        uint256[] insertSigAt;
         bytes[] ops;
         uint256[] pubkeyIndexes;
         bytes[] pubkeys;
