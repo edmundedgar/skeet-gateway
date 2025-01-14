@@ -294,15 +294,72 @@ library DagCborNavigator {
         return (maj, extra, byteIndex);
     }
 
+    /// @notice Return the value of an atomic type (ie one with no payload)
+    /// @dev Will revert if called on a non-atomic field type
+    /// @param cbor cbor encoded bytes to parse from
+    /// @param cursor index of the start of the header
+    /// @return The value found in the header
+    /// @return end of header, ie position of the start of the first entry
+    function fieldValue(bytes calldata cbor, uint256 cursor) internal pure returns (uint64, uint256) {
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, cursor) = parseCborHeader(cbor, cursor);
+
+        if (maj == 0) {
+            return (extra, cursor);
+        }
+
+        if (maj == 1) {
+            revert("major type 1 not supported");
+        }
+
+        if (maj == 7) {
+            revert("major type 7 not supported");
+        }
+
+        revert("Non-atomic, use fieldPayloadStart");
+    }
+
+    /// @notice Return the number of entries in the array or mapping
+    /// @dev Will revert if called on a field that isn't an array or mapping
+    /// @param cbor cbor encoded bytes to parse from
+    /// @param cursor index of the start of the header
+    /// @return number of entries
+    /// @return end of header, ie position of the start of the first entry
+    function fieldEntryCount(bytes calldata cbor, uint256 cursor) internal pure returns (uint64, uint256) {
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, cursor) = parseCborHeader(cbor, cursor);
+
+        require(maj == 4 || maj == 5, "Not array or mapping");
+
+        return (extra, cursor);
+    }
+
+    /// @notice Return start of the field payload (after the header) and the cursor for the end
+    /// @dev Will revert if called on a type of field with no payload
+    /// @param cbor cbor encoded bytes to parse from
+    /// @param cursor index of the start of the header
+    /// @return start of payload
+    /// @return end of payload
+    function fieldPayloadStart(bytes calldata cbor, uint256 cursor) internal pure returns (uint256, uint256) {
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, cursor) = parseCborHeader(cbor, cursor);
+
+        //        require(maj == 2 || maj == 3 || maj == 6, "atomic type, no payload");
+        return (cursor, cursor + extra);
+    }
+
     /// @notice Return end of the field (ie the end of the payload, not just the header)
     /// @param cbor cbor encoded bytes to parse from
-    /// @param byteIndex index of the start of the header
+    /// @param cursor index of the start of the header
     /// @return index where the payload ends
-    function fieldEnd(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+    function fieldEnd(bytes calldata cbor, uint256 cursor) internal pure returns (uint256) {
         uint8 maj;
         uint64 extra;
 
-        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        (maj, extra, cursor) = parseCborHeader(cbor, cursor);
 
         // Types are divided into "atomic" types 0–1 and 6–7, for which the count field encodes the value directly,
         // and non-atomic types 2–5, for which the count field encodes the size of the following payload field.
@@ -310,11 +367,11 @@ library DagCborNavigator {
         // For string/bytes types, the extra field tells us the length of the payload
         // We also handle CID tags this way (major type 6, the only tags DAG-CBOR supports)
         if (maj == 2 || maj == 3 || maj == 6) {
-            return byteIndex + extra;
+            return cursor + extra;
         }
 
         if (maj == 0 || maj == 1 || maj == 7) {
-            return byteIndex;
+            return cursor;
         }
 
         // For a mapping or an array, the payload length is the combined length of all the entries
@@ -324,9 +381,9 @@ library DagCborNavigator {
             // For a map the number of entries is doubled because there's a key and a value per item
             uint64 numEntries = (maj == 5) ? extra * 2 : extra;
             for (uint64 i = 0; i < numEntries; i++) {
-                byteIndex = fieldEnd(cbor, byteIndex);
+                cursor = fieldEnd(cbor, cursor);
             }
-            return byteIndex;
+            return cursor;
         }
 
         revert("Unsupported major type");

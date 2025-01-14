@@ -79,7 +79,7 @@ contract DidVerifier is DidFormats {
         pure
     {
         uint256 cursor;
-        uint256 nextLen;
+        uint256 start;
 
         require(prev != bytes32(0), "prev not set");
         require(rotationKey != address(0), "rotation key not set");
@@ -95,12 +95,8 @@ contract DidVerifier is DidFormats {
         string memory cid = sha256ToBase32CID(prev);
 
         cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_PREV_5B), 1);
-        (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
-        require(bytes(cid).length == nextLen, "prev length mismatch");
-        require(
-            keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(cid)),
-            "prev hash does not match supplied entry"
-        );
+        (start, cursor) = DagCborNavigator.fieldPayloadStart(entry, cursor);
+        require(keccak256(entry[start:cursor]) == keccak256(bytes(cid)), "prev hash does not match supplied entry");
     }
 
     /// @notice Return the address of the rotation key that will be used to sign the next entry
@@ -118,18 +114,16 @@ contract DidVerifier is DidFormats {
         uint256 cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ROTATIONKEYS_13B), 1);
 
         uint256 numEntries;
-        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+        (numEntries, cursor) = DagCborNavigator.fieldEntryCount(entry, cursor);
         require(numEntries > rotationKeyIdx, "Rotation key index higher than the highest rotation key we found");
 
-        uint256 nextLen;
+        uint256 start;
         for (uint256 i = 0; i <= rotationKeyIdx; i++) {
-            (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+            (start, cursor) = DagCborNavigator.fieldPayloadStart(entry, cursor);
             if (i == rotationKeyIdx) {
                 string memory encodedKey = pubkeyBytesToDidKey(pubkey);
-                require(nextLen == bytes(encodedKey).length, "pubkey not expected length");
                 require(
-                    keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(encodedKey)),
-                    "Key not found at expected index"
+                    keccak256(entry[start:cursor]) == keccak256(bytes(encodedKey)), "Key not found at expected index"
                 );
 
                 // The did:key entries are expressed as compressed pubkey
@@ -144,8 +138,6 @@ contract DidVerifier is DidFormats {
                 // But it's cheap to check and the isPubkeyOnCurve code is simple so we'll check it out of an excess of caution.
                 require(isPubkeyOnCurve(pubkey), "Suspicious uncompressed pubkey");
                 return address(uint160(uint256(keccak256(pubkey))));
-            } else {
-                cursor = cursor + nextLen;
             }
         }
 
@@ -157,18 +149,15 @@ contract DidVerifier is DidFormats {
         uint256 cursor =
             DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_VERIFICATIONMETHODS_20B), 1);
 
-        uint256 nextLen;
         uint256 numEntries;
-        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+        (numEntries, cursor) = DagCborNavigator.fieldEntryCount(entry, cursor);
         require(numEntries > 0, "WTF no verificationMethods");
 
         cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ATPROTO_8B), cursor);
-        (, nextLen, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+        uint256 start;
+        (start, cursor) = DagCborNavigator.fieldPayloadStart(entry, cursor);
         string memory encodedKey = pubkeyBytesToDidKey(pubkey);
-        require(nextLen == bytes(encodedKey).length, "pubkey not expected length");
-        require(
-            keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(encodedKey)), "Key not found at expected index"
-        );
+        require(keccak256(entry[start:cursor]) == keccak256(bytes(encodedKey)), "Key not found at expected index");
         require(isPubkeyOnCurve(pubkey), "Suspicious uncompressed pubkey");
         return address(uint160(uint256(keccak256(pubkey))));
     }

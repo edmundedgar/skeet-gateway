@@ -14,11 +14,6 @@ pragma solidity ^0.8.28;
 // - For strings and byte arrays we need to extract the length from the header
 // - For integers with unknown values (just the p field) the data itself needs to be extracted from the header.
 // - For arrays the length of the array needs to be extracted from the header.
-// We extract these values with DagCborNavigator.parseCborHeader()
-// The meaning of the value we get from the header will vary depending on the type of the field:
-// - For our integer (p) it will return the value of the field and there will be no additional payload.
-// - For strings and byte arrays it will return the number of bytes in the payload.
-// - For arrays it will return the number of entries in the array.
 
 import {DagCborNavigator} from "./DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
@@ -100,8 +95,7 @@ abstract contract AtprotoMSTProver {
         // This always seems to be at the start of the message (because "text" is a fairly short key)
         // But in theory there could be other things ahead of it
         cursor = DagCborNavigator.indexOfMappingField(content, bytes.concat(CBOR_HEADER_TEXT_5B), cursor);
-        (, nextLen, cursor) = DagCborNavigator.parseCborHeader(content, cursor);
-        return (cursor, cursor + nextLen);
+        return DagCborNavigator.fieldPayloadStart(content, cursor);
     }
 
     /// @notice Check that the supplied commit node includes the supplied root hash, or revert if it doesn't.
@@ -109,7 +103,7 @@ abstract contract AtprotoMSTProver {
     /// @param commitNode The CBOR-encoded commit node
     function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitNode) public pure {
         uint256 cursor;
-        uint256 extra;
+        uint256 start;
 
         // The unsigned commit node has 5 entries.
         // A 6th entry, "sig", is added later by hashing the unsigned, 5-entry version.
@@ -118,13 +112,11 @@ abstract contract AtprotoMSTProver {
 
         assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4B);
         cursor = cursor + 4;
-        (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
-        cursor = cursor + extra;
+        (, cursor) = DagCborNavigator.fieldPayloadStart(commitNode, cursor);
 
         assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4B);
         cursor = cursor + 4;
-        (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
-        cursor = cursor + extra;
+        (, cursor) = DagCborNavigator.fieldPayloadStart(commitNode, cursor);
 
         assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5B);
         cursor = cursor + 5;
@@ -179,11 +171,7 @@ abstract contract AtprotoMSTProver {
 
             uint256 numEntries;
 
-            // parseCborHeader either tells us the length of the data, or tells us the data itself if it could fit in the header.
-            // It also advances the cursor to the end of the header.
-            // If there is a payload (ie the answer wasn't in the header)...
-            // ...we then read the data manually as a calldata slice and advance the cursor to the end of the payload.
-            uint256 extra;
+            uint256 start;
             uint256 cursor;
 
             // mapping byte for 2 entries, k and e
@@ -217,7 +205,7 @@ abstract contract AtprotoMSTProver {
 
             assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2B);
             cursor = cursor + 2;
-            (, numEntries, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // e array header
+            (numEntries, cursor) = DagCborNavigator.fieldEntryCount(nodes[n], cursor); // e array header
 
             // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
             // If the node is in the "l", we'll have to go through them all to find where "l" starts
@@ -239,16 +227,14 @@ abstract contract AtprotoMSTProver {
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2B);
                     cursor = cursor + 2;
 
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    string memory kval = string(nodes[n][cursor:cursor + extra]);
-                    cursor = cursor + extra;
+                    (start, cursor) = DagCborNavigator.fieldPayloadStart(nodes[n], cursor);
+                    string memory kval = string(nodes[n][start:cursor]);
 
                     assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2B);
                     cursor = cursor + 2;
-                    // p is an int so there is no payload and the "extra" denotes the value not the length,
-                    // Since there is no payload we don't advance the cursor beyond what parseCborHeader told us
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    uint256 pval = uint256(extra);
+
+                    uint256 pval;
+                    (pval, cursor) = DagCborNavigator.fieldValue(nodes[n], cursor);
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey
@@ -264,14 +250,12 @@ abstract contract AtprotoMSTProver {
                     cursor = cursor + 2;
 
                     // Variable-length string
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    cursor = cursor + extra;
+                    (, cursor) = DagCborNavigator.fieldPayloadStart(nodes[n], cursor);
 
                     ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2B);
                     cursor = cursor + 2;
 
-                    // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
-                    (,, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
+                    (, cursor) = DagCborNavigator.fieldValue(nodes[n], cursor); // val
                 }
 
                 ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2B);
