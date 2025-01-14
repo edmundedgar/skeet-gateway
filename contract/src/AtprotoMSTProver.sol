@@ -248,7 +248,7 @@ abstract contract AtprotoMSTProver {
                     // p is an int so there is no payload and the "extra" denotes the value not the length,
                     // Since there is no payload we don't advance the cursor beyond what parseCborHeader told us
                     (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    uint8 pval = uint8(extra);
+                    uint256 pval = uint256(extra);
 
                     // Compression scheme used by atproto:
                     // Take the first bytes specified by the partial from the existing rkey
@@ -256,7 +256,7 @@ abstract contract AtprotoMSTProver {
                     if (pval == 0) {
                         rkey = kval;
                     } else {
-                        string memory oldr = _substring(rkey, 0, uint256(pval));
+                        string memory oldr = _substring(rkey, 0, pval);
                         rkey = string.concat(oldr, kval);
                     }
                 } else {
