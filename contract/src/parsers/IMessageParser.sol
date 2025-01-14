@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 interface IMessageParser {
-    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd)
+    function parseMessage(bytes[] calldata content, uint256 messageStart, uint256 messageEnd, address signerSafe)
         external
         returns (address, uint256 value, bytes memory);
 }

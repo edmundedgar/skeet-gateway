@@ -5,7 +5,11 @@ libs = ["lib"]
 
 fs_permissions = [{ access = "read", path = "./test/fixtures" }, { access = "read", path = "./script/input" }]
 
-
+remappings = [
+    "@0x00000002/ipfs-cid-solidity/contracts/=lib/ipfs-cid-solidity/contracts/",
+    "@base58-solidity/contracts/=lib/base58-solidity/contracts/",
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
+]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 [rpc_endpoints]

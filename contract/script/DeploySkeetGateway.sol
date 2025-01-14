@@ -13,7 +13,7 @@ contract DeploySkeetGateway is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        SkeetGateway gateway = new SkeetGateway();
+        SkeetGateway gateway = new SkeetGateway(address(0x41675C099F32341bf84BFc5382aF534df5C7461a));
 
         BBS bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));

@@ -31,6 +31,14 @@ contract DagCborNavigatorClient {
         return DagCborNavigator.indexOfMappingField(cbor, fieldHeader, cursor);
     }
 
+    function indexToInsertMappingField(bytes calldata cbor, bytes memory fieldHeader, uint256 cursor)
+        external
+        pure
+        returns (uint256)
+    {
+        return DagCborNavigator.indexToInsertMappingField(cbor, fieldHeader, cursor);
+    }
+
     function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) external pure returns (uint256) {
         return DagCborNavigator.indexOfFieldPayloadEnd(cbor, byteIndex);
     }
@@ -123,6 +131,57 @@ contract DagCborNavigatorTest is Test {
         client.indexOfMappingField(cborMap, oink, 1);
     }
 
+    function testIndexToInsertMappingFieldMid() public {
+        // This has the proper dag-cbor field ordering, unlike other tests here
+        // A5                       # map(5)
+        //    61                    # text(1)
+        //       61                 # "a"
+        //    65                    # text(5)
+        //       6461746131         # "data1"
+        //    61                    # text(1)
+        //       62                 # "b"
+        //    66                    # text(6)
+        //       646174613232       # "data22"
+        //    61                    # text(1)
+        //       7A                 # "z"
+        //    67                    # text(7)
+        //       64617461333333     # "data333"
+        //    62                    # text(2)
+        //       6131               # "a1"
+        //    68                    # text(8)
+        //       6461746134343434   # "data4444"
+        //    63                    # text(3)
+        //       7A6F6F             # "zoo"
+        //    69                    # text(9)
+        //       646174613535353535 # "data55555"
+        //
+        bytes memory dagCborMap = bytes(
+            hex"A56161656461746131616266646174613232617A6764617461333333626131686461746134343434637A6F6F69646174613535353535"
+        );
+
+        // this is the start of the value field so we back up the length of the header (3) to get to the name field
+        uint256 a1idx = client.indexOfMappingField(dagCborMap, bytes(hex"626131"), 1) - 3;
+
+        // 626130 "a0" should slot in where a1 went
+        uint256 idx = client.indexToInsertMappingField(dagCborMap, bytes(hex"626130"), 1);
+        assertEq(a1idx, idx, "same length should slot in based on ascii sort order");
+    }
+
+    function testIndexToInsertMappingFieldEnd() public {
+        // same cbor as previous test
+        bytes memory dagCborMap = bytes(
+            hex"A56161656461746131616266646174613232617A6764617461333333626131686461746134343434637A6F6F69646174613535353535"
+        );
+
+        uint256 endIdx = dagCborMap.length;
+
+        // 68                  # text(8)
+        // 386C657474657273 # "8letters"
+
+        uint256 idx = client.indexToInsertMappingField(dagCborMap, bytes(hex"68386C657474657273"), 1);
+        assertEq(endIdx, idx, "something that sorts after all fields should be at the end of the mapping");
+    }
+
     function testIndexOfMappingFieldSkippingInnerMapping() public view {
         // {"a": 1, "b": 2, "c": {"c1": 9, "c2": 9, "c3": 7}, "target": 123, "more": "data"}
 
@@ -158,6 +217,15 @@ contract DagCborNavigatorTest is Test {
         uint256 expectIndex = 29; // end of "target" text
         uint256 index = client.indexOfMappingField(nestedCbor, bytes(hex"66746172676574"), 1);
         assertEq(index, expectIndex);
+    }
+
+    function testIndexToInsertMappingField() public view {
+        // same cbor as previous
+        bytes memory nestedCbor =
+            hex"A56161016162026163A362633109626332096263330766746172676574187B646D6F72656464617461";
+        uint256 expectIndex = 29; // should get slotted in at end of "target" text
+        // "zoo" should sort where "target" would start
+        uint256 index = client.indexToInsertMappingField(nestedCbor, bytes(hex"637A6F6F"), 1);
     }
 
     function testIndexOfMappingFieldWithCIDs() public view {

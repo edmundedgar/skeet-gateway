@@ -4,8 +4,6 @@ pragma solidity ^0.8.28;
 import {Script, console} from "forge-std/Script.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
 
-import {SignerSafe} from "../src/SignerSafe.sol";
-
 import {BBS} from "../src/parsers/bbs/BBS.sol";
 import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 
@@ -29,6 +27,7 @@ contract DeployEverything is Script {
         string realityETHQuestionBot;
         string realityETHQuestionDomain;
         string realityETHURLPrefix;
+        address safeSingleton;
     }
 
     function run() public {
@@ -39,13 +38,10 @@ contract DeployEverything is Script {
         bytes memory data = vm.parseJson(json);
         DeployParameters memory params = abi.decode(data, (DeployParameters));
 
-        SkeetGateway gateway = new SkeetGateway();
+        SkeetGateway gateway = new SkeetGateway(params.safeSingleton);
         for (uint256 i = 0; i < params.domains.length; i++) {
             gateway.addDomain(params.domains[i], address(tx.origin));
         }
-
-        // Not really needed but we deploy this just to get it verified
-        new SignerSafe();
 
         BBS bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));

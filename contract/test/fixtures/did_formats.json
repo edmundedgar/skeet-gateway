@@ -1,0 +1,52 @@
+{
+    "base64URLSig": [
+        {
+            "decoded": "0xdbe1b80fd61714207a2d3aef6a5ab6de8eef7b2d56eca7125437fe2247d4ff1f001405549f656dc525d3b4232be6d01eef62b23d2cf3c3491a57433cf09b8210",
+            "encoded": "2-G4D9YXFCB6LTrvalq23o7vey1W7KcSVDf-IkfU_x8AFAVUn2VtxSXTtCMr5tAe72KyPSzzw0kaV0M88JuCEA"
+        },
+        {
+            "decoded": "0x0359853457cb02fedbbd0b0d25e8c2158e586ce7f6bedf89da5a95fed32152ad1255a61f18ea8738dc9a8711bf4bdd4b78739bd32a5479c9f5dc3017408c9c65",
+            "encoded": "A1mFNFfLAv7bvQsNJejCFY5YbOf2vt-J2lqV_tMhUq0SVaYfGOqHONyahxG_S91LeHOb0ypUecn13DAXQIycZQ"
+        },
+        {
+            "decoded": "0xa88df5c63217f78f4619bc16aac4865391592d5adf6eff4dffaf7996beb5c3f31881fb0913f93ea06f124152e35a4db47ac11d840e79a45502790109ee16460f",
+            "encoded": "qI31xjIX949GGbwWqsSGU5FZLVrfbv9N_695lr61w_MYgfsJE_k-oG8SQVLjWk20esEdhA55pFUCeQEJ7hZGDw"
+        }
+    ],
+    "cid": [
+        {
+            "decoded": "0x7e32bcc27e0e9b889c1f930b1c7a3514dfc0d2983e59e3a7bb619c00d6ca5b1c",
+            "encoded": "bafyreid6gk6me7qotoejyh4tbmohuniu37anfgb6lhr2po3btqannss3dq"
+        },
+        {
+            "decoded": "0x342b7199d6ea83667d1529e48c6a9da2b72213c4774ce644d42e16e5e4ff58c6",
+            "encoded": "bafyreibufnyztvxkqnth2fjj4sggvhncw4rbhrdxjttejvboc3s6j72yyy"
+        }
+    ],
+    "rotationKeys": [
+        {
+            "decoded": "0x0325f4891e63128b8ab689e862b8e11428f24095e3e57b9ea987eb70d1b59af9df",
+            "encoded": "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg"
+        },
+        {
+            "decoded": "0x038fe3769f5055088b448ca064bcecd7b6844239c355c98d4556d5c9c8c522de78",
+            "encoded": "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        },
+        {
+            "decoded": "0x0325f4891e63128b8ab689e862b8e11428f24095e3e57b9ea987eb70d1b59af9df",
+            "encoded": "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg"
+        },
+        {
+            "decoded": "0x038fe3769f5055088b448ca064bcecd7b6844239c355c98d4556d5c9c8c522de78",
+            "encoded": "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        },
+        {
+            "decoded": "0x0325f4891e63128b8ab689e862b8e11428f24095e3e57b9ea987eb70d1b59af9df",
+            "encoded": "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg"
+        },
+        {
+            "decoded": "0x038fe3769f5055088b448ca064bcecd7b6844239c355c98d4556d5c9c8c522de78",
+            "encoded": "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        }
+    ]
+}
