@@ -127,12 +127,12 @@ library DagCborNavigator {
                             }
                         }
                     } else {
-                        cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                        cursor = fieldEnd(cbor, cursor);
                     }
                 } else {
                     // Not the field yet, keep going
                     cursor = cursor + extra; // Advance to the end of the key
-                    cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                    cursor = fieldEnd(cbor, cursor);
                 }
             }
         } else if (maj == 4) {
@@ -168,7 +168,7 @@ library DagCborNavigator {
                     }
                 }
                 // If the key didn't match, jump to the end of the field, recursively if it's an arary
-                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                cursor = fieldEnd(cbor, cursor);
             }
         }
         return (0, cursor);
@@ -192,9 +192,9 @@ library DagCborNavigator {
                 return cursor + fieldHeaderLength;
             } else {
                 // field for the name
-                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                cursor = fieldEnd(cbor, cursor);
                 // field for the value
-                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                cursor = fieldEnd(cbor, cursor);
             }
         }
         revert("fieldHeader not found");
@@ -229,9 +229,9 @@ library DagCborNavigator {
                 return cursor;
             } else {
                 // field for the name
-                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                cursor = fieldEnd(cbor, cursor);
                 // field for the value
-                cursor = indexOfFieldPayloadEnd(cbor, cursor);
+                cursor = fieldEnd(cbor, cursor);
             }
         }
         return cursor;
@@ -298,7 +298,7 @@ library DagCborNavigator {
     /// @param cbor cbor encoded bytes to parse from
     /// @param byteIndex index of the start of the header
     /// @return index where the payload ends
-    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+    function fieldEnd(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
         uint8 maj;
         uint64 extra;
 
@@ -324,7 +324,7 @@ library DagCborNavigator {
             // For a map the number of entries is doubled because there's a key and a value per item
             uint64 numEntries = (maj == 5) ? extra * 2 : extra;
             for (uint64 i = 0; i < numEntries; i++) {
-                byteIndex = indexOfFieldPayloadEnd(cbor, byteIndex);
+                byteIndex = fieldEnd(cbor, byteIndex);
             }
             return byteIndex;
         }

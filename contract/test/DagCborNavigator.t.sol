@@ -39,8 +39,8 @@ contract DagCborNavigatorClient {
         return DagCborNavigator.indexToInsertMappingField(cbor, fieldHeader, cursor);
     }
 
-    function indexOfFieldPayloadEnd(bytes calldata cbor, uint256 byteIndex) external pure returns (uint256) {
-        return DagCborNavigator.indexOfFieldPayloadEnd(cbor, byteIndex);
+    function fieldEnd(bytes calldata cbor, uint256 byteIndex) external pure returns (uint256) {
+        return DagCborNavigator.fieldEnd(cbor, byteIndex);
     }
 
     function parseCborHeader(bytes calldata cbor, uint256 byteIndex) external pure returns (uint8, uint64, uint256) {
@@ -87,11 +87,11 @@ contract DagCborNavigatorTest is Test {
     }
 
     function testIndexOfFieldPayloadEndSimple() public view {
-        uint256 payloadEnd = client.indexOfFieldPayloadEnd(cborMap, 1);
+        uint256 payloadEnd = client.fieldEnd(cborMap, 1);
         assertEq(payloadEnd, 1 + 1 + 11);
 
         uint256 cursor = 1 + 2 + 11 - 1;
-        payloadEnd = client.indexOfFieldPayloadEnd(cborMap, cursor);
+        payloadEnd = client.fieldEnd(cborMap, cursor);
     }
 
     function testIndexOfFieldPayloadEndCID() public view {
@@ -102,7 +102,7 @@ contract DagCborNavigatorTest is Test {
         // 0b90507550beb6a0c2d031c2ffca2ce1c1702933a47070ddcdaf3cc1879a95464 (32 bytes)
 
         // Find the start
-        // This incidentally tests everything before the CID in the data as indexOfMappingField uses indexOfFieldPayloadEnd
+        // This incidentally tests everything before the CID in the data as indexOfMappingField uses fieldEnd
         uint256 start = client.indexOfMappingField(cborWithCIDs, CBOR_HEADER_DATA_5, 1);
         assertEq(62, start);
 
@@ -114,7 +114,7 @@ contract DagCborNavigatorTest is Test {
 
         assertEq(maj, 6);
 
-        uint256 payloadEnd = client.indexOfFieldPayloadEnd(cborWithCIDs, start);
+        uint256 payloadEnd = client.fieldEnd(cborWithCIDs, start);
         assertEq(62 + 4 + 5 + 32, payloadEnd);
     }
 
