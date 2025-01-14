@@ -26,10 +26,10 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
 
         SkeetProof memory proof = _loadProofFixture("add_key.json");
         address expectedSafe =
-            address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s));
+            address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), proof.sig));
 
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
+            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
         );
 
         address[] memory owners = new address[](2);

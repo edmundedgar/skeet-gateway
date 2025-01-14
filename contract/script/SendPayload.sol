@@ -16,10 +16,8 @@ contract SendPayload is Script {
         string did;
         uint256[] nodeHints;
         bytes[] nodes;
-        bytes32 r;
         string rkey;
-        bytes32 s;
-        uint8 v;
+        bytes sig;
     }
 
     function run(address _gateway, string calldata _file) public {
@@ -38,9 +36,7 @@ contract SendPayload is Script {
             proof.nodes,
             proof.nodeHints,
             proof.commitNode,
-            proof.v,
-            proof.r,
-            proof.s
+            proof.sig
         );
 
         vm.stopBroadcast();

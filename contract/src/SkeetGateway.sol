@@ -127,15 +127,13 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     }
 
     /// @notice Predict the address that the signer who created the specified signature will be assigned if they make a Safe
-    /// @param _v The signature v parameter (probably 28)
-    /// @param _r The signature r parameter
-    /// @param _s The signature s parameter
-    function predictSafeAddressFromSig(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s)
+    /// @param sig The signature in gnosis safe style (129 bytes, r+s+v)
+    function predictSafeAddressFromSig(bytes32 sigHash, bytes calldata sig)
         external
         view
         returns (address)
     {
-        address signer = predictSignerAddressFromSig(sigHash, _v, _r, _s);
+        address signer = predictSignerAddressFromSig(sigHash, sig);
         bytes32 salt = bytes32(uint256(uint160(signer)));
         bytes32 hash = keccak256(
             abi.encodePacked(
@@ -151,15 +149,13 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @notice Predict the address that the signer who created the specified signature will have
     /// @dev This address is only used internally. People should send you stuff at your Safe address, not this address
     /// @param sigHash The hash the signature signed
-    /// @param _v The signature v parameter (probably 28)
-    /// @param _r The signature r parameter
-    /// @param _s The signature s parameter
-    function predictSignerAddressFromSig(bytes32 sigHash, uint8 _v, bytes32 _r, bytes32 _s)
+    /// @param sig The signature in gnosis safe style (r+s+v)
+    function predictSignerAddressFromSig(bytes32 sigHash, bytes calldata sig)
         public
         pure
         returns (address)
     {
-        return ecrecover(sigHash, _v, _r, _s);
+        return ecrecover(sigHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
     }
 
     /// @notice Perform some action on behalf of the sender of a skeet
@@ -168,32 +164,23 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @param nodes An array of CBOR-encoded tree nodes, ending in the root node for the MST
     /// @param nodeHints An array of indexes to help the verifier find the relevant data in the tree nodes
     /// @param commitNode The commit node at the top of the tree, CBOR-encoded with the signature removed
-    /// @param _v The v parameter of the signature (27 or 28)
-    /// @param _r The r parameter of the signature
-    /// @param _s The s parameter of the signature
+    /// @param sig The signature in Gnosis Safe style (r+s+v)
     function handleSkeet(
         bytes[] calldata content,
         uint8 botNameLength,
         bytes[] calldata nodes,
         uint256[] calldata nodeHints,
         bytes calldata commitNode,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
+        bytes calldata sig
     ) external {
-        {
             bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
-            address signer = ecrecover(commitNodeHash, _v, _r, _s);
+            address signer = ecrecover(commitNodeHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
 
             executePayload(signer, content, botNameLength);
-        }
-
-        {
             bytes32 target = sha256(abi.encodePacked(content[0]));
             (bytes32 rootHash, string memory rkey) = merkleProvenRootHash(target, nodes, nodeHints);
             require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
             assertCommitNodeContainsData(rootHash, commitNode);
-        }
     }
 
     /// @notice Execute the specified content on behalf of the specified signer

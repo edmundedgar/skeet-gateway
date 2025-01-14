@@ -37,14 +37,14 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
 
         SkeetProof memory proof = _loadProofFixture("pay_unconsensus_com.json");
         address expectedSafe =
-            address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), 28, proof.r, proof.s));
+            address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), proof.sig));
         vm.deal(expectedSafe, 1 ether);
         assertEq(address(expectedSafe).balance, 1000000000000000000);
 
         assertEq(address(0xB6aaa1DAd9D09d689dc6111dcc6EA2A0d641b406).balance, 0);
 
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, 28, proof.r, proof.s
+            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
         );
 
         assertEq(address(0xB6aaa1DAd9D09d689dc6111dcc6EA2A0d641b406).balance, 12300000000000000);

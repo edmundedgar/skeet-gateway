@@ -14,10 +14,8 @@ abstract contract SkeetProofLoader is Test {
         string did;
         uint256[] nodeHints;
         bytes[] nodes;
-        bytes32 r;
         string rkey;
-        bytes32 s;
-        uint8 v;
+        bytes sig;
     }
 
     function _loadProofFixture(string memory fixtureName) internal view returns (SkeetProof memory) {
