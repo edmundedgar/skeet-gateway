@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDe-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -131,7 +131,7 @@ contract DagCborNavigatorTest is Test {
         client.indexOfMappingField(cborMap, oink, 1);
     }
 
-    function testIndexToInsertMappingFieldMid() public {
+    function testIndexToInsertMappingFieldMid() public view {
         // This has the proper dag-cbor field ordering, unlike other tests here
         // A5                       # map(5)
         //    61                    # text(1)
@@ -167,7 +167,7 @@ contract DagCborNavigatorTest is Test {
         assertEq(a1idx, idx, "same length should slot in based on ascii sort order");
     }
 
-    function testIndexToInsertMappingFieldEnd() public {
+    function testIndexToInsertMappingFieldEnd() public view {
         // same cbor as previous test
         bytes memory dagCborMap = bytes(
             hex"A56161656461746131616266646174613232617A6764617461333333626131686461746134343434637A6F6F69646174613535353535"
@@ -223,9 +223,10 @@ contract DagCborNavigatorTest is Test {
         // same cbor as previous
         bytes memory nestedCbor =
             hex"A56161016162026163A362633109626332096263330766746172676574187B646D6F72656464617461";
-        uint256 expectIndex = 29; // should get slotted in at end of "target" text
+        uint256 expectIndex = 29 - 7; // end of target text - target header
         // "zoo" should sort where "target" would start
         uint256 index = client.indexToInsertMappingField(nestedCbor, bytes(hex"637A6F6F"), 1);
+        assertEq(index, expectIndex, "zoo should sort where target would go");
     }
 
     function testIndexOfMappingFieldWithCIDs() public view {
