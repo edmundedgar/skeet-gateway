@@ -37,12 +37,15 @@ PARSER_CONFIG = 'parser_config.json'
 # Later we will probably add this information to the SkeetGateway contract.
 # (It shouldn't change so it should be cacheable after you meet each bot for the first time.)
 def isReplyParentContentNeededByBot(botName):
-    with open(PARSER_CONFIG, mode="r") as cf:
-        data = json.load(cf)
-        bot_entry = data[botName]
-        if 'metadata' in bot_entry and 'reply' in bot_entry['metadata']:
-            return bool(bot_entry['metadata']['reply'])
-    return False
+    try:
+        with open(PARSER_CONFIG, mode="r") as cf:
+            data = json.load(cf)
+            bot_entry = data[botName]
+            if 'metadata' in bot_entry and 'reply' in bot_entry['metadata']:
+                return bool(bot_entry['metadata']['reply'])
+        return False
+    except:
+        return False
 
 def fetchAtURIForSkeetURL(skeet_url):
 
@@ -131,10 +134,8 @@ def generatePayload(car_file, did, rkey, addresses, at_uri):
         "did": did,
         "nodes": [],
         "nodeHints": [],
-        "r": None,
         "rkey": rkey,
-        "s": None,
-        "v": None
+        "sig": None,
     }
 
     target_content = None
@@ -153,13 +154,12 @@ def generatePayload(car_file, did, rkey, addresses, at_uri):
         if 'sig' in b:
             commit_node = b
             signature = b['sig']
-            output['r'] = "0x"+signature[0:32].hex()
-            output['s'] = "0x"+signature[32:64].hex()
             del b['sig']
             # Reencode the commit node with the signature stripped
             # This will be needed for verification
             output['commitNode'] = "0x"+libipld.encode_dag_cbor(b).hex()
-            output['v'] = recoverVParam(hashlib.sha256(libipld.encode_dag_cbor(b)).digest(), signature[0:32], signature[32:64], addresses)
+            v = recoverVParam(hashlib.sha256(libipld.encode_dag_cbor(b)).digest(), signature[0:32], signature[32:64], addresses)
+            output['sig'] = "0x"+signature[0:64].hex() + hex(v)[2:]
         elif 'text' in b:
             target_content = b
             # print("Found text:")
