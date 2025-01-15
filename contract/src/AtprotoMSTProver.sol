@@ -59,6 +59,9 @@ bytes5 constant CBOR_HEADER_TEXT_5B = bytes5(hex"6474657874"); // text, "text"
 bytes9 constant CID_PREFIX_BYTES_9B = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
 uint256 constant CID_HASH_LENGTH = 32;
 
+bytes18 constant APP_BSKY_FEED_POST = bytes18(bytes("app.bsky.feed.post"));
+
+
 abstract contract AtprotoMSTProver {
     /// @notice Return a substring of a string
     /// @param str The string
@@ -342,7 +345,7 @@ abstract contract AtprotoMSTProver {
             }
         }
 
-        require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
+        require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
         return (proveMe);
     }
 }
