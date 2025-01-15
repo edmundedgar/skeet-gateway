@@ -46,16 +46,17 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         SkeetProof memory proof = _loadProofFixture("bbs_address_is_this_thing_on.json");
 
         // Check the value is in the node at the tip and recover the rkey
-        (, string memory rkey) = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
-        string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
-        assertEq(keccak256(abi.encode(rkey)), keccak256(abi.encode(full_key)));
+        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
+        bytes32 expectedRootHash = 0x20b90507550beb6a0c2d031c2ffca2ce1c1702933a47070ddcdaf3cc1879a954;
+        //string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
+        assertEq(rootHash, expectedRootHash);
     }
 
     function _testProvingFunctions(string memory fixtureName) internal view {
         SkeetProof memory proof = _loadProofFixture(fixtureName);
 
-        (bytes32 rootHash,) = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
-        gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
+        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
+        gateway.verifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
     }
 
     function testLongPValue() public view {
@@ -82,23 +83,34 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
 
         uint256 lastNode = proof.nodes.length - 1;
         bytes32 rootHash = sha256(proof.nodes[lastNode]);
-        gateway.assertCommitNodeContainsData(rootHash, proof.commitNode);
+        gateway.verifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
 
         bytes32 someOtherHash = sha256(proof.nodes[lastNode - 1]);
         vm.expectRevert();
-        gateway.assertCommitNodeContainsData(someOtherHash, proof.commitNode);
+        gateway.verifyAndRecoverAccount(someOtherHash, proof.commitNode, proof.sig);
     }
 
     function testSameSigner() public view {
         SkeetProof memory proof = _loadProofFixture("ask.json");
-        return;
-        address expectedSigner =
-            gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig);
+        address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig);
         SkeetProof memory proof2 = _loadProofFixture("answer.json");
-        address expectedSigner2 =
-            gateway.predictSignerAddressFromSig(sha256(proof2.commitNode), proof.sig);
+        address expectedSigner2 = gateway.predictSignerAddressFromSig(sha256(proof2.commitNode), proof2.sig);
         assertEq(expectedSigner, expectedSigner2, "Same sender should get the same signer");
         assertEq(expectedSigner, 0x69f2163DE8accd232bE4CD84559F823CdC808525);
+    }
+
+    function testSameAccount() public view {
+        SkeetProof memory proof = _loadProofFixture("ask.json");
+        uint256 lastNode = proof.nodes.length - 1;
+        bytes32 expectedAccount =
+            gateway.verifyAndRecoverAccount(sha256(proof.nodes[lastNode]), proof.commitNode, proof.sig);
+
+        SkeetProof memory proof2 = _loadProofFixture("answer.json");
+        uint256 lastNode2 = proof2.nodes.length - 1;
+        bytes32 expectedAccount2 =
+            gateway.verifyAndRecoverAccount(sha256(proof2.nodes[lastNode2]), proof2.commitNode, proof2.sig);
+
+        assertEq(expectedAccount, expectedAccount2, "Same sender should get the same account");
     }
 
     function testActualSkeetBBSPost() public {
@@ -107,30 +119,31 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         SkeetProof memory proof = _loadProofFixture("bbs_blah_example_com.json");
 
         address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig);
+        bytes32 expectedAccount = keccak256(abi.encodePacked(bytes32(bytes(proof.did)), expectedSigner));
 
         assertNotEq(expectedSigner, address(0), "Signer not found");
-        address expectedSafe =
-            address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), proof.sig));
-        assertEq(gateway.predictSafeAddress(expectedSigner), expectedSafe);
+        address expectedSafe = address(
+            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig)
+        );
+        assertEq(gateway.predictSafeAddress(expectedAccount), expectedSafe, "safe address not as expected");
         assertNotEq(expectedSafe, address(0), "expected safe empty");
 
-        assertEq(address(gateway.signerSafes(expectedSigner)), address(0), "Safe not created yet");
+        assertEq(address(gateway.signerSafes(expectedAccount)), address(0), "Safe not created yet");
 
         gateway.handleSkeet(
             proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
         );
-
-        address createdSafe = address(gateway.signerSafes(expectedSigner));
+        address createdSafe = address(gateway.signerSafes(expectedAccount));
         assertNotEq(createdSafe, address(0), "Safe now created");
         assertEq(createdSafe, expectedSafe, "Safe not expected address");
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 5);
 
-        assertEq(entries[1].topics[1], bytes32(uint256(uint160(expectedSigner))), "topic 1 should be signer");
+        assertEq(entries[1].topics[1], expectedAccount, "topic 1 should be account");
         assertEq(entries[1].topics[2], bytes32(uint256(uint160(expectedSafe))), "topic 2 should be safe");
 
-        assertEq(gateway.signerSafes(expectedSigner).getOwners()[0], address(gateway));
+        assertEq(gateway.signerSafes(expectedAccount).getOwners()[0], address(gateway));
 
         assertEq(bbs.messages(createdSafe), "post this my pretty");
         assertNotEq(bbs.messages(createdSafe), "oinK");

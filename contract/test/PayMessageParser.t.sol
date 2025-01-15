@@ -36,8 +36,9 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
         gateway.addBot("pay", "unconsensus.com", address(parser), "");
 
         SkeetProof memory proof = _loadProofFixture("pay_unconsensus_com.json");
-        address expectedSafe =
-            address(gateway.predictSafeAddressFromSig(sha256(proof.commitNode), proof.sig));
+        address expectedSafe = address(
+            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig)
+        );
         vm.deal(expectedSafe, 1 ether);
         assertEq(address(expectedSafe).balance, 1000000000000000000);
 

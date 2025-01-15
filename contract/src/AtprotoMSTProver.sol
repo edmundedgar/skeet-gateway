@@ -107,9 +107,19 @@ abstract contract AtprotoMSTProver {
     /// @notice Check that the supplied commit node includes the supplied root hash, or revert if it doesn't.
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param commitNode The CBOR-encoded commit node
-    function assertCommitNodeContainsData(bytes32 proveMe, bytes calldata commitNode) public pure {
+    /// @return did a bytes32 representing the account (DID + signer)
+    function verifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
+        public
+        pure
+        returns (bytes32)
+    {
         uint256 cursor;
         uint256 extra;
+
+        bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
+        address signer = ecrecover(commitNodeHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
+
+        bytes32 did;
 
         // The unsigned commit node has 5 entries.
         // A 6th entry, "sig", is added later by hashing the unsigned, 5-entry version.
@@ -119,6 +129,7 @@ abstract contract AtprotoMSTProver {
         assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4B);
         cursor = cursor + 4;
         (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
+        did = bytes32(commitNode[cursor:cursor + extra]);
         cursor = cursor + extra;
 
         assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4B);
@@ -146,6 +157,7 @@ abstract contract AtprotoMSTProver {
         }
 
         require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_3_9B, "v3 field not found"); // text "version" 3
+        return keccak256(abi.encodePacked(did, signer));
     }
 
     /// @notice Verify the path from the hash of the node provided (index 0) up towards the root, to the final node provided.
@@ -153,11 +165,10 @@ abstract contract AtprotoMSTProver {
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param nodes An array of CBOR-encoded tree nodes, each containing an entry for the hash of an earlier one
     /// @return rootNode The final node of the series, intended (but not verified) to be the root node
-    /// @return rkey The record key of the tip node
     function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes, uint256[] calldata hints)
         public
         pure
-        returns (bytes32, string memory)
+        returns (bytes32)
     {
         string memory rkey;
 
@@ -331,6 +342,7 @@ abstract contract AtprotoMSTProver {
             }
         }
 
-        return (proveMe, rkey);
+        require(bytes18(bytes(rkey)) == bytes18(bytes("app.bsky.feed.post")), "record key did not show a post");
+        return (proveMe);
     }
 }

@@ -31,12 +31,7 @@ contract SendPayload is Script {
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
 
         gateway.handleSkeet(
-            proof.content,
-            proof.botNameLength,
-            proof.nodes,
-            proof.nodeHints,
-            proof.commitNode,
-            proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
         );
 
         vm.stopBroadcast();
