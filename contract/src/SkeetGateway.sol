@@ -176,7 +176,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @param commitNode The CBOR-encoded commit node
     /// @return did a bytes32 representing the account (DID + signer)
     function verifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
-        public
+        internal
         returns (bytes32)
     {
         bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));

@@ -12,13 +12,25 @@ import {console} from "forge-std/console.sol";
 
 import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
 
+contract SkeetGatewayClient is SkeetGateway {
+    constructor(address _gnosisSafeSingleton) SkeetGateway(_gnosisSafeSingleton) {}
+
+    // public wrapper to test private function
+    function callVerifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
+        public
+        returns (bytes32)
+    {
+        return verifyAndRecoverAccount(proveMe, commitNode, sig);
+    }
+}
+
 contract SkeetGatewayTest is Test, SkeetProofLoader {
-    SkeetGateway public gateway;
+    SkeetGatewayClient public gateway;
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
     Safe safeSingleton = new Safe();
 
     function setUp() public {
-        gateway = new SkeetGateway(address(safeSingleton));
+        gateway = new SkeetGatewayClient(address(safeSingleton));
         bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
         gateway.addDomain("blah.example.com", address(this));
@@ -56,7 +68,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         SkeetProof memory proof = _loadProofFixture(fixtureName);
 
         bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
-        gateway.verifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
+        gateway.callVerifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
     }
 
     function testLongPValue() public {
@@ -83,11 +95,11 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
 
         uint256 lastNode = proof.nodes.length - 1;
         bytes32 rootHash = sha256(proof.nodes[lastNode]);
-        gateway.verifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
+        gateway.callVerifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
 
         bytes32 someOtherHash = sha256(proof.nodes[lastNode - 1]);
         vm.expectRevert();
-        gateway.verifyAndRecoverAccount(someOtherHash, proof.commitNode, proof.sig);
+        gateway.callVerifyAndRecoverAccount(someOtherHash, proof.commitNode, proof.sig);
     }
 
     function testSameSigner() public view {
@@ -103,12 +115,12 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         SkeetProof memory proof = _loadProofFixture("ask.json");
         uint256 lastNode = proof.nodes.length - 1;
         bytes32 expectedAccount =
-            gateway.verifyAndRecoverAccount(sha256(proof.nodes[lastNode]), proof.commitNode, proof.sig);
+            gateway.callVerifyAndRecoverAccount(sha256(proof.nodes[lastNode]), proof.commitNode, proof.sig);
 
         SkeetProof memory proof2 = _loadProofFixture("answer.json");
         uint256 lastNode2 = proof2.nodes.length - 1;
         bytes32 expectedAccount2 =
-            gateway.verifyAndRecoverAccount(sha256(proof2.nodes[lastNode2]), proof2.commitNode, proof2.sig);
+            gateway.callVerifyAndRecoverAccount(sha256(proof2.nodes[lastNode2]), proof2.commitNode, proof2.sig);
 
         assertEq(expectedAccount, expectedAccount2, "Same sender should get the same account");
     }
