@@ -52,18 +52,18 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         assertEq(rootHash, expectedRootHash);
     }
 
-    function _testProvingFunctions(string memory fixtureName) internal view {
+    function _testProvingFunctions(string memory fixtureName) internal {
         SkeetProof memory proof = _loadProofFixture(fixtureName);
 
         bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
         gateway.verifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
     }
 
-    function testLongPValue() public view {
+    function testLongPValue() public {
         _testProvingFunctions("long_p_val.json");
     }
 
-    function testMerkleProvenHashAssortmentOfSkeets() public view {
+    function testMerkleProvenHashAssortmentOfSkeets() public {
         _testProvingFunctions("random_skeet0.json");
         _testProvingFunctions("random_skeet1.json");
         _testProvingFunctions("random_skeet2.json");
@@ -99,7 +99,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         assertEq(expectedSigner, 0x69f2163DE8accd232bE4CD84559F823CdC808525);
     }
 
-    function testSameAccount() public view {
+    function testSameAccount() public {
         SkeetProof memory proof = _loadProofFixture("ask.json");
         uint256 lastNode = proof.nodes.length - 1;
         bytes32 expectedAccount =
@@ -138,10 +138,14 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         assertEq(createdSafe, expectedSafe, "Safe not expected address");
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
-        assertEq(entries.length, 5);
+        assertEq(entries.length, 6);
 
-        assertEq(entries[1].topics[1], expectedAccount, "topic 1 should be account");
-        assertEq(entries[1].topics[2], bytes32(uint256(uint160(expectedSafe))), "topic 2 should be safe");
+        assertEq(entries[0].topics[1], expectedAccount, "topic 1 should be account");
+        assertEq(entries[0].topics[2], bytes32(bytes(proof.did)), "topic 2 should be did");
+        assertEq(entries[0].topics[3], bytes32(uint256(uint160(expectedSigner))), "topic 3 should be signer");
+
+        assertEq(entries[2].topics[1], expectedAccount, "topic 1 should be account");
+        assertEq(entries[2].topics[2], bytes32(uint256(uint160(expectedSafe))), "topic 2 should be safe");
 
         assertEq(gateway.accountSafeForId(expectedAccount, 0).getOwners()[0], address(gateway));
 

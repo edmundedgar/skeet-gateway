@@ -59,6 +59,8 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     event LogChangeOwner(address indexed owner);
 
+    event LogHandleAccount(bytes32 indexed account, bytes32 indexed did, address indexed signer);
+
     address[] initialSafeOwners;
 
     constructor(address _gnosisSafeSingleton) {
@@ -175,14 +177,15 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @return did a bytes32 representing the account (DID + signer)
     function verifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
         public
-        view
         returns (bytes32)
     {
         bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
         address signer = ecrecover(commitNodeHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
 
         bytes32 did = processCommitNode(proveMe, commitNode);
-        return keccak256(abi.encodePacked(did, signer));
+        bytes32 account = keccak256(abi.encodePacked(did, signer));
+        emit LogHandleAccount(account, did, signer);
+        return account;
     }
 
     /// @notice Perform some action on behalf of the sender of a skeet
