@@ -109,17 +109,10 @@ abstract contract AtprotoMSTProver {
     /// @notice Check that the supplied commit node includes the supplied root hash, or revert if it doesn't.
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param commitNode The CBOR-encoded commit node
-    /// @return did a bytes32 representing the account (DID + signer)
-    function verifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
-        public
-        pure
-        returns (bytes32)
-    {
+    /// @return did a bytes32 representing the DID the signer claims to have (they may be lying)
+    function processCommitNode(bytes32 proveMe, bytes calldata commitNode) public pure returns (bytes32) {
         uint256 cursor;
         uint256 extra;
-
-        bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
-        address signer = ecrecover(commitNodeHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
 
         bytes32 did;
 
@@ -159,7 +152,7 @@ abstract contract AtprotoMSTProver {
         }
 
         require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_3_9B, "v3 field not found"); // text "version" 3
-        return keccak256(abi.encodePacked(did, signer));
+        return did;
     }
 
     /// @notice Verify the path from the hash of the node provided (index 0) up towards the root, to the final node provided.

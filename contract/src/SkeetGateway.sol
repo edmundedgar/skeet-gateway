@@ -169,6 +169,22 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         return ecrecover(sigHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
     }
 
+    /// @notice Check that the supplied commit node includes the supplied root hash, or revert if it doesn't.
+    /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
+    /// @param commitNode The CBOR-encoded commit node
+    /// @return did a bytes32 representing the account (DID + signer)
+    function verifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
+        public
+        view
+        returns (bytes32)
+    {
+        bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
+        address signer = ecrecover(commitNodeHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
+
+        bytes32 did = processCommitNode(proveMe, commitNode);
+        return keccak256(abi.encodePacked(did, signer));
+    }
+
     /// @notice Perform some action on behalf of the sender of a skeet
     /// @param content A content node containing a skeet, with an optional extra one containing reply context
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
