@@ -61,7 +61,6 @@ uint256 constant CID_HASH_LENGTH = 32;
 
 bytes18 constant APP_BSKY_FEED_POST = bytes18(bytes("app.bsky.feed.post"));
 
-
 abstract contract AtprotoMSTProver {
     /// @notice Return a substring of a string
     /// @param str The string
@@ -77,6 +76,20 @@ abstract contract AtprotoMSTProver {
         bytes memory result = new bytes(endIndex - startIndex);
         for (uint256 i = startIndex; i < endIndex; i++) {
             result[i - startIndex] = strBytes[i];
+        }
+        return string(result);
+    }
+
+    function _replaceBytesFromTo(bytes memory oldStr, bytes memory newStr, uint256 numToKeep, uint256 maxLength) pure internal returns (string memory){
+        bytes memory result = new bytes(maxLength);
+        if (numToKeep > maxLength) {
+            numToKeep = maxLength;
+        }
+        for (uint256 i = 0; i < numToKeep ; i++) {
+            result[i] = oldStr[i];
+        }
+        for(uint256 i = numToKeep; i < maxLength; i++) {
+            result[i + numToKeep] = newStr[i];
         }
         return string(result);
     }
@@ -163,12 +176,35 @@ abstract contract AtprotoMSTProver {
         return keccak256(abi.encodePacked(did, signer));
     }
 
+    function extractRKey(bytes calldata entry, string memory rkey, uint256 cursor, string memory rkeyMatch) internal pure returns(string memory, uint256) {
+        uint256 extra;
+        uint256 rkeyMatchLength = bytes(rkeyMatch).length;
+        assert(bytes2(entry[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
+        cursor = cursor + 2;
+
+        (, extra, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+        bytes memory kval = entry[cursor:cursor + extra];
+        cursor = cursor + extra;
+
+        assert(bytes2(entry[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
+        cursor = cursor + 2;
+        // p is an int so there is no payload and the "extra" denotes the value not the length,
+        // Since there is no payload we don't advance the cursor beyond what parseCborHeader told us
+        (, extra, cursor) = DagCborNavigator.parseCborHeader(entry, cursor);
+
+        // Compression scheme used by atproto:
+        // Take the first bytes specified by the partial from the existing rkey
+        // Then append the bytes found in the new k value
+        rkey = _replaceBytesFromTo(bytes(rkey), kval, uint256(extra), rkeyMatchLength);
+        return(rkey, cursor);
+    }
+
     /// @notice Verify the path from the hash of the node provided (index 0) up towards the root, to the final node provided.
     /// @dev The final node is intended to be the root node of the MST tree, but you must verify this by checking the signed commit node
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param nodes An array of CBOR-encoded tree nodes, each containing an entry for the hash of an earlier one
     /// @return rootNode The final node of the series, intended (but not verified) to be the root node
-    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes, uint256[] calldata hints)
+    function merkleProvenRootHash(bytes32 proveMe, string memory rkeyMatch, bytes[] calldata nodes, uint256[] calldata hints)
         public
         pure
         returns (bytes32)
@@ -250,29 +286,8 @@ abstract contract AtprotoMSTProver {
                 // For all later nodes we can ignore the value but we still have to check the field lengths to know how far to advance the cursor.
 
                 if (n == 0) {
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2B);
-                    cursor = cursor + 2;
+                    (rkey, cursor) = extractRKey(nodes[n], rkey, cursor, rkeyMatch);
 
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    string memory kval = string(nodes[n][cursor:cursor + extra]);
-                    cursor = cursor + extra;
-
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2B);
-                    cursor = cursor + 2;
-                    // p is an int so there is no payload and the "extra" denotes the value not the length,
-                    // Since there is no payload we don't advance the cursor beyond what parseCborHeader told us
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    uint256 pval = uint256(extra);
-
-                    // Compression scheme used by atproto:
-                    // Take the first bytes specified by the partial from the existing rkey
-                    // Then append the bytes found in the new k value
-                    if (pval == 0) {
-                        rkey = kval;
-                    } else {
-                        string memory oldr = _substring(rkey, 0, pval);
-                        rkey = string.concat(oldr, kval);
-                    }
                 } else {
                     ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2B);
                     cursor = cursor + 2;
@@ -318,8 +333,7 @@ abstract contract AtprotoMSTProver {
                 // 32 bytes that we only care about if it's the winning entry of the data node (node 0)
                 if (n == 0 && i == hint - 1) {
                     // Our 32 bytes
-                    bytes32 val = bytes32(nodes[n][cursor:cursor + CID_HASH_LENGTH]);
-                    require(val == proveMe, "e val does not match");
+                    require(bytes32(nodes[n][cursor:cursor + CID_HASH_LENGTH]) == proveMe, "e val does not match");
                     proveMe = sha256(nodes[0]);
                 }
                 cursor = cursor + CID_HASH_LENGTH;
@@ -338,8 +352,7 @@ abstract contract AtprotoMSTProver {
                     cursor = cursor + 9;
 
                     // Our 32 bytes
-                    bytes32 val = bytes32(nodes[n][cursor:cursor + CID_HASH_LENGTH]);
-                    require(val == proveMe, "l val does not match");
+                    require(bytes32(nodes[n][cursor:cursor + CID_HASH_LENGTH]) == proveMe, "l val does not match");
                     proveMe = sha256(nodes[n]);
                 }
             }

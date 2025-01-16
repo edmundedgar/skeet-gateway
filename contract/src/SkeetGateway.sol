@@ -171,7 +171,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         bytes calldata sig
     ) external {
         bytes32 contentHash = sha256(abi.encodePacked(content[0]));
-        bytes32 rootHash = merkleProvenRootHash(contentHash, nodes, nodeHints);
+        bytes32 rootHash = merkleProvenRootHash(contentHash, "app.bsky.feed.post", nodes, nodeHints);
         bytes32 account = verifyAndRecoverAccount(rootHash, commitNode, sig);
         executePayload(account, content, botNameLength);
     }
