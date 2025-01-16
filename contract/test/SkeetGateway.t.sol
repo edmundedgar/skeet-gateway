@@ -123,17 +123,17 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
 
         assertNotEq(expectedSigner, address(0), "Signer not found");
         address expectedSafe = address(
-            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig)
+            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig, 0)
         );
-        assertEq(gateway.predictSafeAddress(expectedAccount), expectedSafe, "safe address not as expected");
+        assertEq(gateway.predictSafeAddress(expectedAccount, 0), expectedSafe, "safe address not as expected");
         assertNotEq(expectedSafe, address(0), "expected safe empty");
 
-        assertEq(address(gateway.signerSafes(expectedAccount)), address(0), "Safe not created yet");
+        assertEq(address(gateway.accountSafeForId(expectedAccount, 0)), address(0), "Safe not created yet");
 
         gateway.handleSkeet(
             proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
         );
-        address createdSafe = address(gateway.signerSafes(expectedAccount));
+        address createdSafe = address(gateway.accountSafeForId(expectedAccount, 0));
         assertNotEq(createdSafe, address(0), "Safe now created");
         assertEq(createdSafe, expectedSafe, "Safe not expected address");
 
@@ -143,7 +143,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
         assertEq(entries[1].topics[1], expectedAccount, "topic 1 should be account");
         assertEq(entries[1].topics[2], bytes32(uint256(uint160(expectedSafe))), "topic 2 should be safe");
 
-        assertEq(gateway.signerSafes(expectedAccount).getOwners()[0], address(gateway));
+        assertEq(gateway.accountSafeForId(expectedAccount, 0).getOwners()[0], address(gateway));
 
         assertEq(bbs.messages(createdSafe), "post this my pretty");
         assertNotEq(bbs.messages(createdSafe), "oinK");

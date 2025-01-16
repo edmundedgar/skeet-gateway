@@ -61,7 +61,6 @@ uint256 constant CID_HASH_LENGTH = 32;
 
 bytes18 constant APP_BSKY_FEED_POST = bytes18(bytes("app.bsky.feed.post"));
 
-
 abstract contract AtprotoMSTProver {
     /// @notice Return a substring of a string
     /// @param str The string
