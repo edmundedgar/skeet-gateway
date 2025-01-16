@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// This is a function taken from:
+// This is a minimal library to handle secp256k1 key compression based on:
 // https://github.com/androlo/standard-contracts/blob/master/contracts/src/crypto/Secp256k1.sol
 
 abstract contract Secp256k1PubkeyCompression {
