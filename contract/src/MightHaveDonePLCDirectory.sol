@@ -33,6 +33,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
         bytes32 entryHash; // The hash of the unsigned first entry
         bytes32 uncontroversialTip; // The tip of the chain, or 0x0 if the chain has forked
         mapping(bytes32 => UpdateOp) updates;
+        mapping(bytes32 => bytes32) accountBlessedUpdates;
     }
 
     mapping(bytes32 => Did) public dids;
@@ -50,6 +51,16 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     /// @return The update hash if the chain has not forked, or 0x0 if it has
     function uncontroversialTip(bytes32 did) external view returns (bytes32) {
         return dids[did].uncontroversialTip;
+    }
+
+    /// @notice Signer says that an update was correct
+    /// @dev Anyone can express an opinion about any update of any did
+    /// @dev Probably only the signer of that did will have an opinion that anything depends on
+    /// @param did The did to operate
+    function blessUpdate(bytes32 did, bytes32 updateHash) external {
+        bytes32 account = keccak256(abi.encodePacked(did, msg.sender));
+        require(dids[did].updates[updateHash].recordedTimestamp > 0, "Update not found");
+        dids[did].accountBlessedUpdates[account] = updateHash;
     }
 
     /// @notice The verification address of the update at the tip of the chain, if it has not forked
