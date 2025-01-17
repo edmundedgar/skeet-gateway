@@ -13,15 +13,12 @@ library TimeFormat {
         uint256 numBytes = utf8num.length;
         uint256 result = 0;
         for (uint256 i = 0; i < numBytes; i++) {
-            console.logBytes1(utf8num[i]);
             uint8 c = uint8(bytes1(utf8num[i]));
             if (c < 48 || c > 57) {
                 revert("not a digit");
             }
             result = result * 10 + (c - 48);
         }
-        console.log("return");
-        console.log(result);
         return result;
     }
 
@@ -29,7 +26,6 @@ library TimeFormat {
     // We will also support 20250116T062215Z
     // We won't check anything beyond the ".", I hope you're using UTC
     function timestampFromISO8601DatetimeUTC(bytes calldata dt) internal pure returns (uint256) {
-        console.log(string(dt));
         uint256 year;
         uint256 month;
         uint256 day;
@@ -38,7 +34,6 @@ library TimeFormat {
         uint256 second;
 
         year = _utf8ToUint256(dt[0:4]);
-        console.logBytes(dt[0:4]);
         require(year > 1969 && year < 3000, "year outside expected range");
 
         if (bytes1(dt[4:5]) == bytes1(hex"2d")) {
