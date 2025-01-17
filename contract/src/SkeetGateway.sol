@@ -171,18 +171,18 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         return ecrecover(sigHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
     }
 
-    /// @notice Check that the supplied commit node includes the supplied root hash, or revert if it doesn't.
-    /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
+    /// @notice Verify the commit node signs rootHash, and return the account it is signed with
+    /// @param rootHash The hash of the MST root node which is signed by the commit node supplied
     /// @param commitNode The CBOR-encoded commit node
     /// @return did a bytes32 representing the account (DID + signer)
-    function verifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
+    function verifyAndRecoverAccount(bytes32 rootHash, bytes calldata commitNode, bytes calldata sig)
         internal
         returns (bytes32)
     {
         bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
         address signer = ecrecover(commitNodeHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
 
-        bytes32 did = processCommitNode(proveMe, commitNode);
+        bytes32 did = processCommitNode(rootHash, commitNode);
         bytes32 account = keccak256(abi.encodePacked(did, signer));
         emit LogHandleAccount(account, did, signer);
         return account;
