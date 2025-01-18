@@ -129,7 +129,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     /// @notice Predict the address that the specified account will be assigned if they make a Safe
     /// @param _account The account the safe will belong to
-    function predictSafeAddress(bytes32 _account, uint256 _safeId) external view returns (address) {
+    function predictSafeAddress(bytes32 _account, uint256 _safeId) public view returns (address) {
         bytes32 salt = keccak256(abi.encodePacked(_account, _safeId));
         bytes32 hash = keccak256(
             abi.encodePacked(
@@ -151,16 +151,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     {
         address signer = predictSignerAddressFromSig(sigHash, sig);
         bytes32 account = keccak256(abi.encodePacked(did, signer));
-        bytes32 salt = keccak256(abi.encodePacked(account, safeId));
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                bytes1(0xff),
-                address(this),
-                salt,
-                keccak256(abi.encodePacked(type(SafeProxy).creationCode, uint256(uint160(gnosisSafeSingleton))))
-            )
-        );
-        return address(uint160(uint256(hash)));
+        return predictSafeAddress(account, safeId);
     }
 
     /// @notice Predict the address that the signer who created the specified signature will have
