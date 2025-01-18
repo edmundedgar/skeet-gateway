@@ -114,6 +114,18 @@ contract DidVerifier is DidFormats {
         pure
         returns (address)
     {
+        // The did:key entries are expressed as compressed pubkey
+        // (1-byte 02 or 03 prefix + 32 byte x coordinate)
+        // When we need to check that something was signed with this key we will use ecrecover.
+        // ecrecover returns an Ethereum address which is made by hashing an uncompressed pubkey
+        // (32 byte x coordinate + 32 byte y coordinate)
+        // We pass in the uncompressed pubkey which is used in the hash to make the address.
+        // The y part is not found in the did:key entry that we extract from the CBOR
+        // It is probably safe to just assume the y coordinate is legit without validating it...
+        // ...as an attacker should not be able to find an address collision so passing hostile input can't help them.
+        // But it's cheap to check and the isPubkeyOnCurve code is simple so we'll check it out of an excess of caution.
+        require(isPubkeyOnCurve(pubkey), "Suspicious uncompressed pubkey");
+
         // TODO: Might be able to save from cbor reading by passing in an later cursor
         uint256 cursor = DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_ROTATIONKEYS_13B), 1);
 
@@ -131,18 +143,6 @@ contract DidVerifier is DidFormats {
                     keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(encodedKey)),
                     "Key not found at expected index"
                 );
-
-                // The did:key entries are expressed as compressed pubkey
-                // (1-byte 02 or 03 prefix + 32 byte x coordinate)
-                // When we need to check that something was signed with this key we will use ecrecover.
-                // ecrecover returns an Ethereum address which is made by hashing an uncompressed pubkey
-                // (32 byte x coordinate + 32 byte y coordinate)
-                // We pass in the uncompressed pubkey which is used in the hash to make the address.
-                // The y part is not found in the did:key entry that we extract from the CBOR
-                // It is probably safe to just assume the y coordinate is legit without validating it...
-                // ...as an attacker should not be able to find an address collision so passing hostile input can't help them.
-                // But it's cheap to check and the isPubkeyOnCurve code is simple so we'll check it out of an excess of caution.
-                require(isPubkeyOnCurve(pubkey), "Suspicious uncompressed pubkey");
                 return address(uint160(uint256(keccak256(pubkey))));
             } else {
                 cursor = cursor + nextLen;
@@ -153,6 +153,8 @@ contract DidVerifier is DidFormats {
     }
 
     function extractVerificationMethod(bytes calldata entry, bytes calldata pubkey) public pure returns (address) {
+        require(isPubkeyOnCurve(pubkey), "Suspicious uncompressed pubkey");
+
         // TODO: Might be able to save from cbor reading by passing in an later cursor
         uint256 cursor =
             DagCborNavigator.indexOfMappingField(entry, bytes.concat(CBOR_HEADER_VERIFICATIONMETHODS_20B), 1);
@@ -169,7 +171,6 @@ contract DidVerifier is DidFormats {
         require(
             keccak256(entry[cursor:cursor + nextLen]) == keccak256(bytes(encodedKey)), "Key not found at expected index"
         );
-        require(isPubkeyOnCurve(pubkey), "Suspicious uncompressed pubkey");
         return address(uint160(uint256(keccak256(pubkey))));
     }
 }
