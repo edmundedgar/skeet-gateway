@@ -143,7 +143,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     }
 
     /// @notice Predict the address that the signer who created the specified signature will be assigned if they make a Safe
-    /// @param sig The signature in gnosis safe style (129 bytes, r+s+v)
+    /// @param sig The signature in gnosis safe style (65 bytes, r+s+v)
     function predictSafeAddressFromDidAndSig(bytes32 did, bytes32 sigHash, bytes calldata sig, uint256 safeId)
         external
         view
