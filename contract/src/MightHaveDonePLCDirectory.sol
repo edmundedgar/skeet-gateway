@@ -42,7 +42,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     /// @param updateHash The update
     /// @return True if the update is at the tip
     function isAtTip(bytes32 did, bytes32 updateHash) external view returns (bool) {
-        return (dids[did].updates[updateHash].countChildren > 0);
+        return (dids[did].updates[updateHash].countChildren == 0);
     }
 
     /// @notice The update at the tip of the chain, if it has not forked
