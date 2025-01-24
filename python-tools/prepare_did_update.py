@@ -20,6 +20,7 @@ from multibase import encode, decode
 import sha3
 from eth_keys import KeyAPI
 import base64
+import argparse
 
 import skeet_queue
 
@@ -85,29 +86,6 @@ def recoverPubkeyAndVParam(sighash, r, s, addresses):
         #    return 28
 
     raise Exception("Could not find a v value matching the signature for a key in the did record")
-
-def fetchAtURIForSkeetURL(skeet_url):
-
-    if not os.path.exists(SKEET_CACHE):
-        os.mkdir(SKEET_CACHE)
-
-    skeet_file = SKEET_CACHE + '/' + hashlib.sha256(sys.argv[1].encode()).hexdigest()
-    if os.path.exists(skeet_file):
-        with open(skeet_file) as sf:
-            at_addr = sf.read()
-    else:
-        with urllib.request.urlopen(skeet_url) as response:
-            html = response.read()
-            result = re.search('<link rel="alternate" href="(at:\/\/did:plc:.*?\/app.bsky.feed.post\/.*?)"', str(html))
-            if result is None:
-                raise Exception("Could not find the at:// link in the URL you provided. Maybe posts aren't shown unless you're logged in? Check the URL or pass an at:// URI instead.")
-
-            at_addr = result.group(1) 
-
-            with open(skeet_file, mode='w') as sf:
-                sf.write(at_addr)
-    print("Fetched at:// URI " + at_addr)
-    return at_addr
 
 def loadHistory(did):
 
@@ -304,23 +282,27 @@ def processQueuedPayloads():
 
 if __name__ == '__main__':
 
-    #if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] == "queue"):
-    #    processQueuedPayloads()
-    #    sys.exit(0)
-
-    if len(sys.argv) < 2:
-        raise Exception("Usage: python prepare_did_update.py <did:plc:something>")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--history", help="history file to load direct from (instead of the directory)")
+    parser.add_argument("--did", required=True, help="did to load")
+    parser.add_argument("--out", help="name of file to output")
+    args = parser.parse_args()
 
     at_uri = None
-
-    param_did = sys.argv[1]
+    param_did = args.did
     
-    did_history = loadHistory(param_did)
+    did_history = []
+    if args.history is not None:
+        with open(args.history, mode="rb") as cf:
+            did_history = json.load(cf)
+    else:
+        did_history = loadHistory(param_did)
+
     output, test_vectors = generatePayload(param_did, did_history)
 
     out_file = None
-    if len(sys.argv) > 2:
-        out_file = sys.argv[2]
+    if args.out is not None:
+        out_file = args.out
     else:
         out_file = OUT_DIR + '/' + param_did + '.json'
 
