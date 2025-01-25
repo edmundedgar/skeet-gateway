@@ -173,6 +173,8 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         bytes32 commitNodeHash = sha256(abi.encodePacked(commitNode));
         address signer = ecrecover(commitNodeHash, uint8(bytes1(sig[64:65])), bytes32(sig[0:32]), bytes32(sig[32:64]));
 
+        // This is the DID the signer is claiming to be speaking for in their signed commit node
+        // They may or may not be the legitimate signer per the PLC directory / signed DID updates
         bytes32 did = processCommitNode(rootHash, commitNode);
         bytes32 account = keccak256(abi.encodePacked(did, signer));
         emit LogHandleAccount(account, did, signer);
