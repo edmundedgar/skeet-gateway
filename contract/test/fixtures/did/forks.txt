@@ -1,0 +1,24 @@
+The forking examples are based on test data from:
+https://github.com/edmundedgar/did-plc-forking-repo
+
+We made these fixtures by running prepare_did_update.py on the test data (skipping the legally nullified entry) then manually deleting part of the output to split it into:
+
+The updates up to and including the fork update
+did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json
+
+The updates on each fork starting at (and including) the fork update
+did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork1.json
+did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork2.json
+
+
+The original tree from did-plc-forking-repo looks like this:
+
+- bafyreibbh2skd6b56yrptlb6s7mqqk6dk35myxygkiimqzvc55arsi47qm
+0 bafyreigvofixfcwzfbczkaxv2hrmyh3nb4jm7iw6jpmreyfarhyh4mosuy
+1 bafyreifa26ciju7yod7tddcjsdg3o72t3c2obbmsj2inhzvc6zgziczy5q
+2 bafyreibzcgaxzcnnqc4y5r6zycwcddnldstbbzcskkkgfdysxujg24bdwu
+3 bafyreig6ytxaxuoxoz7wtz5v34h4rh2xuowowf4636hjdzk23n5siiumju
+4 bafyreic7yy2q4bpaewb2yu5ja6k44djv24mq4p4stsepim6zsfss7b7dpe (forked)
+5 bafyreifapduixaqrwxqfc5whfafwf2ixhl7pi4u6jctzfa46xdv3q2ih6a | --------------------------------------------------------------- bafyreiatwpsxrmrmcpupomzzqx4eqj4lmhpmpmbrgy7eciebmc7c5f3u4m
+6 bafyreihd5kagnvq63wb6vojhjumz3rfjnuq5wegglvwk6aw2xq2lbf2z54 -> bafyreidw6ozo5oehcmhszazkd5ytap2uibieqdui5wwiyaafwmwabjq2vi    bafyreiby4hgv4knbljcvdowe2q3tr2f4fgl3tzciqav43ocnwrl7anwaza
+                                                                                                                                bafyreig3hukakzmg6hhenkmpnd6fsk5wx2shawsvpz6ubuhqd26ca6h6om
