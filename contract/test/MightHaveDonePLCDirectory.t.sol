@@ -54,27 +54,43 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
 
         DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
-        bytes32 finalUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
+        bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
-        address storedVerificationAddress = repo.verificationAddressAt(did, finalUpdateHash);
+        address storedVerificationAddress = repo.verificationAddressAt(did, forkUpdateHash);
         assertNotEq(storedVerificationAddress, address(0), "Null verificationaddress");
-        assertEq(finalUpdateHash, repo.uncontroversialTip(did));
+        assertEq(forkUpdateHash, repo.uncontroversialTip(did));
+
+        bytes32 earlyForkHash = sha256(proof.ops[proof.ops.length - 2]);
+        assertFalse(repo.isBranchForkedSince(did, earlyForkHash, forkUpdateHash));
 
         DidProof memory proof2 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork1.json");
         bytes32 finalUpdateHash2 = sha256(proof2.ops[proof2.ops.length - 1]);
         assertEq(did, bytes32(bytes(proof2.did)), "did changed");
         repo.registerUpdates(did, proof2.ops, proof2.sigs, proof2.pubkeys, proof2.pubkeyIndexes);
-        assertNotEq(finalUpdateHash, finalUpdateHash2);
+        assertNotEq(forkUpdateHash, finalUpdateHash2);
         assertEq(finalUpdateHash2, repo.uncontroversialTip(did));
 
         DidProof memory proof3 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork2.json");
         bytes32 finalUpdateHash3 = sha256(proof3.ops[proof3.ops.length - 1]);
         assertEq(did, bytes32(bytes(proof3.did)), "did changed");
         repo.registerUpdates(did, proof3.ops, proof3.sigs, proof3.pubkeys, proof3.pubkeyIndexes);
-        assertNotEq(finalUpdateHash, finalUpdateHash3);
+        assertNotEq(forkUpdateHash, finalUpdateHash3);
         assertNotEq(finalUpdateHash2, finalUpdateHash3);
 
         assertEq(bytes32(0), repo.uncontroversialTip(did));
+
+        assertFalse(repo.isForkedAt(did, earlyForkHash));
+        assertTrue(repo.isForkedAt(did, forkUpdateHash));
+        assertFalse(repo.isForkedAt(did, finalUpdateHash2));
+        assertFalse(repo.isForkedAt(did, finalUpdateHash3));
+
+        bytes32 slightlyLessEarlyForkHash = sha256(proof.ops[proof.ops.length - 1]);
+        assertTrue(repo.isBranchForkedSince(did, slightlyLessEarlyForkHash, finalUpdateHash2));
+        assertTrue(repo.isBranchForkedSince(did, earlyForkHash, slightlyLessEarlyForkHash));
+
+        bytes32 postForkHash = sha256(proof3.ops[proof3.ops.length - 2]);
+        assertFalse(repo.isBranchForkedSince(did, postForkHash, finalUpdateHash3));
+
     }
 
     function testHomeMadeUpdates() public {
