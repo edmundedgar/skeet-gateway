@@ -102,6 +102,11 @@ contract MightHaveDonePLCDirectory is DidVerifier {
         revert("chosenOpHash not found");
     }
 
+    /// @notice Return true if the update is at the tip, and valid according to criteria specified
+    /// @param did The did you are updating
+    /// @param update The hash of the entry you are blessing
+    /// @param minChallengeSecs The minimum an update must be on the chain before it can be considered safely unchallenged
+    /// @param trustedObservers Observers whose opinions should be trusted to adjudicate forks
     function isUpdateConfirmedValidTip(
         bytes32 did,
         bytes32 update,
@@ -115,13 +120,19 @@ contract MightHaveDonePLCDirectory is DidVerifier {
         return isUpdateConfirmedValid(did, update, minChallengeSecs, trustedObservers);
     }
 
-    // Start with a tip and work backwards to genesis, trusting trustedObservers if they adjudicated forks
+    /// @notice Mark a particular update legitimate according to the sender
+    /// @dev Anyone can call this, it's up to the client which senders to believe
+    /// @param did The did you are updating
+    /// @param update The hash of the entry you are blessing
+    /// @param minChallengeSecs The minimum an update must be on the chain before it can be considered safely unchallenged
+    /// @param trustedObservers Observers whose opinions should be trusted to adjudicate forks
     function isUpdateConfirmedValid(
         bytes32 did,
         bytes32 update,
         uint256 minChallengeSecs,
         address[] calldata trustedObservers
     ) public view returns (bool) {
+        // Start with a tip and work backwards to genesis, trusting trustedObservers if they adjudicated forks
         bytes32 op = update;
         while (op != bytes32(0)) {
             bytes32 parentHash = dids[did].updates[op].parentHash;
@@ -142,6 +153,10 @@ contract MightHaveDonePLCDirectory is DidVerifier {
         return true;
     }
 
+    /// @notice Mark a particular update legitimate according to the sender
+    /// @dev Anyone can call this, it's up to the client which senders to believe
+    /// @param did The did you are updating
+    /// @param blessedUpdateHash The hash of the entry you are blessing
     function blessUpdate(bytes32 did, bytes32 blessedUpdateHash) external {
         bytes32 parentHash = dids[did].updates[blessedUpdateHash].parentHash;
         require(parentHash != bytes32(0), "Parent hash not found");
