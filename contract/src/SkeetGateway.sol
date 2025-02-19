@@ -166,7 +166,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @param rootHash The hash of the MST root node which is signed by the commit node supplied
     /// @param commitNode The CBOR-encoded commit node
     /// @return did a bytes32 representing the account (DID + signer)
-    function verifyAndRecoverAccount(bytes32 rootHash, bytes calldata commitNode, bytes calldata sig)
+    function _verifyAndRecoverAccount(bytes32 rootHash, bytes calldata commitNode, bytes calldata sig)
         internal
         returns (bytes32)
     {
@@ -198,8 +198,8 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     ) external {
         bytes32 contentHash = sha256(abi.encodePacked(content[0]));
         bytes32 rootHash = merkleProvenRootHash(contentHash, nodes, nodeHints);
-        bytes32 account = verifyAndRecoverAccount(rootHash, commitNode, sig);
-        executePayload(account, content, botNameLength);
+        bytes32 account = _verifyAndRecoverAccount(rootHash, commitNode, sig);
+        _executePayload(account, content, botNameLength);
     }
 
     /// @notice Return the users's safe at the given index, creating it if necessary
@@ -226,7 +226,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @param account The user on whose behalf an action will be taken
     /// @param content A data node containing a skeet
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
-    function executePayload(bytes32 account, bytes[] calldata content, uint8 botNameLength) internal {
+    function _executePayload(bytes32 account, bytes[] calldata content, uint8 botNameLength) internal {
         require(account != bytes32(0), "Signer should not be empty");
 
         // TODO We already hashed this in handleSkeet but couldn't reuse the hash for stack-too-deep reasons

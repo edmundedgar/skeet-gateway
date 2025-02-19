@@ -20,7 +20,7 @@ contract SkeetGatewayClient is SkeetGateway {
         public
         returns (bytes32)
     {
-        return verifyAndRecoverAccount(proveMe, commitNode, sig);
+        return _verifyAndRecoverAccount(proveMe, commitNode, sig);
     }
 }
 
