@@ -170,7 +170,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     /// @param did The did you are updating
     /// @param newHash The hash of the entry you are adding
     /// @param parentHash The hash of the entry you are appending to
-    function registerUpdate(bytes32 did, bytes32 newHash, bytes32 parentHash) internal {
+    function _registerUpdate(bytes32 did, bytes32 newHash, bytes32 parentHash) internal {
         require(parentHash != bytes32(0), "non-genesis operation must have a parent hash");
         require(dids[did].updates[parentHash].recordedTimestamp > 0, "parentHash not found in chain");
         require(dids[did].updates[newHash].recordedTimestamp == 0, "newHash already registered");
@@ -198,7 +198,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
     /// @dev NB You can pass any content you like here and we'll make a DID record for its hash
     /// @dev If you want to make a did entry for a picture of your cat that's fine, go right ahead
     /// @dev We only care what's in the record if you try to query or update it
-    function registerGenesis(bytes32 entryHash, bytes32 nextPrev) internal returns (bytes32) {
+    function _registerGenesis(bytes32 entryHash, bytes32 nextPrev) internal returns (bytes32) {
         bytes32 did = genesisHashToDidKey(nextPrev);
         dids[did].entryHash = entryHash;
         dids[did].uncontroversialTip = entryHash;
@@ -247,12 +247,12 @@ contract MightHaveDonePLCDirectory is DidVerifier {
                 // This will also be used to validate the next entry
                 nextPrev = calculateCIDSha256(entries[i], sigs[i][:64]);
                 if (did == bytes32(0)) {
-                    did = registerGenesis(entryHash, nextPrev);
+                    did = _registerGenesis(entryHash, nextPrev);
                 }
             } else {
                 require(nextParent != bytes32(0), "entry 1 and later must have a nextParent");
                 verifyEntry(entries[i], sigs[i], entryHash, nextPrev, nextRotationKey);
-                registerUpdate(did, entryHash, nextParent);
+                _registerUpdate(did, entryHash, nextParent);
 
                 // Hash the signed version to verify the next entry, if there is one.
                 if (i < entries.length - 1) {
