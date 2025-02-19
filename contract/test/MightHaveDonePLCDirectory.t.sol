@@ -7,6 +7,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {MightHaveDonePLCDirectory} from "../src/MightHaveDonePLCDirectory.sol";
 
 contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
+    address[] trustedObservers;
 
     function testRegisterUpdates() public {
         MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
@@ -90,14 +91,122 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
 
         bytes32 postForkHash = sha256(proof3.ops[proof3.ops.length - 2]);
         assertFalse(repo.isBranchForkedSince(did, postForkHash, finalUpdateHash3));
+    }
 
+    function testUpdateBlessing() public {
+        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+
+        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
+        bytes32 did = bytes32(bytes(proof.did));
+        bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
+        repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
+
+        address[] memory noTrustedObservers;
+        trustedObservers.push(address(this));
+
+        assertTrue(
+            repo.isUpdateConfirmedValid(did, forkUpdateHash, 0, noTrustedObservers),
+            "unforked chain valid without minChallengeSecs requirement"
+        );
+        assertFalse(
+            repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, noTrustedObservers),
+            "unforked chain invalid with minChallengeSecs"
+        );
+        assertFalse(
+            repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, trustedObservers),
+            "unforked chain invalid with minChallengeSecs before blessing"
+        );
+
+        repo.blessUpdate(did, forkUpdateHash);
+        assertFalse(
+            repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, noTrustedObservers),
+            "other user blessing doesn't help"
+        );
+        assertTrue(repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, trustedObservers), "valid once blessed");
+
+        vm.warp(block.timestamp + 100);
+        assertTrue(repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, noTrustedObservers), "valid once time past");
+        assertTrue(repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, trustedObservers), "valiid for both reasons");
+    }
+
+    function testForkingUpdateBlessing() public {
+        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+
+        address[] memory noTrustedObservers;
+        trustedObservers.push(address(this));
+
+        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
+        bytes32 did = bytes32(bytes(proof.did));
+        bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
+        repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
+
+        DidProof memory proof2 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork1.json");
+        bytes32 finalUpdateHash2 = sha256(proof2.ops[proof2.ops.length - 1]);
+        repo.registerUpdates(did, proof2.ops, proof2.sigs, proof2.pubkeys, proof2.pubkeyIndexes);
+
+        DidProof memory proof3 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork2.json");
+        bytes32 finalUpdateHash3 = sha256(proof3.ops[proof3.ops.length - 1]);
+        repo.registerUpdates(did, proof3.ops, proof3.sigs, proof3.pubkeys, proof3.pubkeyIndexes);
+
+        vm.warp(block.timestamp + 50);
+
+        assertFalse(
+            repo.isUpdateConfirmedValid(did, finalUpdateHash2, 100, trustedObservers),
+            "fork so should be invalid until blessed"
+        );
+        repo.blessUpdate(did, forkUpdateHash);
+        assertTrue(
+            repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, trustedObservers),
+            "blessing the fork update validates the fork "
+        );
+        assertFalse(
+            repo.isUpdateConfirmedValid(did, finalUpdateHash2, 100, trustedObservers),
+            "blessing the fork update doesn't help with the tip"
+        );
+
+        repo.blessUpdate(did, finalUpdateHash2);
+        assertTrue(
+            repo.isUpdateConfirmedValid(did, finalUpdateHash2, 100, trustedObservers), "blessing the tip makes it valid"
+        );
+        assertFalse(
+            repo.isUpdateConfirmedValid(did, finalUpdateHash3, 100, trustedObservers),
+            "the unblessed fork is still invalid"
+        );
+
+        assertFalse(
+            repo.isUpdateConfirmedValid(did, finalUpdateHash2, 100, noTrustedObservers), "fork so should be invalid"
+        );
+    }
+
+    function testForkingTipVerification() public {
+        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+
+        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
+        bytes32 did = bytes32(bytes(proof.did));
+        bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
+        repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
+
+        vm.warp(block.timestamp + 100);
+        bytes32 preForkUpdateHash = sha256(proof.ops[proof.ops.length - 2]);
+
+        trustedObservers.push(address(this));
+
+        repo.blessUpdate(did, preForkUpdateHash);
+        assertTrue(repo.isUpdateConfirmedValid(did, preForkUpdateHash, 100, trustedObservers), "valid once blessed");
+        assertTrue(
+            repo.isUpdateConfirmedValid(did, forkUpdateHash, 100, trustedObservers), "tip valid once ancestor blessed"
+        );
+
+        assertFalse(
+            repo.isUpdateConfirmedValidTip(did, preForkUpdateHash, 100, trustedObservers),
+            "non-tip not considered valid tip"
+        );
+        assertTrue(repo.isUpdateConfirmedValidTip(did, forkUpdateHash, 100, trustedObservers), "tip is valid tip");
     }
 
     function testHomeMadeUpdates() public {
         MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
         DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.json");
-        bytes32 finalUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
-        bytes32 did = bytes32(bytes(proof.did));
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
     }
 }

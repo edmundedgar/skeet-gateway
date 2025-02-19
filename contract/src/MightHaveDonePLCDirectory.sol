@@ -27,6 +27,7 @@ contract MightHaveDonePLCDirectory is DidVerifier {
         uint128 countChildren;
         uint128 recordedTimestamp;
         address verificationMethod;
+        mapping(address => bytes32) blessedChild;
     }
 
     struct Did {
@@ -99,6 +100,52 @@ contract MightHaveDonePLCDirectory is DidVerifier {
             op = dids[did].updates[op].parentHash;
         }
         revert("chosenOpHash not found");
+    }
+
+    function isUpdateConfirmedValidTip(
+        bytes32 did,
+        bytes32 update,
+        uint256 minChallengeSecs,
+        address[] calldata trustedObservers
+    ) external view returns (bool) {
+        if (dids[did].updates[update].countChildren > 0) {
+            // not the tip
+            return false;
+        }
+        return isUpdateConfirmedValid(did, update, minChallengeSecs, trustedObservers);
+    }
+
+    // Start with a tip and work backwards to genesis, trusting trustedObservers if they adjudicated forks
+    function isUpdateConfirmedValid(
+        bytes32 did,
+        bytes32 update,
+        uint256 minChallengeSecs,
+        address[] calldata trustedObservers
+    ) public view returns (bool) {
+        bytes32 op = update;
+        while (op != bytes32(0)) {
+            bytes32 parentHash = dids[did].updates[op].parentHash;
+            // A blessed update anywhere from the tip down validates the rest of the chain back to the root
+            if (trustedObservers.length > 0) {
+                for (uint256 i = 0; i < trustedObservers.length; i++) {
+                    if (dids[did].updates[parentHash].blessedChild[trustedObservers[i]] == op) {
+                        return true;
+                    }
+                }
+            }
+            uint256 age = block.timestamp - dids[did].updates[op].recordedTimestamp;
+            if (dids[did].updates[parentHash].countChildren > 1 || (age < minChallengeSecs)) {
+                return false;
+            }
+            op = parentHash;
+        }
+        return true;
+    }
+
+    function blessUpdate(bytes32 did, bytes32 blessedUpdateHash) external {
+        bytes32 parentHash = dids[did].updates[blessedUpdateHash].parentHash;
+        require(parentHash != bytes32(0), "Parent hash not found");
+        dids[did].updates[parentHash].blessedChild[msg.sender] = blessedUpdateHash;
     }
 
     /// @notice Register a DID update
