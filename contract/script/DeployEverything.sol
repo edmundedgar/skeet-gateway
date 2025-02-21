@@ -12,6 +12,8 @@ import {RealityETHQuestionMessageParser} from "src/parsers/reality.eth/RealityET
 
 import {PayMessageParser} from "../src/parsers/pay/PayMessageParser.sol";
 
+import {ShadowDIDPLCDirectory} from "../src/ShadowDIDPLCDirectory.sol";
+
 contract DeployEverything is Script {
     // Struct to match the config file input/deploy_parameters.json
     struct DeployParameters {
@@ -57,6 +59,8 @@ contract DeployEverything is Script {
         RealityETHAnswerMessageParser answerParser =
             new RealityETHAnswerMessageParser(params.realityETH, params.realityETHURLPrefix);
         gateway.addBot(params.realityETHAnswerBot, params.realityETHAnswerDomain, address(answerParser), '{"reply": 1}');
+
+        new ShadowDIDPLCDirectory();
 
         vm.stopBroadcast();
     }
