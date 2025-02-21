@@ -18,7 +18,7 @@ import {console} from "forge-std/console.sol";
 
 import {DidVerifier} from "./DidVerifier.sol";
 
-contract MightHaveDonePLCDirectory is DidVerifier {
+contract ShadowDIDPLCDirectory is DidVerifier {
     event LogRegisterUpdate(bytes32 did, bytes32 parentHash, bytes32 newHash);
 
     // We will keep an update record for every item including the genesis operation

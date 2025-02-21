@@ -4,13 +4,13 @@ pragma solidity ^0.8.28;
 import {Test, console} from "forge-std/Test.sol";
 import {DidProofLoader} from "./DidProofLoader.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {MightHaveDonePLCDirectory} from "../src/MightHaveDonePLCDirectory.sol";
+import {ShadowDIDPLCDirectory} from "../src/ShadowDIDPLCDirectory.sol";
 
-contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
+contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
     address[] trustedObservers;
 
     function testRegisterUpdates() public {
-        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+        ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
         DidProof memory proof = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.json");
         bytes32 finalUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
@@ -24,7 +24,7 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
     }
 
     function testRegisterSplitUpdates() public {
-        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+        ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
         DidProof memory proof = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.0.json");
         bytes32 did = bytes32(bytes(proof.did));
@@ -51,7 +51,7 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
     }
 
     function testRegisterSplitForkingUpdates() public {
-        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+        ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
         DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
@@ -94,7 +94,7 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
     }
 
     function testUpdateBlessing() public {
-        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+        ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
         DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
@@ -130,7 +130,7 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
     }
 
     function testForkingUpdateBlessing() public {
-        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+        ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
         address[] memory noTrustedObservers;
         trustedObservers.push(address(this));
@@ -179,7 +179,7 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
     }
 
     function testForkingTipVerification() public {
-        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+        ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
         DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
@@ -205,7 +205,7 @@ contract MightHaveDonePLCDirectoryTest is Test, DidProofLoader {
     }
 
     function testHomeMadeUpdates() public {
-        MightHaveDonePLCDirectory repo = new MightHaveDonePLCDirectory();
+        ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
         DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.json");
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
     }
