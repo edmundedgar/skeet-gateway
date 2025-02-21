@@ -8,7 +8,7 @@ The directory can be updated by calling `registerUpdates()` with signed messages
 
 In most cases this will result in the current DID:PLC update for the user, matching the one listed at http://plc.directory.
 
-You can query this update with `uncontroversialTip(bytes32 did)`.
+You can query the hash identifying this update with `uncontroversialTip(bytes32 did)`.
 
 To get the corresponding atproto key, you can then call `verificationAddressAt(did, updateHash)`. You can also combine these two calls with `uncontroversialVerificationAddress(bytes32 did)`.
 
