@@ -20,7 +20,7 @@ In some cases, there may be multiple forks of correctly-signed messages. This ca
 
 If the contract detects multiple correctly-signed forks of the DID record, it will not return a value for `uncontroversialTip` or `uncontroversialVerificationAddress`.
 
-If you have a source that you trust to adjudicate between forks, it can call `blessUpdate(bytes32 did, bytes32 correctUpdate)` to specify the fork it considers correct. Any address can call this function to express an opinion. This can be an optimistic oracle system like UMA or reality.eth. Alternatively, if you trust the plc.directory website to publish correct data, you can use ChainLink or similar to send the value it found on ChainLink to a contract.
+If you have a source that you trust to adjudicate between forks, it can call `blessUpdate(bytes32 did, bytes32 correctUpdate)` to specify the fork it considers correct. Any address can call this function to express an opinion. This can be an optimistic oracle system like UMA or reality.eth. Alternatively, if you trust the plc.directory website to publish correct data, you can use ChainLink or similar to send the value it found on plc.directory to a contract.
 
 You can then verify that an update is correct according to that source by calling `isUpdateConfirmedValidTip(did, updateHash, minChallengeSecs, trustedObservers)` where `trustedObservers` contains the address of the source you trust to adjudicate forks.
 
