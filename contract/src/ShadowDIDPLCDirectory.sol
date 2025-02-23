@@ -64,6 +64,21 @@ contract ShadowDIDPLCDirectory is DidVerifier {
         return dids[did].updates[tip].verificationMethod;
     }
 
+    /// @notice The verification address of the update at the tip of the chain, if it has not forked
+    /// @param did The did
+    /// @return The verification address if the chain has not forked, or 0x0 if it has
+    function matureUncontroversialVerificationAddress(bytes32 did, uint256 minChallengeSecs) external view returns (address) {
+        bytes32 tip = dids[did].uncontroversialTip;
+        if (tip == bytes32(0)) {
+            return address(0);
+        }
+        uint256 age = block.timestamp - dids[did].updates[tip].recordedTimestamp;
+        if (age < minChallengeSecs) {
+            return address(0);
+        }
+        return dids[did].updates[tip].verificationMethod;
+    }
+
     /// @notice Whether the specified update has a fork, ie has multiple children
     /// @param did The did
     /// @param updateHash The update at which you want to know the whether there was a fork

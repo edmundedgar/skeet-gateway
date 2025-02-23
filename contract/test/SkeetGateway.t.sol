@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {SkeetProofLoader} from "./SkeetProofLoader.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
+import {ShadowDIDPLCDirectory} from "../src/ShadowDIDPLCDirectory.sol";
 import {IMessageParser} from "../src/parsers/IMessageParser.sol";
 import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 import {BBS} from "../src/parsers/bbs/BBS.sol";
@@ -13,7 +14,7 @@ import {console} from "forge-std/console.sol";
 import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
 
 contract SkeetGatewayClient is SkeetGateway {
-    constructor(address _gnosisSafeSingleton) SkeetGateway(_gnosisSafeSingleton) {}
+    constructor(address _gnosisSafeSingleton, address _shadowDIDPLCDirectory, uint256 _minUpdateMaturitySecs, address[] memory _didRepoTrustedObservers) SkeetGateway(_gnosisSafeSingleton, _shadowDIDPLCDirectory, _minUpdateMaturitySecs, _didRepoTrustedObservers) {}
 
     // public wrapper to test private function
     function callVerifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
@@ -28,9 +29,12 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
     SkeetGatewayClient public gateway;
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
     Safe safeSingleton = new Safe();
+    ShadowDIDPLCDirectory shadowDIDPLCDirectory = new ShadowDIDPLCDirectory();
+    uint256 MIN_UPDATE_MATURITY_SECS = 24*60*60;
+    address[] public didRepoTrustedObservers;
 
     function setUp() public {
-        gateway = new SkeetGatewayClient(address(safeSingleton));
+        gateway = new SkeetGatewayClient(address(safeSingleton), address(shadowDIDPLCDirectory), MIN_UPDATE_MATURITY_SECS, didRepoTrustedObservers);
         bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
         gateway.addDomain("blah.example.com", address(this));
