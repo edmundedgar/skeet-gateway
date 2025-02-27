@@ -2,13 +2,13 @@
 
 ## What this does
 
-The Shadow DID:PLC directory maintains a tree of correctly-signed updates to DID:PLC records. These are identified by their hashes. The Shadow DID uses the hashes of the updates without their signatures.
+The Shadow DID:PLC directory maintains a tree of correctly-signed updates to DID:PLC records.
 
 The directory can be updated by calling `registerUpdates()` with signed messages from the DID:PLC audit log.
 
 In most cases this will result in the current DID:PLC update for the user, matching the one listed at http://plc.directory.
 
-You can query the hash identifying this update with `uncontroversialTip(bytes32 did)`.
+You can query the hash identifying this update with `uncontroversialTip(bytes32 did)`. The Shadow DID uses the hashes of the updates without their signatures.
 
 To get the corresponding atproto key, you can then call `verificationAddressAt(did, updateHash)`. You can also combine these two calls with `uncontroversialVerificationAddress(bytes32 did)`.
 
