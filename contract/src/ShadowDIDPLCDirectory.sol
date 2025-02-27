@@ -68,7 +68,11 @@ contract ShadowDIDPLCDirectory is DidVerifier {
     /// @param did The did
     /// @param minChallengeSecs The minimum seconds an update must be posted unchallenged for
     /// @return The verification address if the chain has not forked, or 0x0 if it has
-    function matureUncontroversialVerificationAddress(bytes32 did, uint256 minChallengeSecs) external view returns (address) {
+    function matureUncontroversialVerificationAddress(bytes32 did, uint256 minChallengeSecs)
+        external
+        view
+        returns (address)
+    {
         bytes32 tip = dids[did].uncontroversialTip;
         if (tip == bytes32(0)) {
             return address(0);

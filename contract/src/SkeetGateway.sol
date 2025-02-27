@@ -54,7 +54,9 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     event LogCreateSafe(bytes32 indexed account, address indexed accountSafe, uint256 indexed safeId);
 
-    event LogTransferSafe(bytes32 indexed oldAccount, uint256 oldSafeId, bytes32 indexed newAccount, uint256 indexed newSafeId);
+    event LogTransferSafe(
+        bytes32 indexed oldAccount, uint256 oldSafeId, bytes32 indexed newAccount, uint256 indexed newSafeId
+    );
 
     event LogExecutePayload(
         bytes32 indexed contentHash, bytes32 indexed account, address indexed to, uint256 value, bytes data
@@ -70,7 +72,12 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     address[] initialSafeOwners;
 
-    constructor(address _gnosisSafeSingleton, address _shadowDIDPLCDirectory, uint256 _minUpdateMaturitySecs, address[] memory _didRepoTrustedObservers) {
+    constructor(
+        address _gnosisSafeSingleton,
+        address _shadowDIDPLCDirectory,
+        uint256 _minUpdateMaturitySecs,
+        address[] memory _didRepoTrustedObservers
+    ) {
         owner = msg.sender;
         gnosisSafeSingleton = _gnosisSafeSingleton;
         shadowDIDPLCDirectory = ShadowDIDPLCDirectory(_shadowDIDPLCDirectory);
@@ -233,14 +240,21 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         return accountSafe;
     }
 
-    function transferSafes(bytes32 _did, bytes32 _oldUpdateHash, bytes32 _newUpdateHash, uint256[] calldata safeIds) external {
+    function transferSafes(bytes32 _did, bytes32 _oldUpdateHash, bytes32 _newUpdateHash, uint256[] calldata safeIds)
+        external
+    {
         address oldAddress = shadowDIDPLCDirectory.verificationAddressAt(_did, _oldUpdateHash);
         require(oldAddress != address(0), "Old address not found");
         bytes32 oldAccount = keccak256(abi.encodePacked(_did, oldAddress));
-        require(shadowDIDPLCDirectory.isUpdateConfirmedValid(_did, _newUpdateHash, minUpdateMaturitySecs, didRepoTrustedObservers), "New update invalid");
+        require(
+            shadowDIDPLCDirectory.isUpdateConfirmedValid(
+                _did, _newUpdateHash, minUpdateMaturitySecs, didRepoTrustedObservers
+            ),
+            "New update invalid"
+        );
         address newAddress = shadowDIDPLCDirectory.verificationAddressAt(_did, _newUpdateHash);
         bytes32 newAccount = keccak256(abi.encodePacked(_did, newAddress));
-        for(uint256 i=0; i<safeIds.length; i++) {
+        for (uint256 i = 0; i < safeIds.length; i++) {
             uint256 oldSafeId = safeIds[i];
             require(address(accountSafes[oldAccount][oldSafeId]) != address(0), "No safe to transfer");
             uint256 newSafeId = accountSafeCount[newAccount];
