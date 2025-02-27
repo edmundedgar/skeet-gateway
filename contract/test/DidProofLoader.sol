@@ -13,7 +13,7 @@ abstract contract DidProofLoader is Test {
         bytes[] sigs;
     }
 
-    function _loadProofFixture(string memory fixtureName) internal view returns (DidProof memory) {
+    function _loadDidProofFixture(string memory fixtureName) internal view returns (DidProof memory) {
         string memory fixture = string.concat("/test/fixtures/did/", fixtureName);
         string memory json = vm.readFile(string.concat(vm.projectRoot(), fixture));
         bytes memory data = vm.parseJson(json);

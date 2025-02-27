@@ -13,7 +13,7 @@ contract SendShadowDIDUpdate is Script, DidProofLoader {
         vm.startBroadcast(deployerPrivateKey);
 
         ShadowDIDPLCDirectory directory = ShadowDIDPLCDirectory(_directory);
-        DidProof memory proof = _loadProofFixture(_file);
+        DidProof memory proof = _loadDidProofFixture(_file);
 
         directory.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
 
