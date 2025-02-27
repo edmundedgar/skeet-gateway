@@ -3,8 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 import {SkeetProofLoader} from "./SkeetProofLoader.sol";
+import {DidProofLoader} from "./DidProofLoader.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {SkeetGateway} from "../src/SkeetGateway.sol";
+import {ShadowDIDPLCDirectory} from "../src/ShadowDIDPLCDirectory.sol";
 import {IMessageParser} from "../src/parsers/IMessageParser.sol";
 import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 import {BBS} from "../src/parsers/bbs/BBS.sol";
@@ -13,7 +15,12 @@ import {console} from "forge-std/console.sol";
 import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
 
 contract SkeetGatewayClient is SkeetGateway {
-    constructor(address _gnosisSafeSingleton) SkeetGateway(_gnosisSafeSingleton) {}
+    constructor(
+        address _gnosisSafeSingleton,
+        address _shadowDIDPLCDirectory,
+        uint256 _minUpdateMaturitySecs,
+        address[] memory _didRepoTrustedObservers
+    ) SkeetGateway(_gnosisSafeSingleton, _shadowDIDPLCDirectory, _minUpdateMaturitySecs, _didRepoTrustedObservers) {}
 
     // public wrapper to test private function
     function callVerifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
@@ -24,13 +31,18 @@ contract SkeetGatewayClient is SkeetGateway {
     }
 }
 
-contract SkeetGatewayTest is Test, SkeetProofLoader {
+contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
     SkeetGatewayClient public gateway;
     BBS public bbs; // makes 0x2e234DAe75C793f67A35089C9d99245E1C58470b
     Safe safeSingleton = new Safe();
+    ShadowDIDPLCDirectory shadowDIDPLCDirectory = new ShadowDIDPLCDirectory();
+    uint256 MIN_UPDATE_MATURITY_SECS = 24 * 60 * 60;
+    address[] public didRepoTrustedObservers;
 
     function setUp() public {
-        gateway = new SkeetGatewayClient(address(safeSingleton));
+        gateway = new SkeetGatewayClient(
+            address(safeSingleton), address(shadowDIDPLCDirectory), MIN_UPDATE_MATURITY_SECS, didRepoTrustedObservers
+        );
         bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
         gateway.addDomain("blah.example.com", address(this));
@@ -163,6 +175,68 @@ contract SkeetGatewayTest is Test, SkeetProofLoader {
 
         assertEq(bbs.messages(createdSafe), "post this my pretty");
         assertNotEq(bbs.messages(createdSafe), "oinK");
+    }
+
+    // did: did:plc:jcekkwbdkwpe7v5shsp72oum.premigrate.json
+    // did: did:plc:jcekkwbdkwpe7v5shsp72oum.postmigrate.json
+    // skeet: migrationtest_bbs_after.json
+    // skeet: migrationtest_bbs.json
+    function testTransferSafes() public {
+        SkeetProof memory proof = _loadProofFixture("migrationtest_bbs.json");
+        address expectedSafe = address(
+            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig, 0)
+        );
+        address expectedAddress1 = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig);
+        gateway.handleSkeet(
+            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+        );
+
+        DidProof memory didProof1 = _loadDidProofFixture("did:plc:jcekkwbdkwpe7v5shsp72oum.premigrate.json");
+
+        bytes32 did = bytes32(bytes(didProof1.did));
+
+        shadowDIDPLCDirectory.registerUpdates(
+            bytes32(0), didProof1.ops, didProof1.sigs, didProof1.pubkeys, didProof1.pubkeyIndexes
+        );
+        address address1 = shadowDIDPLCDirectory.uncontroversialVerificationAddress(bytes32(bytes(didProof1.did)));
+        assertEq(expectedAddress1, address1, "did address differs from signing address");
+
+        DidProof memory didProof = _loadDidProofFixture("did:plc:jcekkwbdkwpe7v5shsp72oum.postmigrate.json");
+        shadowDIDPLCDirectory.registerUpdates(
+            did, didProof.ops, didProof.sigs, didProof.pubkeys, didProof.pubkeyIndexes
+        );
+        address address2 = shadowDIDPLCDirectory.uncontroversialVerificationAddress(did);
+
+        bytes32 oldUpdateHash = sha256(didProof.ops[0]);
+        bytes32 newUpdateHash = sha256(didProof.ops[1]);
+
+        assertNotEq(address1, address2, "Address should have changed");
+        assertEq(address1, shadowDIDPLCDirectory.verificationAddressAt(did, oldUpdateHash));
+        assertEq(address2, shadowDIDPLCDirectory.verificationAddressAt(did, newUpdateHash));
+
+        bytes32 oldAccount = keccak256(abi.encodePacked(did, address1));
+        bytes32 newAccount = keccak256(abi.encodePacked(did, address2));
+
+        assertEq(address(gateway.accountSafeForId(oldAccount, 0)), expectedSafe);
+        assertEq(address(gateway.accountSafeForId(newAccount, 0)), address(0));
+
+        uint256[] memory safeIDs = new uint256[](1);
+        safeIDs[0] = 0;
+
+        // Second update too young
+        vm.expectRevert();
+        gateway.transferSafes(bytes32(bytes(didProof.did)), oldUpdateHash, newUpdateHash, safeIDs);
+
+        vm.warp(block.timestamp + MIN_UPDATE_MATURITY_SECS);
+        gateway.transferSafes(bytes32(bytes(didProof.did)), oldUpdateHash, newUpdateHash, safeIDs);
+
+        assertEq(address(gateway.accountSafeForId(newAccount, 0)), expectedSafe);
+        assertEq(address(gateway.accountSafeForId(oldAccount, 0)), address(0));
+
+        SkeetProof memory proof2 = _loadProofFixture("migrationtest_bbs_after.json");
+        gateway.handleSkeet(
+            proof2.content, proof2.botNameLength, proof2.nodes, proof2.nodeHints, proof2.commitNode, proof2.sig
+        );
     }
 
     function testReplayProtection() public {

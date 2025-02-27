@@ -9,6 +9,8 @@ import {SafeProxy} from "../lib/safe-contracts/contracts/proxies/SafeProxy.sol";
 import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
 import {Enum} from "../lib/safe-contracts/contracts/common/Enum.sol";
 
+import {ShadowDIDPLCDirectory} from "./ShadowDIDPLCDirectory.sol";
+
 contract SkeetGateway is Enum, AtprotoMSTProver {
     // Skeets are addressed to a username, eg bbs.bots.example.com
     // The username will be mapped to a contract which translate text into a contract address and transaction code.
@@ -19,6 +21,9 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     }
 
     address public gnosisSafeSingleton;
+    ShadowDIDPLCDirectory public shadowDIDPLCDirectory;
+    uint256 public minUpdateMaturitySecs;
+    address[] public didRepoTrustedObservers;
 
     mapping(bytes32 => Bot) public bots;
 
@@ -49,6 +54,10 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     event LogCreateSafe(bytes32 indexed account, address indexed accountSafe, uint256 indexed safeId);
 
+    event LogTransferSafe(
+        bytes32 indexed oldAccount, uint256 oldSafeId, bytes32 indexed newAccount, uint256 indexed newSafeId
+    );
+
     event LogExecutePayload(
         bytes32 indexed contentHash, bytes32 indexed account, address indexed to, uint256 value, bytes data
     );
@@ -63,9 +72,18 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     address[] initialSafeOwners;
 
-    constructor(address _gnosisSafeSingleton) {
+    constructor(
+        address _gnosisSafeSingleton,
+        address _shadowDIDPLCDirectory,
+        uint256 _minUpdateMaturitySecs,
+        address[] memory _didRepoTrustedObservers
+    ) {
         owner = msg.sender;
         gnosisSafeSingleton = _gnosisSafeSingleton;
+        shadowDIDPLCDirectory = ShadowDIDPLCDirectory(_shadowDIDPLCDirectory);
+        minUpdateMaturitySecs = _minUpdateMaturitySecs;
+        didRepoTrustedObservers = _didRepoTrustedObservers;
+
         initialSafeOwners.push(address(this));
         emit LogChangeOwner(owner);
     }
@@ -220,6 +238,31 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
             emit LogCreateSafe(account, address(accountSafe), safeId);
         }
         return accountSafe;
+    }
+
+    function transferSafes(bytes32 _did, bytes32 _oldUpdateHash, bytes32 _newUpdateHash, uint256[] calldata safeIds)
+        external
+    {
+        address oldAddress = shadowDIDPLCDirectory.verificationAddressAt(_did, _oldUpdateHash);
+        require(oldAddress != address(0), "Old address not found");
+        bytes32 oldAccount = keccak256(abi.encodePacked(_did, oldAddress));
+        require(
+            shadowDIDPLCDirectory.isUpdateConfirmedValid(
+                _did, _newUpdateHash, minUpdateMaturitySecs, didRepoTrustedObservers
+            ),
+            "New update invalid"
+        );
+        address newAddress = shadowDIDPLCDirectory.verificationAddressAt(_did, _newUpdateHash);
+        bytes32 newAccount = keccak256(abi.encodePacked(_did, newAddress));
+        for (uint256 i = 0; i < safeIds.length; i++) {
+            uint256 oldSafeId = safeIds[i];
+            require(address(accountSafes[oldAccount][oldSafeId]) != address(0), "No safe to transfer");
+            uint256 newSafeId = accountSafeCount[newAccount];
+            accountSafes[newAccount][newSafeId] = accountSafes[oldAccount][oldSafeId];
+            accountSafeCount[newAccount]++;
+            delete(accountSafes[oldAccount][oldSafeId]);
+            emit LogTransferSafe(oldAccount, oldSafeId, newAccount, newSafeId);
+        }
     }
 
     /// @notice Execute the specified content on behalf of the specified signer

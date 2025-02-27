@@ -11,7 +11,7 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
 
     function testRegisterUpdates() public {
         ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
-        DidProof memory proof = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.json");
+        DidProof memory proof = _loadDidProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.json");
         bytes32 finalUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
         bytes32 did = bytes32(bytes(proof.did));
@@ -26,7 +26,7 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
     function testRegisterSplitUpdates() public {
         ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
-        DidProof memory proof = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.0.json");
+        DidProof memory proof = _loadDidProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.0.json");
         bytes32 did = bytes32(bytes(proof.did));
         bytes32 finalUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
@@ -34,14 +34,14 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
         assertNotEq(storedVerificationAddress, address(0), "Null verificationaddress");
         assertEq(finalUpdateHash, repo.uncontroversialTip(did));
 
-        DidProof memory proof2 = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.01.json");
+        DidProof memory proof2 = _loadDidProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.01.json");
         bytes32 finalUpdateHash2 = sha256(proof2.ops[proof2.ops.length - 1]);
         assertEq(did, bytes32(bytes(proof2.did)), "did changed");
         repo.registerUpdates(did, proof2.ops, proof2.sigs, proof2.pubkeys, proof2.pubkeyIndexes);
         assertNotEq(finalUpdateHash, finalUpdateHash2);
         assertEq(finalUpdateHash2, repo.uncontroversialTip(did));
 
-        DidProof memory proof3 = _loadProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.12.json");
+        DidProof memory proof3 = _loadDidProofFixture("did:plc:pyzlzqt6b2nyrha7smfry6rv.12.json");
         bytes32 finalUpdateHash3 = sha256(proof3.ops[proof3.ops.length - 1]);
         assertEq(did, bytes32(bytes(proof3.did)), "did changed");
         repo.registerUpdates(did, proof3.ops, proof3.sigs, proof3.pubkeys, proof3.pubkeyIndexes);
@@ -53,7 +53,7 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
     function testRegisterSplitForkingUpdates() public {
         ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
-        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
+        DidProof memory proof = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
         bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
@@ -64,14 +64,14 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
         bytes32 earlyForkHash = sha256(proof.ops[proof.ops.length - 2]);
         assertFalse(repo.isBranchForkedSince(did, earlyForkHash, forkUpdateHash));
 
-        DidProof memory proof2 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork1.json");
+        DidProof memory proof2 = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork1.json");
         bytes32 finalUpdateHash2 = sha256(proof2.ops[proof2.ops.length - 1]);
         assertEq(did, bytes32(bytes(proof2.did)), "did changed");
         repo.registerUpdates(did, proof2.ops, proof2.sigs, proof2.pubkeys, proof2.pubkeyIndexes);
         assertNotEq(forkUpdateHash, finalUpdateHash2);
         assertEq(finalUpdateHash2, repo.uncontroversialTip(did));
 
-        DidProof memory proof3 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork2.json");
+        DidProof memory proof3 = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork2.json");
         bytes32 finalUpdateHash3 = sha256(proof3.ops[proof3.ops.length - 1]);
         assertEq(did, bytes32(bytes(proof3.did)), "did changed");
         repo.registerUpdates(did, proof3.ops, proof3.sigs, proof3.pubkeys, proof3.pubkeyIndexes);
@@ -96,7 +96,7 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
     function testUpdateBlessing() public {
         ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
-        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
+        DidProof memory proof = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
         bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
@@ -135,16 +135,16 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
         address[] memory noTrustedObservers;
         trustedObservers.push(address(this));
 
-        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
+        DidProof memory proof = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
         bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
 
-        DidProof memory proof2 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork1.json");
+        DidProof memory proof2 = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork1.json");
         bytes32 finalUpdateHash2 = sha256(proof2.ops[proof2.ops.length - 1]);
         repo.registerUpdates(did, proof2.ops, proof2.sigs, proof2.pubkeys, proof2.pubkeyIndexes);
 
-        DidProof memory proof3 = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork2.json");
+        DidProof memory proof3 = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.fork2.json");
         bytes32 finalUpdateHash3 = sha256(proof3.ops[proof3.ops.length - 1]);
         repo.registerUpdates(did, proof3.ops, proof3.sigs, proof3.pubkeys, proof3.pubkeyIndexes);
 
@@ -181,7 +181,7 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
     function testForkingTipVerification() public {
         ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
 
-        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
+        DidProof memory proof = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.common.json");
         bytes32 did = bytes32(bytes(proof.did));
         bytes32 forkUpdateHash = sha256(proof.ops[proof.ops.length - 1]);
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
@@ -206,7 +206,7 @@ contract ShadowDIDPLCDirectoryTest is Test, DidProofLoader {
 
     function testHomeMadeUpdates() public {
         ShadowDIDPLCDirectory repo = new ShadowDIDPLCDirectory();
-        DidProof memory proof = _loadProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.json");
+        DidProof memory proof = _loadDidProofFixture("did:plc:ee7kjipyhx3cf6nmh2l5scbl.json");
         repo.registerUpdates(bytes32(0), proof.ops, proof.sigs, proof.pubkeys, proof.pubkeyIndexes);
     }
 }

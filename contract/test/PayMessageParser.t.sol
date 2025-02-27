@@ -31,7 +31,8 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
     }
 
     function testActualSkeetPayPost() public {
-        SkeetGateway gateway = new SkeetGateway(address(safeSingleton));
+        address[] memory trustedObservers;
+        SkeetGateway gateway = new SkeetGateway(address(safeSingleton), address(0), 0, trustedObservers);
         gateway.addDomain("unconsensus.com", address(this));
         gateway.addBot("pay", "unconsensus.com", address(parser), "");
 

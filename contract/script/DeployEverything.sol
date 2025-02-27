@@ -40,7 +40,8 @@ contract DeployEverything is Script {
         bytes memory data = vm.parseJson(json);
         DeployParameters memory params = abi.decode(data, (DeployParameters));
 
-        SkeetGateway gateway = new SkeetGateway(params.safeSingleton);
+        address[] memory trustedObservers;
+        SkeetGateway gateway = new SkeetGateway(params.safeSingleton, address(0), 0, trustedObservers);
         for (uint256 i = 0; i < params.domains.length; i++) {
             gateway.addDomain(params.domains[i], address(tx.origin));
         }
