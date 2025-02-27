@@ -14,7 +14,8 @@ contract DeploySkeetGateway is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         address[] memory trustedObservers;
-        SkeetGateway gateway = new SkeetGateway(address(0x41675C099F32341bf84BFc5382aF534df5C7461a), address(0), 0, trustedObservers);
+        SkeetGateway gateway =
+            new SkeetGateway(address(0x41675C099F32341bf84BFc5382aF534df5C7461a), address(0), 0, trustedObservers);
 
         BBS bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));
