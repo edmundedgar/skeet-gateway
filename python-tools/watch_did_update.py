@@ -8,7 +8,7 @@ import json
 import hashlib
 import libipld
 
-load_dotenv()
+load_dotenv(dotenv_path='../.plc_env')
 
 PLC_MIRROR_HOST = os.getenv('PLC_MIRROR_HOST')
 PLC_MIRROR_PORT = os.getenv('PLC_MIRROR_PORT')
@@ -42,7 +42,7 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
 
     # TODO: Get this list from the contract logs
     # Make sure each did gets logged the first time with a timestamp or block that we can keep track of
-    dids = ['did:plc:ragtjsm2j2vknwkz3zp4oxrd']
+    dids = ['did:plc:ragtjsm2j2vknwkz3zp4oxrd', 'did:plc:ee7kjipyhx3cf6nmh2l5scbl']
 
     create_sql = """    
         CREATE TABLE if not exists subscribed_dids (
