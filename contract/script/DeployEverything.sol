@@ -36,12 +36,14 @@ contract DeployEverything is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
+        ShadowDIDPLCDirectory shadowDIDPLCDirectory = new ShadowDIDPLCDirectory();
+
         string memory json = vm.readFile(string.concat(vm.projectRoot(), "/script/input/deploy_parameters.json"));
         bytes memory data = vm.parseJson(json);
         DeployParameters memory params = abi.decode(data, (DeployParameters));
 
         address[] memory trustedObservers;
-        SkeetGateway gateway = new SkeetGateway(params.safeSingleton, address(0), 0, trustedObservers);
+        SkeetGateway gateway = new SkeetGateway(params.safeSingleton, address(shadowDIDPLCDirectory), 0, trustedObservers);
         for (uint256 i = 0; i < params.domains.length; i++) {
             gateway.addDomain(params.domains[i], address(tx.origin));
         }
@@ -61,7 +63,6 @@ contract DeployEverything is Script {
             new RealityETHAnswerMessageParser(params.realityETH, params.realityETHURLPrefix);
         gateway.addBot(params.realityETHAnswerBot, params.realityETHAnswerDomain, address(answerParser), '{"reply": 1}');
 
-        new ShadowDIDPLCDirectory();
 
         vm.stopBroadcast();
     }
