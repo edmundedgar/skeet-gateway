@@ -143,6 +143,9 @@ def generatePayload(did, did_history):
     is_first = True
     last_signed_op_hash = None
     for entry in did_history:
+        if entry['nullified']:
+            print("skipping nullfiied entry")
+            continue
         #print(entry)
         # {"did":"did:plc:pyzlzqt6b2nyrha7smfry6rv","operation":{"sig":"qI31xjIX949GGbwWqsSGU5FZLVrfbv9N_695lr61w_MYgfsJE_k-oG8SQVLjWk20esEdhA55pFUCeQEJ7hZGDw","prev":"bafyreibufnyztvxkqnth2fjj4sggvhncw4rbhrdxjttejvboc3s6j72yyy","type":"plc_operation","services":{"atproto_pds":{"type":"AtprotoPersonalDataServer","endpoint":"https://lionsmane.us-east.host.bsky.network"}},"alsoKnownAs":["at://goat.navy"],"rotationKeys":["did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg","did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"],"verificationMethods":{"atproto":"did:key:zQ3shRQWmWxEtxRa317rpYnVo7nWxYAsDS4mBwdDLgLfkkDtR"}},"cid":"bafyreifbilrkm7ktlamiqslrjq33bbnhs6pj4pstasnpg4ly5mimmjxjam","nullified":false,"createdAt":"2024-09-08T09:30:26.927Z"}]
         op = entry["operation"]
