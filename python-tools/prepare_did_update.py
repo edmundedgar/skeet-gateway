@@ -22,9 +22,9 @@ from eth_keys import KeyAPI
 import base64
 import argparse
 
-import skeet_queue
+import did_queue
 
-skeet_queue.prepare()
+did_queue.prepare()
 
 DID_CACHE = './dids'
 PLC_CACHE = './plcs'
@@ -262,28 +262,30 @@ def generatePayload(did, did_history):
 
     return output, test_vectors
 
-def atURIToDidAndRkey(at_uri):
-    m = re.match(r'^at:\/\/(did:plc:.*?)/app\.bsky\.feed\.post\/(.*)$', at_uri)
-    did = m.group(1)
-    rkey = m.group(2)
-    return (did, rkey)
-
 def processQueuedPayloads():
     while True:
-        item = skeet_queue.readNext("payload")
+        item = did_queue.readNext("payload")
         if item is None:
             break
 
-        # print(item)
-        at_uri = item['at_uri']
-        bot = item['bot']
-        (param_did, param_rkey) = atURIToDidAndRkey(at_uri)
-        (car, addresses) = loadCar(param_did, param_rkey)
-        item = generatePayload(car, param_did, param_rkey, addresses, at_uri)
+        did = item['did']
+
+        # TODO: Check this picks up from the right place
+        did_history = loadHistory(did)
+
+        print(did)
+        print(did_history)
+        item, test_vectors = generatePayload(did, did_history)
+        print(item)
+
         # item['payload'] = generatePayload(car, param_did, param_rkey, addresses)
-        skeet_queue.updateStatus(at_uri, bot, "payload", "tx", item)
+        did_queue.updateStatus(did, "payload", "tx", item)
 
 if __name__ == '__main__':
+
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] == "queue"):
+        processQueuedPayloads()
+        sys.exit(0)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--history", help="history file to load direct from (instead of the directory)")
@@ -320,4 +322,3 @@ if __name__ == '__main__':
         json.dump(test_vectors, f, indent=4, sort_keys=True)
         print("Test vector output written to:")
         print(test_out_file)
-

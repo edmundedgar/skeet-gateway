@@ -8,6 +8,9 @@ import json
 import hashlib
 import libipld
 
+import did_queue
+
+
 load_dotenv(dotenv_path='../.plc_env')
 
 PLC_MIRROR_HOST = os.getenv('PLC_MIRROR_HOST')
@@ -20,6 +23,7 @@ PLC_MIRROR_PWD = os.getenv('PLC_MIRROR_PWD')
 # If found, add to db subscription list
 #  SkeetGateway.LogHandleAccount has did
 
+did_queue.prepare()
 
 # Watch subscription list for unpublished changes
 # If found add entry cid to sighash
@@ -42,7 +46,7 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
 
     # TODO: Get this list from the contract logs
     # Make sure each did gets logged the first time with a timestamp or block that we can keep track of
-    dids = ['did:plc:ragtjsm2j2vknwkz3zp4oxrd', 'did:plc:ee7kjipyhx3cf6nmh2l5scbl']
+    dids = ['did:plc:pyzlzqt6b2nyrha7smfry6rv', 'did:plc:mtq3e4mgt7wyjhhaniezej67']
 
     create_sql = """    
         CREATE TABLE if not exists subscribed_dids (
@@ -53,7 +57,7 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
         CREATE TABLE if not exists shadow_updates (
           cid text UNIQUE NOT NULL,
           sighash VARCHAR (255) UNIQUE NOT NULL,
-          sent_ts bigint
+          sent_ts bigint NOT NULL
         );
     """
 
@@ -68,18 +72,25 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
             where u.cid is null;
     """
 
+    # create index cid on public.plc_log_entries using btree(cid)
+
     # Open a cursor to perform database operations
     with conn.cursor() as cur:
 
+        print("create")
         cur.execute(create_sql)
 
         for did in dids:
+            print("check did" + did)
             cur.execute('SELECT count(*) FROM subscribed_dids where did = %s', (did,))
             num_arr = cur.fetchone()
             num = num_arr[0]
             if num == 0:
+                print("insert did" + did)
                 cur.execute('insert into subscribed_dids(did, sent_ts) values (%s,%s)', (did,int(time.time()),))
+        conn.commit()
 
+        print("check missing")
         cur.execute(missing_sql)
         insert_me = []
         for record in cur:
@@ -91,8 +102,22 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
             del signed_op["sig"]
             signable_cbor = libipld.encode_dag_cbor(signed_op)
             sighash = "0x" + hashlib.sha256(signable_cbor).hexdigest()
-            insert_me.append((missing_cid, sighash ,int(time.time()),))
+            # insert_me.append((missing_cid, sighash ,int(time.time()),))
+            insert_me.append((missing_cid, sighash, 0,))
             # print(sig_hash)
+            print("read record")
 
         for me in insert_me:
+            print("insert cid")
             cur.execute('insert into shadow_updates(cid, sighash, sent_ts) values (%s,%s,%s)', me)
+
+        conn.commit()
+
+        print("get diss")
+        cur.execute('SELECT distinct(did) from shadow_updates u inner join plc_log_entries p on u.cid=p.cid where u.sent_ts = %s', (0,))
+        for record in cur:
+            did = record[0]
+            status = did_queue.status(did)
+            if status is None:
+                did_queue.queueForPayload(did)
+                print("Queued: "+did)
