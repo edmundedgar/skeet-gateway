@@ -42,30 +42,39 @@ def filterToNecessary(payload):
     # if we have an update already, we don't need the did
     # did_hex = binascii.hexlify(payload['did'].encode('utf-8'))
     did_bytes = payload['did'].encode('utf-8')
-    start_at = 0
-    i = 0
+
+    skip_entries = 0
     is_genesis_recorded = False
+
+    if len(payload['ops']) == 0:
+        return None, None
+
     for op in payload['ops']:
         op_bytes = w3.to_bytes(hexstr=op)
         update_hash = hashlib.sha256(op_bytes).digest()
         ts = directory.functions.opRecordedTimestamp(did_bytes, update_hash).call()
+        print("ts is "+str(ts))
         if ts > 0:
             is_genesis_recorded = True
-            start_at = i + 1
-        i = i + 1
+            skip_entries = skip_entries + 1
+
+    if skip_entries == len(payload['ops']):
+        return None, None
+
+    start_at = 0
     if len(payload['ops']) == 1:
         if is_genesis_recorded:
             return None, None
-        else:
-            start_at = start_at
     else:
-        # For anything except the genesis update we need to supply the previous update
-        start_at = start_at - 1
+        if skip_entries > 0:
+            # never skip the entry before except for the genesis
+            skip_entries = skip_entries - 1
+            start_at = skip_entries
 
-    payload['ops'] = payload['ops'][:start_at]
-    payload['sigs'] = payload['sigs'][:start_at]
-    payload['pubkeys'] = payload['pubkeys'][:start_at]
-    payload['pubkeyIndexes'] = payload['pubkeyIndexes'][:start_at - 1]
+    payload['ops'] = payload['ops'][start_at:]
+    payload['sigs'] = payload['sigs'][start_at:]
+    payload['pubkeys'] = payload['pubkeys'][start_at:]
+    payload['pubkeyIndexes'] = payload['pubkeyIndexes'][start_at:]
 
     # New entries should have a did of 0x0
     if not is_genesis_recorded:
@@ -74,7 +83,6 @@ def filterToNecessary(payload):
     return (payload, did_bytes)
 
 def sendTX(item):
-    #payload = item['payload']
     payload, did_param = filterToNecessary(item)
     if payload is None:
         print("Nothing to do")
@@ -95,14 +103,12 @@ def sendTX(item):
             arrToBytesArr(payload['ops']),
             arrToBytesArr(payload['sigs']),
             arrToBytesArr(payload['pubkeys']),
-            arrToBytesArr(payload['pubkeyIndexes']),
+            payload['pubkeyIndexes'],
         ).build_transaction({
-            "gas": 1000000,
             "from": ACCOUNT.address,
             "nonce": w3.eth.get_transaction_count(ACCOUNT.address),
         })
-        #gas = w3.eth.estimateGas(tx)
-        #print("gas is" + str(gas))
+        gas = w3.eth.estimate_gas(tx)
     except web3.exceptions.ContractLogicError as err:
         return (False, err.message)
     signed_tx = w3.eth.account.sign_transaction(tx, private_key=ACCOUNT.key).raw_transaction
