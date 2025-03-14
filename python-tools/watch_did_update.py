@@ -46,7 +46,7 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
 
     # TODO: Get this list from the contract logs
     # Make sure each did gets logged the first time with a timestamp or block that we can keep track of
-    dids = ['did:plc:mtq3e4mgt7wyjhhaniezej67']
+    dids = ['did:plc:pyzlzqt6b2nyrha7smfry6rv', 'did:plc:mtq3e4mgt7wyjhhaniezej67']
 
     create_sql = """    
         CREATE TABLE if not exists subscribed_dids (

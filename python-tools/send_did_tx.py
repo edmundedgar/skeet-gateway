@@ -6,6 +6,8 @@ import time
 import sys
 
 import hashlib
+import libipld
+import binascii
 
 import did_queue
 
@@ -36,14 +38,57 @@ def arrToBytesArr(arr):
         ret.append(w3.to_bytes(hexstr=item))
     return ret
 
+def filterToNecessary(payload):
+    # if we have an update already, we don't need the did
+    # did_hex = binascii.hexlify(payload['did'].encode('utf-8'))
+    did_bytes = payload['did'].encode('utf-8')
+    start_at = 0
+    i = 0
+    is_genesis_recorded = False
+    for op in payload['ops']:
+        op_bytes = w3.to_bytes(hexstr=op)
+        update_hash = hashlib.sha256(op_bytes).digest()
+        ts = directory.functions.opRecordedTimestamp(did_bytes, update_hash).call()
+        if ts > 0:
+            is_genesis_recorded = True
+            start_at = i + 1
+        i = i + 1
+    if len(payload['ops']) == 1:
+        if is_genesis_recorded:
+            return None, None
+        else:
+            start_at = start_at
+    else:
+        # For anything except the genesis update we need to supply the previous update
+        start_at = start_at - 1
+
+    payload['ops'] = payload['ops'][:start_at]
+    payload['sigs'] = payload['sigs'][:start_at]
+    payload['pubkeys'] = payload['pubkeys'][:start_at]
+    payload['pubkeyIndexes'] = payload['pubkeyIndexes'][:start_at - 1]
+
+    # New entries should have a did of 0x0
+    if not is_genesis_recorded:
+        did_bytes = w3.to_bytes(hexstr="0x0000000000000000000000000000000000000000000000000000000000000000")
+
+    return (payload, did_bytes)
+
 def sendTX(item):
     #payload = item['payload']
-    payload = item
+    payload, did_param = filterToNecessary(item)
+    if payload is None:
+        print("Nothing to do")
+        return None, None
+
     print(payload)
     tx = None
-    # w3.to_bytes(hexstr=payload['did']),
-    did_param = w3.to_bytes(hexstr="0x0000000000000000000000000000000000000000000000000000000000000000")
+    did_hex = binascii.hexlify(payload['did'].encode('utf-8'))
     print(did_param)
+    #sys.exit(0)
+
+    # w3.to_bytes(hexstr=payload['did']),
+    #did_param = w3.to_bytes(hexstr="0x0000000000000000000000000000000000000000000000000000000000000000")
+    #print(did_param)
     try:
         tx = directory.functions.registerUpdates(
             did_param,
@@ -90,7 +135,6 @@ def processQueue():
 
 def handleItem(item):
     did = item['did']
-    #print(at_uri)
     result, detail = sendTX(item)
     if not 'x_history' in item:
         item['x_history'] = [] 
@@ -105,10 +149,10 @@ def handleItem(item):
         did_queue.updateStatus(did, "tx", "report", item)
     else:
         if detail == 'execution reverted: Already handled':
-            print("Was already completed: " + at_uri + " (" + bot + ")")
+            print("Was already completed: " + did)
             did_queue.updateStatus(did, "tx", "report", item)
         else:
-            print("Failed, queued for retry: " + at_uri + " (" + bot + ")")
+            print("Failed, queued for retry: " + did)
             did_queue.updateStatus(did, "tx", "tx_retry", item)
 
 if __name__ == '__main__':
