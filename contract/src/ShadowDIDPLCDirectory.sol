@@ -101,6 +101,43 @@ contract ShadowDIDPLCDirectory is DidVerifier {
         return dids[did].updates[updateHash].verificationMethod;
     }
 
+    /// @notice Return parent hash of the update
+    /// @dev We do not always store the verification method address, so it may be 0x0 even though there is one
+    /// @param did The did
+    /// @param updateHash The update at which you want to know the verification address
+    /// @return The parent hash of the update
+    function opParentHash(bytes32 did, bytes32 updateHash) external view returns (bytes32) {
+        return dids[did].updates[updateHash].parentHash;
+    }
+
+    /// @notice Return child count of update
+    /// @dev We do not always store the verification method address, so it may be 0x0 even though there is one
+    /// @param did The did
+    /// @param updateHash The update at which you want to know the verification address
+    /// @return The number of children of the update
+    function opCountChildren(bytes32 did, bytes32 updateHash) external view returns (uint128) {
+        return dids[did].updates[updateHash].countChildren;
+    }
+
+    /// @notice Return the recorded timestamp of the update
+    /// @dev We do not always store the verification method address, so it may be 0x0 even though there is one
+    /// @param did The did
+    /// @param updateHash The update at which you want to know the verification address
+    /// @return The timestamp when the update was recorded
+    function opRecordedTimestamp(bytes32 did, bytes32 updateHash) external view returns (uint128) {
+        return dids[did].updates[updateHash].recordedTimestamp;
+    }
+
+    /// @notice Return child of the update blessed by the specified address
+    /// @dev We do not always store the verification method address, so it may be 0x0 even though there is one
+    /// @param did The did
+    /// @param updateHash The update at which you want to know the verification address
+    /// @param blesser The address that blessed the update
+    /// @return The hash of the blessed child oop
+    function opChildBlessedBy(bytes32 did, bytes32 updateHash, address blesser) external view returns (bytes32) {
+        return dids[did].updates[updateHash].blessedChild[blesser];
+    }
+
     /// @notice Return whether the history of the DID has forked between the specified update and the specified tip
     /// @dev If your did history has forked, you can choose a fork by marking an update (you would normally choose a tip) legit.
     /// @dev This function is designed to tell you if that update, or one of its descendents, has forked.
