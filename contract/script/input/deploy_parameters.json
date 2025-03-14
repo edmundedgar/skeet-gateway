@@ -11,5 +11,6 @@
     "realityETHQuestionBot": "ask",
     "realityETHQuestionDomain": "bot.reality.eth.link",
     "realityETHURLPrefix": "https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x",
-    "safeSingleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a"
+    "safeSingleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+    "shadowDIDPLCDirectory": "0x0114B85f1a92773D8C3AdCef6139288926E4cf98"
 }
