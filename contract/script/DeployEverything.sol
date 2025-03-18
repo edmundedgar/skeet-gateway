@@ -10,6 +10,8 @@ import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 import {RealityETHAnswerMessageParser} from "src/parsers/reality.eth/RealityETHAnswerMessageParser.sol";
 import {RealityETHQuestionMessageParser} from "src/parsers/reality.eth/RealityETHQuestionMessageParser.sol";
 
+import {SafeAddOwnerMessageParser} from "../src/parsers/safe/SafeAddOwnerMessageParser.sol";
+
 import {PayMessageParser} from "../src/parsers/pay/PayMessageParser.sol";
 
 import {ShadowDIDPLCDirectory} from "../src/ShadowDIDPLCDirectory.sol";
@@ -29,7 +31,10 @@ contract DeployEverything is Script {
         string realityETHQuestionBot;
         string realityETHQuestionDomain;
         string realityETHURLPrefix;
+        string safeAddOwnerBot;
+        string safeAddOwnerDomain;
         address safeSingleton;
+        address shadowDIDPLCDirectory;
     }
 
     function run() public {
@@ -43,7 +48,8 @@ contract DeployEverything is Script {
         DeployParameters memory params = abi.decode(data, (DeployParameters));
 
         address[] memory trustedObservers;
-        SkeetGateway gateway = new SkeetGateway(params.safeSingleton, address(shadowDIDPLCDirectory), 0, trustedObservers);
+        SkeetGateway gateway =
+            new SkeetGateway(params.safeSingleton, address(shadowDIDPLCDirectory), 0, trustedObservers);
         for (uint256 i = 0; i < params.domains.length; i++) {
             gateway.addDomain(params.domains[i], address(tx.origin));
         }
@@ -63,6 +69,8 @@ contract DeployEverything is Script {
             new RealityETHAnswerMessageParser(params.realityETH, params.realityETHURLPrefix);
         gateway.addBot(params.realityETHAnswerBot, params.realityETHAnswerDomain, address(answerParser), '{"reply": 1}');
 
+        SafeAddOwnerMessageParser safeAddOwnerMessageParser = new SafeAddOwnerMessageParser();
+        gateway.addBot(params.safeAddOwnerBot, params.safeAddOwnerDomain, address(safeAddOwnerMessageParser), "");
 
         vm.stopBroadcast();
     }
