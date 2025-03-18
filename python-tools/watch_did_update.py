@@ -11,7 +11,7 @@ import libipld
 import did_queue
 
 
-load_dotenv(dotenv_path='../.plc_env')
+load_dotenv(dotenv_path='.plc_env')
 
 PLC_MIRROR_HOST = os.getenv('PLC_MIRROR_HOST')
 PLC_MIRROR_PORT = os.getenv('PLC_MIRROR_PORT')
