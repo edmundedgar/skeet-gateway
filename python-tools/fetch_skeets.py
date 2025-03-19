@@ -11,7 +11,7 @@ parsers = {}
 with open('parser_config.json') as f:
     parsers = json.load(f)
 
-load_dotenv(dotenv_path='../contracts/.env')
+load_dotenv(dotenv_path='.env')
 
 BSKY_SEARCH_API_USER = os.getenv('BSKY_SEARCH_API_USER')
 BSKY_SEARCH_API_KEY = os.getenv('BSKY_SEARCH_API_KEY')
