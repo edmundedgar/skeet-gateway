@@ -13,7 +13,7 @@ import skeet_queue
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='../contracts/.env')
+load_dotenv(dotenv_path='../contract/.env')
 
 skeet_queue.prepare()
 

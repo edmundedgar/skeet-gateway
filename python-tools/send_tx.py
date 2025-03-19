@@ -11,7 +11,7 @@ import skeet_queue
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='../contracts/.env')
+load_dotenv(dotenv_path='../contract/.env')
 
 skeet_queue.prepare()
 
@@ -47,9 +47,7 @@ def sendTX(item):
             arrToBytesArr(payload['nodes']),
             payload['nodeHints'],
             w3.to_bytes(hexstr=payload['commitNode']),
-            int(payload['v']),
-            payload['r'],
-            payload['s']
+            w3.to_bytes(hexstr=payload['sig']),
         ).build_transaction({
             "gas": 1000000,
             "from": ACCOUNT.address,
@@ -67,8 +65,9 @@ def sendTX(item):
 def diagnosisDetail(item):
     commit_node = bytes.fromhex(item['commitNode'][2:])
     sighash = hashlib.sha256(commit_node).digest()
-    signer = gateway.functions.predictSignerAddressFromSig(sighash, item['v'], item['r'], item['s']).call()
-    signer_safe = gateway.functions.predictSafeAddressFromSig(sighash, item['v'], item['r'], item['s']).call()
+    signer = gateway.functions.predictSignerAddressFromSig(sighash, item['sig']).call()
+    did_bytes = item['did'].encode('utf-8')
+    signer_safe = gateway.functions.predictSafeAddressFromDidAndSig(sighash, did_bytes, item['sig'], 0).call()
     balance = w3.eth.get_balance(signer_safe)
     code_len = len(w3.eth.get_code(signer_safe))
     is_deployed = False

@@ -4,7 +4,7 @@ import json
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='../contracts/.env')
+load_dotenv(dotenv_path='../contract/.env')
 
 url = os.getenv('SEPOLIA_RPC_URL')
 w3 = web3.Web3(web3.HTTPProvider(url))
