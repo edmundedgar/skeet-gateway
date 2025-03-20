@@ -1,4 +1,7 @@
-#1/bin/bash -x
+#!/bin/bash -x
+
+# Only need to run this after deploying a bot
+# python load_bots.py
 
 python fetch_skeets.py 
 python prepare_payload.py 
