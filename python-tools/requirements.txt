@@ -6,6 +6,7 @@ anyio==4.6.2.post1
 async-timeout==5.0.1
 atproto==0.0.55
 attrs==24.3.0
+base58==2.1.1
 bitarray==3.0.0
 certifi==2024.8.30
 cffi==1.17.1
@@ -35,6 +36,9 @@ morphys==1.0
 multidict==6.1.0
 parsimonious==0.10.0
 propcache==0.2.1
+psycopg==3.2.6
+psycopg-binary==3.2.6
+psycopg-pool==3.2.6
 py-multibase==1.0.3
 pycparser==2.22
 pycryptodome==3.21.0
