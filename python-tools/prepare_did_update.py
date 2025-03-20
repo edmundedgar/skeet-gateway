@@ -32,8 +32,6 @@ SKEET_CACHE = './skeets'
 OUT_DIR = './out'
 
 DID_DIRECTORY = 'https://plc.directory'
-PARSER_CONFIG = 'parser_config.json'
-
 
 # https://plc.directory/did:plc:pyzlzqt6b2nyrha7smfry6rv/log/audit
 
