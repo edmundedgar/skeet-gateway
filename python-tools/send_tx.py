@@ -53,8 +53,8 @@ def sendTX(item):
             "from": ACCOUNT.address,
             "nonce": w3.eth.get_transaction_count(ACCOUNT.address),
         })
-        #gas = w3.eth.estimateGas(tx)
-        #print("gas is" + str(gas))
+        gas = w3.eth.estimate_gas(tx)
+        print("gas is" + str(gas))
     except web3.exceptions.ContractLogicError as err:
         return (False, err.message)
     signed_tx = w3.eth.account.sign_transaction(tx, private_key=ACCOUNT.key).raw_transaction

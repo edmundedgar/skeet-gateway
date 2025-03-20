@@ -13,7 +13,7 @@ import did_queue
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path='../contract/.env')
 
 did_queue.prepare()
 

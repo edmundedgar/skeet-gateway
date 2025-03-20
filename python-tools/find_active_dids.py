@@ -53,7 +53,7 @@ if __name__ == '__main__':
         block_number = to_block
 
         isFound = False
-        print("fetch range "+str(from_block) + "-" + str(to_block))
+        # print("fetch range "+str(from_block) + "-" + str(to_block))
         logs = gateway.events.LogHandleAccount().get_logs(from_block=from_block, to_block = to_block)
         for log in logs:
             did = log['args']['did'].decode('utf-8')
@@ -64,7 +64,7 @@ if __name__ == '__main__':
             isFound = True
 
         if isFound:
-            print("loaded "+str(countLoaded))
+            print("loaded "+str(countLoaded) + " dids")
 
     tx_hist['lastBlock'] = block_number
     with open(TX_FILE, 'w', encoding='utf-8') as f:

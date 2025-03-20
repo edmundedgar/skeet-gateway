@@ -25,6 +25,21 @@ PLC_MIRROR_PWD = os.getenv('PLC_MIRROR_PWD')
 
 did_queue.prepare()
 
+DID_HISTORY_FILE = 'did_hist.json'
+
+did_json = {}
+with open(DID_HISTORY_FILE) as f:
+    did_json = json.load(f)
+
+dids = []
+if 'didByLatestBlock' in did_json:
+    for did in did_json['didByLatestBlock']:
+        dids.append(did)
+
+if len(dids) == 0:
+    print("No dids found in did_hist.json")
+    sys.exit()
+
 # Watch subscription list for unpublished changes
 # If found add entry cid to sighash
 
@@ -77,11 +92,9 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
     # Open a cursor to perform database operations
     with conn.cursor() as cur:
 
-        print("create")
         cur.execute(create_sql)
 
         for did in dids:
-            print("check did" + did)
             cur.execute('SELECT count(*) FROM subscribed_dids where did = %s', (did,))
             num_arr = cur.fetchone()
             num = num_arr[0]
@@ -90,7 +103,6 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
                 cur.execute('insert into subscribed_dids(did, sent_ts) values (%s,%s)', (did,int(time.time()),))
         conn.commit()
 
-        print("check missing")
         cur.execute(missing_sql)
         insert_me = []
         for record in cur:
@@ -113,7 +125,6 @@ with psycopg.connect(host=PLC_MIRROR_HOST, port=PLC_MIRROR_PORT, dbname=PLC_MIRR
 
         conn.commit()
 
-        print("get diss")
         cur.execute('SELECT distinct(did) from shadow_updates u inner join plc_log_entries p on u.cid=p.cid where u.sent_ts = %s', (0,))
         for record in cur:
             did = record[0]
