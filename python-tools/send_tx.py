@@ -66,7 +66,7 @@ def diagnosisDetail(item):
     sighash = hashlib.sha256(commit_node).digest()
     signer = gateway.functions.predictSignerAddressFromSig(sighash, item['sig']).call()
     did_bytes = item['did'].encode('utf-8')
-    signer_safe = gateway.functions.predictSafeAddressFromDidAndSig(sighash, did_bytes, item['sig'], 0).call()
+    signer_safe = gateway.functions.predictSafeAddressFromDidAndSig(did_bytes, sighash, item['sig'], 0).call()
     balance = w3.eth.get_balance(signer_safe)
     code_len = len(w3.eth.get_code(signer_safe))
     is_deployed = False
@@ -91,8 +91,8 @@ def handleItem(item):
     bot = item['botName']
     #print(at_uri)
     result, detail, err = sendTX(item)
-    print("detail is")
-    print(detail)
+    # print("detail is")
+    # print(detail)
     if not 'x_history' in item:
         item['x_history'] = [] 
     item['x_history'].append({
