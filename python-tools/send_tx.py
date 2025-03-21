@@ -55,11 +55,11 @@ def sendTX(item):
         gas = w3.eth.estimate_gas(tx)
         print("Gas estimate: " + str(gas))
     except web3.exceptions.ContractLogicError as err:
-        return (False, err.message)
+        return (False, None, err)
     signed_tx = w3.eth.account.sign_transaction(tx, private_key=ACCOUNT.key).raw_transaction
     tx_hash = w3.eth.send_raw_transaction(signed_tx)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    return (True, receipt)
+    return (True, receipt, None)
 
 def diagnosisDetail(item):
     commit_node = bytes.fromhex(item['commitNode'][2:])
@@ -90,12 +90,15 @@ def handleItem(item):
     at_uri = item['atURI']
     bot = item['botName']
     #print(at_uri)
-    result, detail = sendTX(item)
+    result, detail, err = sendTX(item)
+    print("detail is")
+    print(detail)
     if not 'x_history' in item:
         item['x_history'] = [] 
     item['x_history'].append({
         str(time.time()): {
-            "diagnosis": diagnosisDetail(item)
+            "diagnosis": diagnosisDetail(item),
+            "error": str(err)
         }
     })
     if result:
@@ -103,7 +106,7 @@ def handleItem(item):
         item['x_tx_hash'] = detail.transactionHash.to_0x_hex()
         skeet_queue.updateStatus(at_uri, bot, "tx", "report", item)
     else:
-        if detail == 'execution reverted: Already handled':
+        if err is not None and err.message == 'execution reverted: Already handled':
             print("Was already completed: " + at_uri + " (" + bot + ")")
             skeet_queue.updateStatus(at_uri, bot, "tx", "report", item)
         else:
