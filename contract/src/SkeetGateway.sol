@@ -59,7 +59,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     );
 
     event LogExecutePayload(
-        bytes32 indexed contentHash, bytes32 indexed account, address indexed to, uint256 value, bytes data
+        bytes32 indexed contentHash, bytes32 indexed account, address indexed to, uint256 value, bytes data, bool isApproval
     );
 
     event LogAddDomain(address indexed owner, string domain);
@@ -287,10 +287,8 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         (address to, uint256 value, bytes memory payloadData) =
             _parsePayload(content, botNameLength, address(accountSafe));
 
-        // The user's smart wallet should recognize this contract as their owner and execute what we send it.
-        // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
-        require(
-            accountSafe.execTransaction(
+        if (accountSafe.getThreshold() > 1) {
+            bytes32 txHash = accountSafe.getTransactionHash(
                 to,
                 value,
                 payloadData,
@@ -300,11 +298,30 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
                 0,
                 address(0),
                 payable(address(0)),
-                abi.encodePacked(bytes32(uint256(uint160(address(this)))), bytes32(0), uint8(1)) // special fake signature for a contract call
-            ),
-            "Execution failed"
-        );
-        emit LogExecutePayload(contentHash, account, to, value, payloadData);
+                accountSafe.nonce()
+            );
+            accountSafe.approveHash(txHash);
+            emit LogExecutePayload(contentHash, account, to, value, payloadData, true);
+        } else {
+            // The user's smart wallet should recognize this contract as their owner and execute what we send it.
+            // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
+            require(
+                accountSafe.execTransaction(
+                    to,
+                    value,
+                    payloadData,
+                    Enum.Operation.Call,
+                    0,
+                    0,
+                    0,
+                    address(0),
+                    payable(address(0)),
+                    abi.encodePacked(bytes32(uint256(uint160(address(this)))), bytes32(0), uint8(1)) // special fake signature for a contract call
+                ),
+                "Execution failed"
+            );
+            emit LogExecutePayload(contentHash, account, to, value, payloadData, false);
+        }
     }
 
     function accountSafeForId(bytes32 account, uint256 safeId) external view returns (Safe) {
