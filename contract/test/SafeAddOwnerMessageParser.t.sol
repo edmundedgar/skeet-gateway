@@ -51,7 +51,6 @@ contract PayMessageParserTest is Test, SkeetProofLoader, Enum {
     }
 
     function testApproveHashAfterAddKey() public {
-
         address[] memory trustedObservers;
         SkeetGateway gateway = new SkeetGateway(address(safeSingleton), address(0), 0, trustedObservers);
         gateway.addDomain("unconsensus.com", address(this));
@@ -84,7 +83,9 @@ contract PayMessageParserTest is Test, SkeetProofLoader, Enum {
             0,
             address(0),
             payable(address(0)),
-            abi.encodePacked(bytes32(uint256(uint160(address(0x4c582d321fB6A00f85C41686022709D8Eb9C28C3)))), bytes32(0), uint8(1)) // special fake signature for a contract call
+            abi.encodePacked(
+                bytes32(uint256(uint160(address(0x4c582d321fB6A00f85C41686022709D8Eb9C28C3)))), bytes32(0), uint8(1)
+            ) // special fake signature for a contract call
         );
         assertEq(Safe(payable(expectedSafe)).getThreshold(), 2, "threshold change did not work");
 
@@ -99,13 +100,17 @@ contract PayMessageParserTest is Test, SkeetProofLoader, Enum {
         SkeetProof memory proof2 = _loadProofFixture("bbs_blah_example_com.json");
 
         assertEq(proof.did, proof2.did);
-        assertEq(gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig), gateway.predictSignerAddressFromSig(sha256(proof2.commitNode), proof2.sig));
+        assertEq(
+            gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig),
+            gateway.predictSignerAddressFromSig(sha256(proof2.commitNode), proof2.sig)
+        );
 
         address expectedSafeBBS = address(
-            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof2.did)), sha256(proof2.commitNode), proof2.sig, 0)
+            gateway.predictSafeAddressFromDidAndSig(
+                bytes32(bytes(proof2.did)), sha256(proof2.commitNode), proof2.sig, 0
+            )
         );
         assertEq(expectedSafeBBS, expectedSafe, "BBS should use the same safe as the add key");
-
 
         vm.recordLogs();
         gateway.handleSkeet(
@@ -115,7 +120,5 @@ contract PayMessageParserTest is Test, SkeetProofLoader, Enum {
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 3);
         assertEq(entries[2].topics[3], bytes32(uint256(uint160(address(bbs)))), "topic 2 should be the bbs we called");
-
     }
-
 }

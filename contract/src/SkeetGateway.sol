@@ -59,7 +59,12 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     );
 
     event LogExecutePayload(
-        bytes32 indexed contentHash, bytes32 indexed account, address indexed to, uint256 value, bytes data, bool isApproval
+        bytes32 indexed contentHash,
+        bytes32 indexed account,
+        address indexed to,
+        uint256 value,
+        bytes data,
+        bool isApproval
     );
 
     event LogAddDomain(address indexed owner, string domain);
