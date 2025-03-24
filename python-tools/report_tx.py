@@ -21,6 +21,16 @@ bot_login = {}
 with open("bot_login.json") as f:
     bot_login = json.load(f)
 
+default_bot = None
+for b in bot_login:
+    if 'default' in bot_login[b] and bot_login[b]['default']:
+        default_bot = b
+        break
+
+if default_bot is None:
+    print('Could not find default bot. Please set "default": true for one entry in bot_login.json')
+    sys.exit()
+
 def processQueue():
     while True:
         item = skeet_queue.readNext("report")
@@ -35,13 +45,19 @@ def handleItem(item):
     txid = item['x_tx_hash']
     etherscan_uri = 'https://sepolia.etherscan.io/tx/' + txid
 
+    send_as_bot = default_bot
+    if bot in bot_login:
+        send_as_bot = bot
+    
     message = client_utils.TextBuilder().text('Transaction sent: ').link(etherscan_uri, etherscan_uri)
 
     if bot == 'bbs.unconsensus.com':
         message = client_utils.TextBuilder().text('Message posted: ').link(etherscan_uri, etherscan_uri)
 
-    client = Client(bot_login[bot]['serviceEndpoint'])
-    client.login(bot, bot_login[bot]['password'])
+    print(bot_login[send_as_bot])
+
+    client = Client(bot_login[send_as_bot]['serviceEndpoint'])
+    client.login(send_as_bot, bot_login[send_as_bot]['password'])
 
     post = client.app.bsky.feed.post.get(item['did'], item['rkey'])
 
