@@ -42,6 +42,12 @@ def handleItem(item):
     at_uri = item['atURI']
     print("handle item" + at_uri)
     bot = item['botName']
+
+    if 'x_tx_hash' not in item:
+        skeet_queue.updateStatus(at_uri, bot, "report", "report_retry", item)
+        print("Item without tx hash moved to report_retry")
+        return
+
     txid = item['x_tx_hash']
     etherscan_uri = 'https://sepolia.etherscan.io/tx/' + txid
 
@@ -55,6 +61,9 @@ def handleItem(item):
         message = client_utils.TextBuilder().text('Message posted: ').link(etherscan_uri, etherscan_uri)
 
     print(bot_login[send_as_bot])
+
+    print("exiting early")
+    sys.exit(0)
 
     client = Client(bot_login[send_as_bot]['serviceEndpoint'])
     client.login(send_as_bot, bot_login[send_as_bot]['password'])
