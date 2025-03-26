@@ -104,6 +104,12 @@ def handleItem(item):
     if result:
         print("Completed: " + at_uri + " (" + bot + ")")
         item['x_tx_hash'] = detail.transactionHash.to_0x_hex()
+        item['x_tx_logs'] = []
+        #print(detail.logs)
+        for l in detail.logs:
+            # Encode and decode back to change the binary stuff into stuff that can go to json
+            json_friendly_obj = json.loads(w3.to_json(l))
+            item['x_tx_logs'].append(json_friendly_obj)
         skeet_queue.updateStatus(at_uri, bot, "tx", "report", item)
     else:
         if err is not None and err.message == 'execution reverted: Already handled':
