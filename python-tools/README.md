@@ -2,8 +2,6 @@
 
 Python tools used for fetching skeets that need to be handled by the SkeetGateway and calling handleSkeet for them.
 
-They may later be replaced by our (better quality) Typescript code under `bot/`.
-
 ## Preparation
 
 ```
@@ -13,6 +11,40 @@ pip install -r requirements.txt
 ```
 
 Copy `env.sample` to `.env` and fill in the details.
+
+## What this does
+
+There is a script for each step in handling a skeet that needs to be sent to the blockchain.
+
+The skeets to handle at each step are managed in a directory under `queue` (for SkeetGateway updates) or `did_queue` (for ShadowPLCDirectory updates).
+
+The queues go: `payload` -> `tx` -> `report` -> `completed`.
+
+If an error occurs that may not be fatal they will be moved into the `_retry` version, eg `payload_retry`.
+
+The scripts consist of:
+ 
+### Setup
+
+  * `load_bots.py` creates a record of any bots registered with the `SkeetGateway`.
+
+### Skeet Gateway
+
+  * `fetch_skeets.py` fetches any skeets addressed to the bots on the list and queues them for payload fetching.
+  * `prepare_payload.py` fetches the payload (merkle proof etc) and formats it ready to be sent to the chain.
+  * `send_tx.py` simulates the transaction, and sends it to the blockchain
+  * `report_tx.py` creates a reply skeet telling the user what happened
+
+### Skeet Gateway
+
+  * `find_active_dids.py` makes a list of atproto accounts that are active on the blockchain and therefore may need their DID data recorded in the Shadow DID registry.
+  * `watch_did_update.py` checks for any updates to the active did records that may need to be sent to the blockchain.
+  * `prepare_did_update.py` fetches the update history and formats it ready to be sent to the blockchain.
+  * `send_did_tx.py` simulates the transaction to update the registry and sends it to the blockchain.
+  * `report_did_tx.py` has not been implemented yet so DID updates just pile up in the `report` queue.
+
+To run all these scripts in order, run `./handle.sh`.
+
 
 ## Usage
 
