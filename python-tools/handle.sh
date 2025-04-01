@@ -10,5 +10,9 @@ python report_tx.py
 
 python find_active_dids.py 
 python watch_did_update.py 
+
+# clear DID history cache
+rm -f plcs/*
 python prepare_did_update.py 
+
 python send_did_tx.py
