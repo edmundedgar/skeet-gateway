@@ -7,6 +7,15 @@ import {IRealityETH} from "./IRealityETH.sol";
 import {DagCborNavigator} from "../../DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
+import {Base32} from "@0x00000002/ipfs-cid-solidity/contracts/Base32.sol";
+
+bytes4 constant MULTIHASH_CID_DAGCBOR_SHA2_256 = hex"01711220";
+
+bytes6 constant CBOR_HEADER_REPLY = hex"657265706C79"; // text(5) "reply"
+bytes7 constant CBOR_HEADER_PARENT = hex"66706172656E74"; // text(6) "parent"
+bytes4 constant CBOR_HEADER_CID = hex"63636964"; // # # text(3) "cid"
+bytes5 constant CBOR_HEADER_ROOT = hex"64726F6F74"; //  # text(4) "root"
+
 contract RealityETHAnswerMessageParser is IMessageParser {
     // Should be no longer than 4 bytes or see comment about bytes4
     string constant NATIVE_TOKEN_SYMBOL = "ETH";
@@ -54,12 +63,29 @@ contract RealityETHAnswerMessageParser is IMessageParser {
         return (amount, cursor);
     }
 
+    function _verifyReply(bytes[] calldata content) internal {
+        uint256 cursor = 1;
+        cursor = DagCborNavigator.indexOfMappingField(content[0], bytes.concat(CBOR_HEADER_REPLY), cursor);
+        cursor = DagCborNavigator.indexOfMappingField(content[0], bytes.concat(CBOR_HEADER_ROOT), cursor + 1);
+        cursor = DagCborNavigator.indexOfMappingField(content[0], bytes.concat(CBOR_HEADER_CID), cursor + 1);
+
+        uint256 cidLength;
+        (, cidLength, cursor) = DagCborNavigator.parseCborHeader(content[0], cursor);
+
+        bytes memory expectedCid = Base32.encode(bytes.concat(MULTIHASH_CID_DAGCBOR_SHA2_256, sha256(content[1])));
+        require(
+            keccak256(expectedCid) == keccak256(content[0][cursor:cursor + cidLength]), "Reply provided did not match"
+        );
+    }
+
     function parseMessage(bytes[] calldata content, uint256 cursor, uint256, address)
         external
         returns (address, uint256 value, bytes memory)
     {
         bytes32 answer;
         uint256 amount;
+
+        _verifyReply(content);
 
         (answer, cursor) = _answerBytes32(content[0], cursor);
         (amount, cursor) = _bondAmount(content[0], cursor);
