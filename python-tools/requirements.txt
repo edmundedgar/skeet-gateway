@@ -35,6 +35,7 @@ libipld==3.0.0
 morphys==1.0
 multidict==6.1.0
 parsimonious==0.10.0
+pathvalidate==3.2.3
 propcache==0.2.1
 psycopg==3.2.6
 psycopg-binary==3.2.6

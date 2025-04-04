@@ -1,10 +1,11 @@
 import hashlib
 import json
 import os
+from pathvalidate import sanitize_filename
 
 statuses = ['payload', 'payload_retry', 'tx', 'tx_retry', 'report', 'report_retry', 'abandoned', 'completed']
 
-QUEUE_ROOT = "queue"
+QUEUE_ROOT = "skeet_queue"
 
 def prepare():
     if not os.path.exists(QUEUE_ROOT):
@@ -14,7 +15,8 @@ def prepare():
             os.mkdir(QUEUE_ROOT + '/' + s)
 
 def hashedName(at_uri, bot):
-    return hashlib.sha256(at_uri.encode()).hexdigest() + '-' + hashlib.sha256(bot.encode()).hexdigest()
+    fn = bot + '-' + at_uri
+    return sanitize_filename(fn)
 
 def status(at_uri, bot):
     # refer to posts by their uri hash to avoid dealing with untrusted filesystem paths
