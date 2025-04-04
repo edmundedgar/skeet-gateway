@@ -14,7 +14,6 @@ bytes5 constant CBOR_HEADER_ROOT = hex"64726F6F74"; //  # text(4) "root"
 bytes4 constant CBOR_HEADER_CID = hex"63636964"; // # # text(3) "cid"
 
 contract ReplyVerifier {
-
     function _verifyReply(bytes[] calldata content) internal {
         uint256 cursor = 1;
         cursor = DagCborNavigator.indexOfMappingField(content[0], bytes.concat(CBOR_HEADER_REPLY), cursor);
@@ -29,5 +28,4 @@ contract ReplyVerifier {
             keccak256(expectedCid) == keccak256(content[0][cursor:cursor + cidLength]), "Reply provided did not match"
         );
     }
-
 }
