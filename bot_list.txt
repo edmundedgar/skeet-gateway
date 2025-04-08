@@ -1,0 +1,8 @@
+skeetbot.eth.link: General / default account  test3@ did:plc:sko7itimofordygat5n6gwql
+bbs.skeetbot.eth.link                         test4@ did:plc:egfzvm4s2gwtzjqk5q627crt
+pay.skeetbot.eth.link                         test5@ did:plc:kug3pgmrdj34q4s64ph5vc4r
+addkey.skeetbot.eth.link                      test6@ did:plc:7zlkhfflr25ksptuzpo2wllc
+ask.bot.reality.eth.link                      test7@ did:plc:m5xtxtmtek7dhmx7f3cfhji5
+answer.bot.reality.eth.link                   test8@ did:plc:3oy7ctb63vgjima2e7ify3de
+
+
