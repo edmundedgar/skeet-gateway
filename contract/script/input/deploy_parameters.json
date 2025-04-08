@@ -1,9 +1,9 @@
 {
     "bbsBot": "bbs",
-    "bbsDomain": "unconsensus.com",
-    "domains": ["bot.reality.eth.link", "unconsensus.com"],
+    "bbsDomain": "skeetbot.eth.link",
+    "domains": ["bot.reality.eth.link", "skeetbot.eth.link"],
     "payBot": "pay",
-    "payDomain": "unconsensus.com",
+    "payDomain": "skeetbot.eth.link",
     "realityETH": "0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca",
     "realityETHAnswerBot": "answer",
     "realityETHAnswerDomain": "bot.reality.eth.link",
@@ -12,7 +12,7 @@
     "realityETHQuestionDomain": "bot.reality.eth.link",
     "realityETHURLPrefix": "https://reality.eth.link/app/#!/network/11155111/contract/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca/token/ETH/question/0xaf33dcb6e8c5c4d9ddf579f53031b514d19449ca-0x",
     "safeAddOwnerBot": "addkey",
-    "safeAddOwnerDomain": "unconsensus.com",
+    "safeAddOwnerDomain": "skeetbot.eth.link",
     "safeSingleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
     "shadowDIDPLCDirectory": "0x0114B85f1a92773D8C3AdCef6139288926E4cf98"
 }
