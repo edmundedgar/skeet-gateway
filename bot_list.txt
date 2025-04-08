@@ -5,4 +5,8 @@ addkey.skeetbot.eth.link                      test6@ did:plc:7zlkhfflr25ksptuzpo
 ask.bot.reality.eth.link                      test7@ did:plc:m5xtxtmtek7dhmx7f3cfhji5
 answer.bot.reality.eth.link                   test8@ did:plc:3oy7ctb63vgjima2e7ify3de
 
-
+added QmNUf3VrKDb6LoBA8UtFscDJQ2Mt8ZFDVag7Up4tJBqefo addkey.skeetbot.eth.link
+added QmPBSj7dT5iUBH6p9oPH9WAH84iyN6LEmxudDrwJya1hPV bbs.skeetbot.eth.link
+added QmaqRtLt8hEeDQaXthLnLHVkbZFjkt5E7hDuUzCCBAGb3t pay.skeetbot.eth.link
+added QmRUs3n1tUtQyC31ws8kkhcBTgZYr9ZjjUbyUkKxrAyojL ask.bot.reality.eth.link
+added QmeaFBwqbnNPSBScpLxn41UVCKWDnD6NEKcHJi9GzcnZUZ answer.bot.reality.eth.link
