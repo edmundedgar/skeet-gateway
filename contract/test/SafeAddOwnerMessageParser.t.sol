@@ -15,7 +15,7 @@ import {Enum} from "../lib/safe-contracts/contracts/common/Enum.sol";
 import {BBSMessageParser} from "../src/parsers/bbs/BBSMessageParser.sol";
 import {BBS} from "../src/parsers/bbs/BBS.sol";
 
-contract PayMessageParserTest is Test, SkeetProofLoader, Enum {
+contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader, Enum {
     Safe safeSingleton;
     SafeAddOwnerMessageParser parser;
 
