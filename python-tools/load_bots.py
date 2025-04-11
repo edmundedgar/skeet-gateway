@@ -10,6 +10,7 @@ url = os.getenv('SEPOLIA_RPC_URL')
 w3 = web3.Web3(web3.HTTPProvider(url))
 
 GATEWAY_ADDRESS = os.getenv('SKEET_GATEWAY')
+DEPLOYMENT_BLOCK = int(os.getenv('DEPLOYMENT_BLOCK'))
 
 ABI_FILE = "../contract/out/SkeetGateway.sol/SkeetGateway.json"
 
@@ -24,6 +25,11 @@ parser_config = {}
 
 start_block = w3.eth.block_number
 max_blocks = 100000
+if start_block - DEPLOYMENT_BLOCK > max_blocks:
+    max_blocks = start_block - DEPLOYMENT_BLOCK
+
+print("fetching back to "+str(start_block - max_blocks))
+
 block_number = start_block
 countLoaded = 0
 while block_number > start_block - max_blocks:
