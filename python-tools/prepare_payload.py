@@ -58,7 +58,7 @@ def fetchAtURIForSkeetURL(skeet_url):
     else:
         with urllib.request.urlopen(skeet_url) as response:
             html = response.read()
-            result = re.search('<link rel="alternate" href="(at:\/\/did:plc:.*?\/app.bsky.feed.post\/.*?)"', str(html))
+            result = re.search('<link rel="alternate" href="(at://did:plc:.*?/app.bsky.feed.post/.*?)"', str(html))
             if result is None:
                 raise Exception("Could not find the at:// link in the URL you provided. Maybe posts aren't shown unless you're logged in? Check the URL or pass an at:// URI instead.")
 
