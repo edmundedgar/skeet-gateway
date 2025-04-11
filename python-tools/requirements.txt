@@ -45,7 +45,6 @@ pycparser==2.22
 pycryptodome==3.21.0
 pydantic==2.10.3
 pydantic_core==2.27.1
-pysha3==1.0.2
 python-baseconv==1.2.2
 python-dotenv==1.0.1
 pyunormalize==16.0.0

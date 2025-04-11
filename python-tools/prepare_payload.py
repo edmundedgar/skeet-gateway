@@ -17,7 +17,6 @@ import json
 import hashlib
 import libipld
 from multibase import encode, decode
-import sha3
 from eth_keys import KeyAPI
 
 import skeet_queue
