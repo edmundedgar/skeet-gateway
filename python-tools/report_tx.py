@@ -36,8 +36,8 @@ ABI_FILES = []
 
 if not os.path.exists(ABI_PATH):
     print("Please create the abi/ directory and fill it with the ABIs you might need, eg with:")
-    print("mkdir abi")
-    print("cp ../contract/out/*.sol/*.json abi/")
+    print("pushd ../contract && forge build && popd")
+    print("mkdir abi && cp ../contract/out/*.sol/*.json abi/")
     sys.exit(1)
 
 for f in os.listdir(ABI_PATH):
