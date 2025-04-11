@@ -280,11 +280,15 @@ def processQueuedPayloads():
         print(item)
         at_uri = item['at_uri']
         bot = item['bot']
-        (param_did, param_rkey) = atURIToDidAndRkey(at_uri)
-        (car, addresses) = loadCar(param_did, param_rkey)
-        item = generatePayload(car, param_did, param_rkey, addresses, at_uri)
-        # item['payload'] = generatePayload(car, param_did, param_rkey, addresses)
-        skeet_queue.updateStatus(at_uri, bot, "payload", "tx", item)
+
+        try:
+            (param_did, param_rkey) = atURIToDidAndRkey(at_uri)
+            (car, addresses) = loadCar(param_did, param_rkey)
+            item = generatePayload(car, param_did, param_rkey, addresses, at_uri)
+            # item['payload'] = generatePayload(car, param_did, param_rkey, addresses)
+            skeet_queue.updateStatus(at_uri, bot, "payload", "tx", item)
+        except:
+            skeet_queue.updateStatus(at_uri, bot, "payload", "payload_retry", item)
 
 if __name__ == '__main__':
 
