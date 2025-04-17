@@ -9,7 +9,13 @@ import {SafeProxy} from "../lib/safe-contracts/contracts/proxies/SafeProxy.sol";
 import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
 import {Enum} from "../lib/safe-contracts/contracts/common/Enum.sol";
 
+import {SafeCreateMessageParser} from "./parsers/safe/SafeCreateMessageParser.sol";
+import {SafeSelectMessageParser} from "./parsers/safe/SafeSelectMessageParser.sol";
+import {SafeVerifyMessageParser} from "./parsers/safe/SafeVerifyMessageParser.sol";
+
 import {ShadowDIDPLCDirectory} from "./ShadowDIDPLCDirectory.sol";
+
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract SkeetGateway is Enum, AtprotoMSTProver {
     // Skeets are addressed to a username, eg bbs.bots.example.com
@@ -18,12 +24,20 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         string domain;
         string subdomain;
         address parser;
+        bool is_internal;
     }
 
     address public gnosisSafeSingleton;
     ShadowDIDPLCDirectory public shadowDIDPLCDirectory;
     uint256 public minUpdateMaturitySecs;
     address[] public didRepoTrustedObservers;
+    address[] public earlierSkeetGateways;
+
+    // Special parsers for internal functions related to the safe
+    // TODO: Should we pre-register the names you can refer to these by?
+    address public safeCreateMessageParser;
+    address public safeSelectMessageParser;
+    address public safeVerifyMessageParser;
 
     mapping(bytes32 => Bot) public bots;
 
@@ -50,7 +64,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     // If somebody transfers a safe to a signer, this is equivalent to somebody mailing you a free Ledger
     // ie you can control it, but it may have had malicious accounts/modules added or approvals granted on other contracts
     // use this to flag safes that have been assigned to you but you haven't confirmed people can use to send you stuff
-    mapping(bytes32 => mapping(address => bool)) accountUnverifiedSafes;
+    mapping(bytes32 => mapping(uint256 => bool)) accountUnverifiedSafeIds;
 
     event LogCreateSafe(bytes32 indexed account, address indexed accountSafe, uint256 indexed safeId);
 
@@ -89,6 +103,10 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         minUpdateMaturitySecs = _minUpdateMaturitySecs;
         didRepoTrustedObservers = _didRepoTrustedObservers;
 
+        safeSelectMessageParser = address(new SafeSelectMessageParser());
+        safeVerifyMessageParser = address(new SafeVerifyMessageParser());
+        safeCreateMessageParser = address(new SafeCreateMessageParser());
+
         initialSafeOwners.push(address(this));
         emit LogChangeOwner(owner);
     }
@@ -122,7 +140,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         require(parser != address(0), "Address not specified");
         bytes32 key = keccak256(abi.encodePacked(string.concat(string.concat(subdomain, "."), domain)));
         require(address(bots[key].parser) == address(0), "Subdomain already registered");
-        bots[key] = Bot(domain, subdomain, parser);
+        bots[key] = Bot(domain, subdomain, parser, false);
         emit LogAddBot(parser, domain, subdomain, metadata);
     }
 
@@ -132,9 +150,9 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @return target The contract to call from the user's smart wallet
     /// @return value The value to send from the user's smart wallet
     /// @return data The data to execute from the user's smart wallet
-    function _parsePayload(bytes[] calldata content, uint8 botNameLength, address accountSafe)
+    function _parsePayload(bytes[] calldata content, uint8 botNameLength, bytes32 account, address accountSafe)
         internal
-        returns (address, uint256 value, bytes memory)
+        returns (address, uint256, bytes memory)
     {
         uint256 textStart;
         uint256 textEnd;
@@ -147,7 +165,23 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         require(address(bot) != address(0), "Bot not found");
         require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
-        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd, accountSafe);
+        uint256 messageStart = textStart + 1 + botNameLength + 1;
+
+        // Special cases for built-in actions that don't happen against a specific safe
+        if (bot == safeCreateMessageParser) {
+            _createSafe(account);
+            return (address(0), 0, bytes(""));
+        } else if (bot == safeSelectMessageParser) {
+            string memory safeIdStr = string(content[0][messageStart:textEnd]);
+            _selectSafe(account, Strings.parseUint(safeIdStr));
+            return (address(0), 0, bytes(""));
+        } else if (bot == safeVerifyMessageParser) {
+            string memory safeIdStr = string(content[0][messageStart:textEnd]);
+            _verifySafe(account, Strings.parseUint(safeIdStr));
+            return (address(0), 0, bytes(""));
+        }
+
+        return IMessageParser(bot).parseMessage(content, messageStart, textEnd, accountSafe);
     }
 
     /// @notice Predict the address that the specified account will be assigned if they make a Safe
@@ -270,6 +304,20 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         }
     }
 
+    function _createSafe(bytes32 account) internal {
+        _ensureSafeCreated(account, selectedSafeId[account]);
+    }
+
+    function _selectSafe(bytes32 account, uint256 safeId) internal {
+        require(address(accountSafes[account][safeId]) != address(0));
+        selectedSafeId[account] = safeId;
+    }
+
+    function _verifySafe(bytes32 account, uint256 safeId) internal {
+        require(address(accountSafes[account][safeId]) != address(0));
+        accountUnverifiedSafeIds[account][safeId] = false;
+    }
+
     /// @notice Execute the specified content on behalf of the specified signer
     /// @param account The user on whose behalf an action will be taken
     /// @param content A data node containing a skeet
@@ -290,7 +338,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
         // Parsing will map the text of the message in the data node to a contract to interact with and some EVM code to execute against it.
         (address to, uint256 value, bytes memory payloadData) =
-            _parsePayload(content, botNameLength, address(accountSafe));
+            _parsePayload(content, botNameLength, account, address(accountSafe));
 
         if (accountSafe.getThreshold() > 1) {
             bytes32 txHash = accountSafe.getTransactionHash(
