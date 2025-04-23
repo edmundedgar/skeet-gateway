@@ -18,6 +18,7 @@ w3 = web3.Web3(web3.HTTPProvider(url))
 
 GATEWAY_ADDRESS = os.getenv('SKEET_GATEWAY')
 DEPLOYMENT_BLOCK = os.getenv('DEPLOYMENT_BLOCK')
+print("DEPLOYMENT_BLOCK is "+str(DEPLOYMENT_BLOCK))
 
 ABI_FILE = "../contract/out/SkeetGateway.sol/SkeetGateway.json"
 ACCOUNT = Account.from_key(os.getenv('PRIVATE_KEY'))
@@ -33,6 +34,7 @@ tx_hist = {
     "lastBlock": DEPLOYMENT_BLOCK,
     "didByLatestBlock": {}
 }
+print(tx_hist)
 
 TX_FILE = "did_hist.json"
 
@@ -64,7 +66,7 @@ if __name__ == '__main__':
             isFound = True
 
         if isFound:
-            print("loaded "+str(countLoaded) + " dids")
+            print("handled "+str(countLoaded) + " did log entries")
 
     tx_hist['lastBlock'] = block_number
     with open(TX_FILE, 'w', encoding='utf-8') as f:
