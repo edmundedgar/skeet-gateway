@@ -3,7 +3,7 @@ import json
 import os
 from pathvalidate import sanitize_filename
 
-statuses = ['payload', 'payload_retry', 'tx', 'tx_retry', 'report', 'report_retry', 'abandoned', 'completed']
+statuses = ['ignored', 'payload', 'payload_retry', 'tx', 'tx_retry', 'report', 'report_retry', 'abandoned', 'completed']
 
 QUEUE_ROOT = "skeet_queue"
 
@@ -25,6 +25,15 @@ def status(at_uri, bot):
         if os.path.exists(QUEUE_ROOT + '/' + s + '/' + fn):
             return s
     return None
+
+def markIgnored(at_uri, bot):
+    fn = hashedName(at_uri, bot)
+    item = {
+        "at_uri": at_uri,
+        "bot": bot
+    }
+    with open(QUEUE_ROOT + '/ignored/' + fn, 'w') as f:
+        json.dump(item, f, indent=4)
 
 def queueForPayload(at_uri, bot):
     fn = hashedName(at_uri, bot)
