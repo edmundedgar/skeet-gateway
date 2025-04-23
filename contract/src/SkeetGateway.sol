@@ -9,6 +9,8 @@ import {SafeProxy} from "../lib/safe-contracts/contracts/proxies/SafeProxy.sol";
 import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
 import {Enum} from "../lib/safe-contracts/contracts/common/Enum.sol";
 
+import {ParserUtil} from "./parsers/ParserUtil.sol";
+
 import {ShadowDIDPLCDirectory} from "./ShadowDIDPLCDirectory.sol";
 
 contract SkeetGateway is Enum, AtprotoMSTProver {
@@ -24,6 +26,9 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     ShadowDIDPLCDirectory public shadowDIDPLCDirectory;
     uint256 public minUpdateMaturitySecs;
     address[] public didRepoTrustedObservers;
+
+    // The hash of full address (including the domain) of the bot used for selecting a safe
+    bytes32 public selectSafeBotHash;
 
     mapping(bytes32 => Bot) public bots;
 
@@ -54,6 +59,8 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     event LogCreateSafe(bytes32 indexed account, address indexed accountSafe, uint256 indexed safeId);
 
+    event LogSelectSafe(bytes32 indexed account, uint256 indexed safeId);
+
     event LogTransferSafe(
         bytes32 indexed oldAccount, uint256 oldSafeId, bytes32 indexed newAccount, uint256 indexed newSafeId
     );
@@ -81,16 +88,22 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         address _gnosisSafeSingleton,
         address _shadowDIDPLCDirectory,
         uint256 _minUpdateMaturitySecs,
+        bytes32 _selectSafeBotHash,
         address[] memory _didRepoTrustedObservers
     ) {
         owner = msg.sender;
         gnosisSafeSingleton = _gnosisSafeSingleton;
         shadowDIDPLCDirectory = ShadowDIDPLCDirectory(_shadowDIDPLCDirectory);
         minUpdateMaturitySecs = _minUpdateMaturitySecs;
+        selectSafeBotHash = _selectSafeBotHash;
         didRepoTrustedObservers = _didRepoTrustedObservers;
 
         initialSafeOwners.push(address(this));
         emit LogChangeOwner(owner);
+    }
+
+    function selectedSafeAddress(bytes32 account) external view returns (address) {
+        return address(accountSafes[account][selectedSafeId[account]]);
     }
 
     /// @notice Change the contract owner (who has the ability to add domains)
@@ -132,7 +145,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @return target The contract to call from the user's smart wallet
     /// @return value The value to send from the user's smart wallet
     /// @return data The data to execute from the user's smart wallet
-    function _parsePayload(bytes[] calldata content, uint8 botNameLength, address accountSafe)
+    function _parsePayload(bytes[] calldata content, uint8 botNameLength, bytes32 account)
         internal
         returns (address, uint256 value, bytes memory)
     {
@@ -142,12 +155,33 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         bytes calldata message = content[0][textStart:textEnd];
         require(bytes1(message[0:1]) == bytes1(hex"40"), "Message should begin with @");
 
-        // Look up the bot name which should be in the first <256 bytes of the message followed by a space
-        address bot = bots[keccak256(message[1:1 + botNameLength])].parser;
-        require(address(bot) != address(0), "Bot not found");
         require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
-        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd, accountSafe);
+        bytes32 botNameHash = keccak256(message[1:1 + botNameLength]);
+
+        // Special case for selecting a safe, which happens as the account not the safe
+        if (botNameHash == selectSafeBotHash) {
+            _handleSelectSafeMessage(account, content[0][textStart + 1 + botNameLength:textEnd]);
+            return(address(0), 0, bytes(""));
+        }
+
+        // Look up the bot name which should be in the first <256 bytes of the message followed by a space
+        address bot = bots[botNameHash].parser;
+        require(address(bot) != address(0), "Bot not found");
+
+        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd, account);
+    }
+
+    function _handleSelectSafeMessage(bytes32 account, bytes calldata message) internal {
+        uint256 newSafeId = ParserUtil.stringToUint256(string(message));
+        uint256 safeCount = accountSafeCount[account]; // 1 higher than the max existing safe ID
+        require(safeCount >= newSafeId, "Safe must exist or be next in series");
+        if (safeCount == newSafeId) {
+            // Deploy a new safe at the next index
+            _ensureSafeCreated(account, newSafeId);
+        }
+        selectedSafeId[account] = newSafeId;
+        emit LogSelectSafe(account, newSafeId);
     }
 
     /// @notice Predict the address that the specified account will be assigned if they make a Safe
@@ -290,7 +324,11 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
         // Parsing will map the text of the message in the data node to a contract to interact with and some EVM code to execute against it.
         (address to, uint256 value, bytes memory payloadData) =
-            _parsePayload(content, botNameLength, address(accountSafe));
+            _parsePayload(content, botNameLength, account);
+
+        if (to == address(0)) {
+            return;
+        }
 
         if (accountSafe.getThreshold() > 1) {
             bytes32 txHash = accountSafe.getTransactionHash(

@@ -64,7 +64,7 @@ contract RealityETHAnswerMessageParser is IMessageParser, ReplyVerifier {
         return (amount, cursor);
     }
 
-    function parseMessage(bytes[] calldata content, uint256 cursor, uint256, address)
+    function parseMessage(bytes[] calldata content, uint256 cursor, uint256, bytes32)
         external
         returns (address, uint256 value, bytes memory)
     {

@@ -19,8 +19,9 @@ contract SkeetGatewayClient is SkeetGateway {
         address _gnosisSafeSingleton,
         address _shadowDIDPLCDirectory,
         uint256 _minUpdateMaturitySecs,
+        bytes32 _selectSafeBotHash,
         address[] memory _didRepoTrustedObservers
-    ) SkeetGateway(_gnosisSafeSingleton, _shadowDIDPLCDirectory, _minUpdateMaturitySecs, _didRepoTrustedObservers) {}
+    ) SkeetGateway(_gnosisSafeSingleton, _shadowDIDPLCDirectory, _minUpdateMaturitySecs, _selectSafeBotHash, _didRepoTrustedObservers) {}
 
     // public wrapper to test private function
     function callVerifyAndRecoverAccount(bytes32 proveMe, bytes calldata commitNode, bytes calldata sig)
@@ -41,7 +42,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
 
     function setUp() public {
         gateway = new SkeetGatewayClient(
-            address(safeSingleton), address(shadowDIDPLCDirectory), MIN_UPDATE_MATURITY_SECS, didRepoTrustedObservers
+            address(safeSingleton), address(shadowDIDPLCDirectory), MIN_UPDATE_MATURITY_SECS, keccak256(bytes("select.skeetbot.eth.link")), didRepoTrustedObservers
         );
         bbs = new BBS();
         BBSMessageParser bbsParser = new BBSMessageParser(address(bbs));

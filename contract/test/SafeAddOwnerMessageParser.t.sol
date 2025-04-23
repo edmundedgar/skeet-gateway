@@ -26,7 +26,7 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader, Enum {
 
     function testActualAddKeyPost() public {
         address[] memory trustedObservers;
-        SkeetGateway gateway = new SkeetGateway(address(safeSingleton), address(0), 0, trustedObservers);
+        SkeetGateway gateway = new SkeetGateway(address(safeSingleton), address(0), 0, keccak256(bytes("select.skeetbot.eth.link")), trustedObservers);
         gateway.addDomain("unconsensus.com", address(this));
         gateway.addBot("addkey", "unconsensus.com", address(parser), "");
 
@@ -52,7 +52,7 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader, Enum {
 
     function testApproveHashAfterAddKey() public {
         address[] memory trustedObservers;
-        SkeetGateway gateway = new SkeetGateway(address(safeSingleton), address(0), 0, trustedObservers);
+        SkeetGateway gateway = new SkeetGateway(address(safeSingleton), address(0), 0, keccak256(bytes("select.skeetbot.eth.link")), trustedObservers);
         gateway.addDomain("unconsensus.com", address(this));
         gateway.addBot("addkey", "unconsensus.com", address(parser), "");
 

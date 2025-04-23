@@ -35,6 +35,26 @@ library ParserUtil {
         return bytes32(bytes32Bytes);
     }
 
+    // The string should contain numbers (ascii 48-57)
+    function stringToUint256(string calldata numStr)
+        public
+        pure
+        returns (uint256)
+    {
+        uint256 numBytes = bytes(numStr).length;
+        uint256 i;
+        uint256 result;
+        for (i = 0; i < numBytes; i++) {
+            uint256 c = uint256(uint8(bytes1(bytes(numStr)[i])));
+            if (c >= 48 && c <= 57) {
+                result = result * 10 + (c - 48);
+            } else {
+                revert("Non-decimal character");
+            }
+        }
+        return result;
+    }
+
     // The string should contain numbers (ascii 48-57) and optionally 1 decimal point (46).
     function stringStartingWithDecimalsToUint256(string calldata numStr, uint8 unitDecimals)
         public

@@ -49,7 +49,7 @@ contract DeployEverything is Script {
 
         address[] memory trustedObservers;
         SkeetGateway gateway =
-            new SkeetGateway(params.safeSingleton, address(shadowDIDPLCDirectory), 0, trustedObservers);
+            new SkeetGateway(params.safeSingleton, address(shadowDIDPLCDirectory), 0, keccak256(bytes("select.skeetbot.eth.link")), trustedObservers);
         for (uint256 i = 0; i < params.domains.length; i++) {
             gateway.addDomain(params.domains[i], address(tx.origin));
         }
