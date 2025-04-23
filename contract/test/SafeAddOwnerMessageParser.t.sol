@@ -32,7 +32,7 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader, Enum {
 
         SkeetProof memory proof = _loadProofFixture("add_key.json");
         address expectedSafe = address(
-            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig, 0)
+            gateway.predictSafeAddress(bytes32(bytes(proof.did)))
         );
 
         gateway.handleSkeet(
@@ -59,7 +59,7 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader, Enum {
         SkeetProof memory proof = _loadProofFixture("add_key.json");
 
         address expectedSafe = address(
-            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig, 0)
+            gateway.predictSafeAddress(bytes32(bytes(proof.did)))
         );
 
         gateway.handleSkeet(
@@ -106,8 +106,8 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader, Enum {
         );
 
         address expectedSafeBBS = address(
-            gateway.predictSafeAddressFromDidAndSig(
-                bytes32(bytes(proof2.did)), sha256(proof2.commitNode), proof2.sig, 0
+            gateway.predictSafeAddress(
+                bytes32(bytes(proof2.did))
             )
         );
         assertEq(expectedSafeBBS, expectedSafe, "BBS should use the same safe as the add key");

@@ -143,21 +143,21 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
         SkeetProof memory proof = _loadProofFixture("bbs_blah_example_com.json");
 
         address expectedSigner = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig);
-        bytes32 expectedAccount = keccak256(abi.encodePacked(bytes32(bytes(proof.did)), expectedSigner));
+        bytes32 expectedAccount = bytes32(bytes(proof.did));
 
         assertNotEq(expectedSigner, address(0), "Signer not found");
         address expectedSafe = address(
-            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig, 0)
+            gateway.predictSafeAddress(bytes32(bytes(proof.did)))
         );
-        assertEq(gateway.predictSafeAddress(expectedAccount, 0), expectedSafe, "safe address not as expected");
+        assertEq(gateway.predictSafeAddress(expectedAccount), expectedSafe, "safe address not as expected");
         assertNotEq(expectedSafe, address(0), "expected safe empty");
 
-        assertEq(address(gateway.accountSafeForId(expectedAccount, 0)), address(0), "Safe not created yet");
+        assertEq(address(gateway.didToSafe(expectedAccount)), address(0), "Safe not created yet");
 
         gateway.handleSkeet(
             proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
         );
-        address createdSafe = address(gateway.accountSafeForId(expectedAccount, 0));
+        address createdSafe = address(gateway.didToSafe(expectedAccount));
         assertNotEq(createdSafe, address(0), "Safe now created");
         assertEq(createdSafe, expectedSafe, "Safe not expected address");
 
@@ -171,72 +171,10 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
         assertEq(entries[2].topics[1], expectedAccount, "topic 1 should be account");
         assertEq(entries[2].topics[2], bytes32(uint256(uint160(expectedSafe))), "topic 2 should be safe");
 
-        assertEq(gateway.accountSafeForId(expectedAccount, 0).getOwners()[0], address(gateway));
+        assertEq(gateway.didToSafe(expectedAccount).getOwners()[0], address(gateway));
 
         assertEq(bbs.messages(createdSafe), "post this my pretty");
         assertNotEq(bbs.messages(createdSafe), "oinK");
-    }
-
-    // did: did:plc:jcekkwbdkwpe7v5shsp72oum.premigrate.json
-    // did: did:plc:jcekkwbdkwpe7v5shsp72oum.postmigrate.json
-    // skeet: migrationtest_bbs_after.json
-    // skeet: migrationtest_bbs.json
-    function testTransferSafes() public {
-        SkeetProof memory proof = _loadProofFixture("migrationtest_bbs.json");
-        address expectedSafe = address(
-            gateway.predictSafeAddressFromDidAndSig(bytes32(bytes(proof.did)), sha256(proof.commitNode), proof.sig, 0)
-        );
-        address expectedAddress1 = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig);
-        gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
-        );
-
-        DidProof memory didProof1 = _loadDidProofFixture("did:plc:jcekkwbdkwpe7v5shsp72oum.premigrate.json");
-
-        bytes32 did = bytes32(bytes(didProof1.did));
-
-        shadowDIDPLCDirectory.registerUpdates(
-            bytes32(0), didProof1.ops, didProof1.sigs, didProof1.pubkeys, didProof1.pubkeyIndexes
-        );
-        address address1 = shadowDIDPLCDirectory.uncontroversialVerificationAddress(bytes32(bytes(didProof1.did)));
-        assertEq(expectedAddress1, address1, "did address differs from signing address");
-
-        DidProof memory didProof = _loadDidProofFixture("did:plc:jcekkwbdkwpe7v5shsp72oum.postmigrate.json");
-        shadowDIDPLCDirectory.registerUpdates(
-            did, didProof.ops, didProof.sigs, didProof.pubkeys, didProof.pubkeyIndexes
-        );
-        address address2 = shadowDIDPLCDirectory.uncontroversialVerificationAddress(did);
-
-        bytes32 oldUpdateHash = sha256(didProof.ops[0]);
-        bytes32 newUpdateHash = sha256(didProof.ops[1]);
-
-        assertNotEq(address1, address2, "Address should have changed");
-        assertEq(address1, shadowDIDPLCDirectory.verificationAddressAt(did, oldUpdateHash));
-        assertEq(address2, shadowDIDPLCDirectory.verificationAddressAt(did, newUpdateHash));
-
-        bytes32 oldAccount = keccak256(abi.encodePacked(did, address1));
-        bytes32 newAccount = keccak256(abi.encodePacked(did, address2));
-
-        assertEq(address(gateway.accountSafeForId(oldAccount, 0)), expectedSafe);
-        assertEq(address(gateway.accountSafeForId(newAccount, 0)), address(0));
-
-        uint256[] memory safeIDs = new uint256[](1);
-        safeIDs[0] = 0;
-
-        // Second update too young
-        vm.expectRevert();
-        gateway.transferSafes(bytes32(bytes(didProof.did)), oldUpdateHash, newUpdateHash, safeIDs);
-
-        vm.warp(block.timestamp + MIN_UPDATE_MATURITY_SECS);
-        gateway.transferSafes(bytes32(bytes(didProof.did)), oldUpdateHash, newUpdateHash, safeIDs);
-
-        assertEq(address(gateway.accountSafeForId(newAccount, 0)), expectedSafe);
-        assertEq(address(gateway.accountSafeForId(oldAccount, 0)), address(0));
-
-        SkeetProof memory proof2 = _loadProofFixture("migrationtest_bbs_after.json");
-        gateway.handleSkeet(
-            proof2.content, proof2.botNameLength, proof2.nodes, proof2.nodeHints, proof2.commitNode, proof2.sig
-        );
     }
 
     function testReplayProtection() public {

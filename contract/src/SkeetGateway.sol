@@ -35,28 +35,11 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     // We maintain a list of smart wallets that we create on behalf of users.
     // Later we may make it possible to detach your initial Safe and assign a different smart contract wallet.
     // user -> id -> safe
-    mapping(bytes32 => mapping(uint256 => Safe)) public accountSafes;
+    mapping(bytes32 => Safe) public didToSafe;
 
     mapping(bytes32 => mapping(bytes32 => bool)) handledMessages;
 
-    // How many safes have been created for each user
-    // Each will use the index as part of its salt
-    mapping(bytes32 => uint256) accountSafeCount;
-
-    // The address of the safe you chose to be used for your next command
-    // (The first safe will be created automatically, otherwise you must create them before selecting them)
-    mapping(bytes32 => uint256) selectedSafeId;
-
-    // If somebody transfers a safe to a signer, this is equivalent to somebody mailing you a free Ledger
-    // ie you can control it, but it may have had malicious accounts/modules added or approvals granted on other contracts
-    // use this to flag safes that have been assigned to you but you haven't confirmed people can use to send you stuff
-    mapping(bytes32 => mapping(address => bool)) accountUnverifiedSafes;
-
-    event LogCreateSafe(bytes32 indexed account, address indexed accountSafe, uint256 indexed safeId);
-
-    event LogTransferSafe(
-        bytes32 indexed oldAccount, uint256 oldSafeId, bytes32 indexed newAccount, uint256 indexed newSafeId
-    );
+    event LogCreateSafe(bytes32 indexed account, address indexed didSafe);
 
     event LogExecutePayload(
         bytes32 indexed contentHash,
@@ -73,7 +56,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
 
     event LogChangeOwner(address indexed owner);
 
-    event LogHandleAccount(bytes32 indexed account, bytes32 indexed did, address indexed signer);
+    event LogHandleDid(bytes32 indexed did, address indexed signer);
 
     address[] initialSafeOwners;
 
@@ -132,7 +115,7 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     /// @return target The contract to call from the user's smart wallet
     /// @return value The value to send from the user's smart wallet
     /// @return data The data to execute from the user's smart wallet
-    function _parsePayload(bytes[] calldata content, uint8 botNameLength, address accountSafe)
+    function _parsePayload(bytes[] calldata content, uint8 botNameLength, address didSafe)
         internal
         returns (address, uint256 value, bytes memory)
     {
@@ -147,34 +130,21 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         require(address(bot) != address(0), "Bot not found");
         require(bytes1(message[1 + botNameLength:1 + botNameLength + 1]) == bytes1(hex"20"), "No space after bot name");
 
-        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd, accountSafe);
+        return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd, didSafe);
     }
 
     /// @notice Predict the address that the specified account will be assigned if they make a Safe
-    /// @param _account The account the safe will belong to
-    function predictSafeAddress(bytes32 _account, uint256 _safeId) public view returns (address) {
-        bytes32 salt = keccak256(abi.encodePacked(_account, _safeId));
+    /// @param _did The did the safe will belong to
+    function predictSafeAddress(bytes32 _did) public view returns (address) {
         bytes32 hash = keccak256(
             abi.encodePacked(
                 bytes1(0xff),
                 address(this),
-                salt,
+                _did,
                 keccak256(abi.encodePacked(type(SafeProxy).creationCode, uint256(uint160(gnosisSafeSingleton))))
             )
         );
         return address(uint160(uint256(hash)));
-    }
-
-    /// @notice Predict the address that the signer who created the specified signature will be assigned if they make a Safe
-    /// @param sig The signature in gnosis safe style (65 bytes, r+s+v)
-    function predictSafeAddressFromDidAndSig(bytes32 did, bytes32 sigHash, bytes calldata sig, uint256 safeId)
-        external
-        view
-        returns (address)
-    {
-        address signer = predictSignerAddressFromSig(sigHash, sig);
-        bytes32 account = keccak256(abi.encodePacked(did, signer));
-        return predictSafeAddress(account, safeId);
     }
 
     /// @notice Predict the address that the signer who created the specified signature will have
@@ -199,9 +169,10 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
         // This is the DID the signer is claiming to be speaking for in their signed commit node
         // They may or may not be the legitimate signer per the PLC directory / signed DID updates
         bytes32 did = processCommitNode(rootHash, commitNode);
-        bytes32 account = keccak256(abi.encodePacked(did, signer));
-        emit LogHandleAccount(account, did, signer);
-        return account;
+        require(shadowDIDPLCDirectory.uncontroversialVerificationAddress(did) == signer, "Signer not listed in DID");
+
+        emit LogHandleDid(did, signer);
+        return did;
     }
 
     /// @notice Perform some action on behalf of the sender of a skeet
@@ -226,74 +197,46 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
     }
 
     /// @notice Return the users's safe at the given index, creating it if necessary
-    /// @param account The user on whose behalf an action will be taken
-    /// @param safeId The numerical ID of the safe (each user starts at 0)
+    /// @param did The user on whose behalf an action will be taken
     /// @return A Safe instance
-    function _ensureSafeCreated(bytes32 account, uint256 safeId) internal returns (Safe) {
-        Safe accountSafe = accountSafes[account][safeId];
-        if (address(accountSafe) == address(0)) {
-            bytes32 salt = keccak256(abi.encodePacked(account, safeId));
-            accountSafe = Safe(payable(address(new SafeProxy{salt: salt}(gnosisSafeSingleton))));
-            require(address(accountSafe) != address(0), "Safe not created");
-            accountSafe.setup(
+    function _ensureSafeCreated(bytes32 did) internal returns (Safe) {
+        Safe didSafe = didToSafe[did];
+        if (address(didSafe) == address(0)) {
+            didSafe = Safe(payable(address(new SafeProxy{salt: did}(gnosisSafeSingleton))));
+            require(address(didSafe) != address(0), "Safe not created");
+            didSafe.setup(
                 initialSafeOwners, 1, address(0), bytes(""), address(0), address(0), 0, payable(address(0))
             );
-            accountSafes[account][safeId] = accountSafe;
-            accountSafeCount[account]++;
-            emit LogCreateSafe(account, address(accountSafe), safeId);
+            didToSafe[did] = didSafe;
+            emit LogCreateSafe(did, address(didSafe));
         }
-        return accountSafe;
-    }
-
-    function transferSafes(bytes32 _did, bytes32 _oldUpdateHash, bytes32 _newUpdateHash, uint256[] calldata safeIds)
-        external
-    {
-        address oldAddress = shadowDIDPLCDirectory.verificationAddressAt(_did, _oldUpdateHash);
-        require(oldAddress != address(0), "Old address not found");
-        bytes32 oldAccount = keccak256(abi.encodePacked(_did, oldAddress));
-        require(
-            shadowDIDPLCDirectory.isUpdateConfirmedValid(
-                _did, _newUpdateHash, minUpdateMaturitySecs, didRepoTrustedObservers
-            ),
-            "New update invalid"
-        );
-        address newAddress = shadowDIDPLCDirectory.verificationAddressAt(_did, _newUpdateHash);
-        bytes32 newAccount = keccak256(abi.encodePacked(_did, newAddress));
-        for (uint256 i = 0; i < safeIds.length; i++) {
-            uint256 oldSafeId = safeIds[i];
-            require(address(accountSafes[oldAccount][oldSafeId]) != address(0), "No safe to transfer");
-            uint256 newSafeId = accountSafeCount[newAccount];
-            accountSafes[newAccount][newSafeId] = accountSafes[oldAccount][oldSafeId];
-            accountSafeCount[newAccount]++;
-            delete(accountSafes[oldAccount][oldSafeId]);
-            emit LogTransferSafe(oldAccount, oldSafeId, newAccount, newSafeId);
-        }
+        return didSafe;
     }
 
     /// @notice Execute the specified content on behalf of the specified signer
-    /// @param account The user on whose behalf an action will be taken
+    /// @param did The user on whose behalf an action will be taken
     /// @param content A data node containing a skeet
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
-    function _executePayload(bytes32 account, bytes[] calldata content, uint8 botNameLength) internal {
-        require(account != bytes32(0), "Signer should not be empty");
+    function _executePayload(bytes32 did, bytes[] calldata content, uint8 botNameLength) internal {
+        require(did != bytes32(0), "Did should not be empty");
 
         // TODO We already hashed this in handleSkeet but couldn't reuse the hash for stack-too-deep reasons
         // See if we reorganize things to get around the need to do the hashing twice
         bytes32 contentHash = keccak256(content[0]);
-        require(!handledMessages[account][contentHash], "Already handled");
-        handledMessages[account][contentHash] = true;
+        require(!handledMessages[did][contentHash], "Already handled");
+        handledMessages[did][contentHash] = true;
 
         // Every user action will be done in the context of their smart contract wallet.
         // If they don't already have one, create it for them now.
         // The address used is deterministic, so you can check what it will be and send stuff to it before we create it.
-        Safe accountSafe = _ensureSafeCreated(account, selectedSafeId[account]);
+        Safe didSafe = _ensureSafeCreated(did);
 
         // Parsing will map the text of the message in the data node to a contract to interact with and some EVM code to execute against it.
         (address to, uint256 value, bytes memory payloadData) =
-            _parsePayload(content, botNameLength, address(accountSafe));
+            _parsePayload(content, botNameLength, address(didSafe));
 
-        if (accountSafe.getThreshold() > 1) {
-            bytes32 txHash = accountSafe.getTransactionHash(
+        if (didSafe.getThreshold() > 1) {
+            bytes32 txHash = didSafe.getTransactionHash(
                 to,
                 value,
                 payloadData,
@@ -303,15 +246,15 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
                 0,
                 address(0),
                 payable(address(0)),
-                accountSafe.nonce()
+                didSafe.nonce()
             );
-            accountSafe.approveHash(txHash);
-            emit LogExecutePayload(contentHash, account, to, value, payloadData, true);
+            didSafe.approveHash(txHash);
+            emit LogExecutePayload(contentHash, did, to, value, payloadData, true);
         } else {
             // The user's smart wallet should recognize this contract as their owner and execute what we send it.
             // Later we may allow it to detach itself from us and be controlled a different way, in which case this will fail.
             require(
-                accountSafe.execTransaction(
+                didSafe.execTransaction(
                     to,
                     value,
                     payloadData,
@@ -325,11 +268,8 @@ contract SkeetGateway is Enum, AtprotoMSTProver {
                 ),
                 "Execution failed"
             );
-            emit LogExecutePayload(contentHash, account, to, value, payloadData, false);
+            emit LogExecutePayload(contentHash, did, to, value, payloadData, false);
         }
     }
 
-    function accountSafeForId(bytes32 account, uint256 safeId) external view returns (Safe) {
-        return accountSafes[account][safeId];
-    }
 }
