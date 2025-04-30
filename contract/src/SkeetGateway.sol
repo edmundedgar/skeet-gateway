@@ -7,11 +7,11 @@ import {console} from "forge-std/console.sol";
 
 import {SafeProxy} from "../lib/safe-contracts/contracts/proxies/SafeProxy.sol";
 import {Safe} from "../lib/safe-contracts/contracts/Safe.sol";
-import {Enum} from "../lib/safe-contracts/contracts/common/Enum.sol";
+import {Enum} from "../lib/safe-contracts/contracts/libraries/Enum.sol";
 
 import {ShadowDIDPLCDirectory} from "./ShadowDIDPLCDirectory.sol";
 
-contract SkeetGateway is Enum, AtprotoMSTProver {
+contract SkeetGateway is AtprotoMSTProver {
     // Skeets are addressed to a username, eg bbs.bots.example.com
     // The username will be mapped to a contract which translate text into a contract address and transaction code.
     struct Bot {
