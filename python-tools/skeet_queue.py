@@ -29,8 +29,8 @@ def status(at_uri, bot):
 def markIgnored(at_uri, bot):
     fn = hashedName(at_uri, bot)
     item = {
-        "at_uri": at_uri,
-        "bot": bot
+        "atURI": at_uri,
+        "botName": bot
     }
     with open(QUEUE_ROOT + '/ignored/' + fn, 'w') as f:
         json.dump(item, f, indent=4)
@@ -38,8 +38,8 @@ def markIgnored(at_uri, bot):
 def queueForPayload(at_uri, bot):
     fn = hashedName(at_uri, bot)
     item = {
-        "at_uri": at_uri,
-        "bot": bot 
+        "atURI": at_uri,
+        "botName": bot 
     }
     with open(QUEUE_ROOT + '/payload/' + fn, 'w') as f:
         json.dump(item, f, indent=4)

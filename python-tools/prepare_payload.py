@@ -20,6 +20,7 @@ from multibase import encode, decode
 from eth_keys import KeyAPI
 
 import skeet_queue
+import skeet_gateway
 
 skeet_queue.prepare()
 
@@ -68,6 +69,28 @@ def fetchAtURIForSkeetURL(skeet_url):
                 sf.write(at_addr)
     print("Fetched at:// URI " + at_addr)
     return at_addr
+
+def didInfo(did):
+
+    did_file = DID_CACHE + '/' + hashlib.sha256(did.encode()).hexdigest()
+    address = None
+    handles = []
+    if not os.path.exists(did_file):
+        did_url = DID_DIRECTORY + '/' + did
+        urllib.request.urlretrieve(did_url, did_file)
+
+    with open(did_file, mode="r") as didf:
+        data = json.load(didf)
+        for vm in data['verificationMethod']: 
+            signer_key = vm['publicKeyMultibase']
+            signer_key_base58btc = signer_key.lstrip("did:key:")
+            signer = decode(signer_key_base58btc)[2:]
+            signer_pubkey = KeyAPI.PublicKey.from_compressed_bytes(signer)
+            address = signer_pubkey.to_checksum_address()
+        for handle in data['alsoKnownAs']:
+            handles = data['alsoKnownAs']
+
+    return handles, address
 
 def loadCar(did, rkey):
 
@@ -271,6 +294,117 @@ def atURIToDidAndRkey(at_uri):
     rkey = m.group(2)
     return (did, rkey)
 
+def generateReply(at_uri, bot, item, car):
+
+    # NB this assumes we already checked for needsTransaction and anything that needs that doesn't need a reply
+
+    # If we get a pay request, look up the address for the mention and prompt the user to reply
+
+    msg = ''
+
+    if bot == 'pay.skeetbot.eth.link':
+        for cid in car.blocks:
+            b = car.blocks[cid]
+            if 'text' not in b:
+                continue
+
+            text = b['text']
+
+            amount = ''
+            token = ''
+            message_bits = b['text'].split()
+
+            i = 0
+            for bit in message_bits:
+                if bit == 'ETH' and i > 1:
+                    amount = message_bits[i-1]
+
+                    pattern1 = re.compile(r'^\d+$')
+                    pattern2 = re.compile(r'^\d+\.\d+$')
+                    if pattern1.match(amount) or pattern2.match(amount):
+                        token = 'ETH'
+                        break
+
+                i = i + 1
+
+            targets = {}
+
+            if 'facets' in b:
+                for facet in b['facets']:
+                    for feature in facet['features']:
+                        if not '$type' in feature or feature['$type'] != 'app.bsky.richtext.facet#mention':
+                            continue
+                        handles, address = didInfo(feature['did'])
+                        if 'at://'+bot in handles:
+                            continue
+                            # print("skipping entry for bot")
+                        else:
+                            targets[feature['did']] = address
+                            #print("found target did" + str(feature['did']))
+
+            if amount == '':
+                amount = '<amount>'
+
+            if token == '':
+                token = 'ETH'
+
+            for did in targets:
+                signer = targets[did]
+                addr = skeet_gateway.selectedSafeAddress(did, signer)
+                msg = msg + '@' + bot + ' ' + addr+ ' ' + amount + ' ' + token
+                msg = msg + "\n"
+
+            if msg != '': 
+                msg = "Skeet the following:\n" + msg 
+                item['x_reply'] = msg
+                return item, True
+
+    return item, False
+
+def needsTransaction(at_uri, bot, item, car):
+    
+    # If we don't have a tx-ready message, see if we can prompt for one
+    # If we have a tx-ready message but the wallet isn't funded, prompt to fund the wallet
+    #   ...or shall we just prepare as if they have funding then do the funding prompt as a handler for tx fail?
+
+    # Convert DIDs in mentions to wallet addresses
+    print(bot)
+
+    if bot == 'pay.skeetbot.eth.link':
+        for cid in car.blocks:
+            b = car.blocks[cid] 
+            if 'text' not in b:
+                continue
+
+            text = b['text']
+
+            if not text.startswith('@'):
+                return False
+
+            message_bits = b['text'].split()
+            if len(message_bits) < 3:
+                return False
+
+            bot_name = message_bits[0]
+            # print("bot is " + bot_name)
+            if bot_name[0:1] != '@':
+                return False
+
+            # bits 1 should be a decimal
+            poss_num = message_bits[1]
+            if len(poss_num) > 18:
+                return False
+
+            pattern1 = re.compile(r'^\d+$')
+            pattern2 = re.compile(r'^\d+\.\d+$')
+            if not pattern1.match(poss_num) and not pattern2.match(poss_num):
+                return False
+
+            if message_bits[2] != 'ETH':
+                return False
+
+    return True
+
 def processQueuedPayloads():
     while True:
         item = skeet_queue.readNext("payload")
@@ -278,17 +412,29 @@ def processQueuedPayloads():
             break
 
         print(item)
-        at_uri = item['at_uri']
-        bot = item['bot']
+        at_uri = item['atURI']
+        bot = item['botName']
 
-        try:
-            (param_did, param_rkey) = atURIToDidAndRkey(at_uri)
-            (car, addresses) = loadCar(param_did, param_rkey)
-            item = generatePayload(car, param_did, param_rkey, addresses, at_uri)
-            # item['payload'] = generatePayload(car, param_did, param_rkey, addresses)
-            skeet_queue.updateStatus(at_uri, bot, "payload", "tx", item)
-        except:
-            skeet_queue.updateStatus(at_uri, bot, "payload", "payload_retry", item)
+        (param_did, param_rkey) = atURIToDidAndRkey(at_uri)
+        (car, addresses) = loadCar(param_did, param_rkey)
+
+        item['did'] = param_did 
+        item['rkey'] = param_rkey 
+
+        if needsTransaction(at_uri, bot, item, car):
+            try:
+                item = generatePayload(car, param_did, param_rkey, addresses, at_uri)
+                # item['payload'] = generatePayload(car, param_did, param_rkey, addresses)
+                skeet_queue.updateStatus(at_uri, bot, "payload", "tx", item)
+            except:
+                skeet_queue.updateStatus(at_uri, bot, "payload", "payload_retry", item)
+        else:
+            item, has_reply = generateReply(at_uri, bot, item, car)
+            if has_reply:
+                # TODO: Should this be its own queue, it doesn't need to query the chain
+                skeet_queue.updateStatus(at_uri, bot, "payload", "report", item)
+            else:
+                skeet_queue.updateStatus(at_uri, bot, "payload", "ignored", item)
 
 if __name__ == '__main__':
 

@@ -150,6 +150,27 @@ contract SkeetGateway is AtprotoMSTProver {
         return IMessageParser(bot).parseMessage(content, textStart + 1 + botNameLength + 1, textEnd, accountSafe);
     }
 
+    /// @notice Return the account for the specified did and signer
+    /// @param _did The did the safe will belong to
+    /// @param _signer The signer the safe will belong to
+    function calculateAccount(bytes32 _did, address _signer) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_did, _signer));
+    }
+
+    /// @notice Return the address of the user's currently selected safe
+    /// @param _did The did the safe will belong to
+    /// @param _signer The signer the safe will belong to
+    function selectedSafeAddress(bytes32 _did, address _signer) external view returns (address) {
+        bytes32 account = keccak256(abi.encodePacked(_did, _signer));
+        uint256 selectedId = selectedSafeId[account];
+        address existingSafe = address(accountSafes[account][selectedId]);
+        if (existingSafe == address(0)) {
+            return predictSafeAddress(account, selectedId);
+        } else {
+            return existingSafe;
+        }
+    }
+
     /// @notice Predict the address that the specified account will be assigned if they make a Safe
     /// @param _account The account the safe will belong to
     function predictSafeAddress(bytes32 _account, uint256 _safeId) public view returns (address) {

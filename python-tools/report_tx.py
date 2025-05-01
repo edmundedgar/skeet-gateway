@@ -71,56 +71,13 @@ def handleItem(item):
     # print("handle item " + at_uri)
     bot = item['botName']
 
-    if 'x_tx_hash' not in item:
+    if 'x_tx_hash' not in item and 'x_reply' not in item:
         skeet_queue.updateStatus(at_uri, bot, "report", "report_retry", item)
         print("Item without tx hash moved to report_retry")
         return
 
-    txid = item['x_tx_hash']
-    etherscan_uri = 'https://sepolia.etherscan.io/tx/' + txid
-
-    tx = w3.eth.get_transaction(txid)
-    receipt = w3.eth.get_transaction_receipt(txid)
-    # print(receipt)
-
-    log_reports = {}
-    abi_contents = {}
-    events_to_abi = {}
-
     found_events_by_name = {}
-
-    for abi_file in ABI_FILES:
-        with open(abi_file) as f:
-            d = json.load(f)
-            abi_contents[abi_file] = d['abi']
-
-            for entry in d['abi']:
-                if entry['type'] == 'event':
-                    event = entry
-                    name = event["name"]
-                    inputs = [param["type"] for param in event["inputs"]]
-                    inputs = ",".join(inputs)
-                    event_signature_text = f"{name}({inputs})"
-                    event_signature_hex = "0x" + w3.keccak(text=event_signature_text).hex()
-                    #print(event_signature_hex)
-                    events_to_abi[event_signature_hex] = {
-                        'name': name,
-                        'contract': abi_file,
-                        'event': event,
-                        'abi': d['abi']
-                    }
-
-    for l in receipt.logs:
-        # Encode and decode back to change the binary stuff into hex
-        log_obj = json.loads(w3.to_json(l))
-        topic = log_obj['topics'][0]
-        address = log_obj['address']
-
-        if topic in events_to_abi:
-            name = events_to_abi[topic]['name']
-            event_data = get_event_data(w3.codec, events_to_abi[topic]['event'], l)
-            found_events_by_name[name] = event_data
-
+    txid = None
 
     send_as_bot = default_bot
     if bot in bot_login:
@@ -128,37 +85,86 @@ def handleItem(item):
 
     message = client_utils.TextBuilder()
 
-    print(found_events_by_name.keys())
+    if 'x_tx_hash' in item:
 
-    # TODO: Should probably check signature IDs herea to avoid collisions
-    # print(found_events_by_name)
+        txid = item['x_tx_hash']
+        etherscan_uri = 'https://sepolia.etherscan.io/tx/' + txid
 
-    if 'LogCreateSafe' in found_events_by_name:
-        addr = found_events_by_name['LogCreateSafe']['args']['accountSafe']
-        safe_link = 'https://app.safe.global/home?safe=' + CHAIN_NAME + ':' + addr
-        message.text('Created account: ').link(safe_link, safe_link)
-        message.text("\n")
+        tx = w3.eth.get_transaction(txid)
+        receipt = w3.eth.get_transaction_receipt(txid)
+        # print(receipt)
 
-    if 'ApproveHash' in found_events_by_name:
-        # print(found_events_by_name['ApproveHash'])
-        addr = found_events_by_name['ApproveHash']['address']
-        safe_link = 'https://app.safe.global/transactions/queue?safe=' + CHAIN_NAME + ':' + addr
-        message.text('Complete approval here: ').link(safe_link, safe_link)
-        message.text("\n")
+        log_reports = {}
+        abi_contents = {}
+        events_to_abi = {}
 
-    if 'AddedOwner' in found_events_by_name:
-        owner = found_events_by_name['AddedOwner']['args']['owner']
-        owner_etherscan_uri = 'https://sepolia.etherscan.io/address/' + owner
-        message.text('Added owner ').link(owner, owner_etherscan_uri)
-        message.text("\n")
 
-    if 'LogPostMessage' in found_events_by_name:
-        bbs = found_events_by_name['LogPostMessage']['address']
-        bbs_etherscan_uri = 'https://sepolia.etherscan.io/address/' + bbs
-        message.text('Posted message to ').link(bbs, bbs_etherscan_uri)
-        message.text("\n")
+        for abi_file in ABI_FILES:
+            with open(abi_file) as f:
+                d = json.load(f)
+                abi_contents[abi_file] = d['abi']
 
-    message.text('Transaction: ').link(txid, etherscan_uri)
+                for entry in d['abi']:
+                    if entry['type'] == 'event':
+                        event = entry
+                        name = event["name"]
+                        inputs = [param["type"] for param in event["inputs"]]
+                        inputs = ",".join(inputs)
+                        event_signature_text = f"{name}({inputs})"
+                        event_signature_hex = "0x" + w3.keccak(text=event_signature_text).hex()
+                        #print(event_signature_hex)
+                        events_to_abi[event_signature_hex] = {
+                            'name': name,
+                            'contract': abi_file,
+                            'event': event,
+                            'abi': d['abi']
+                        }
+
+        for l in receipt.logs:
+            # Encode and decode back to change the binary stuff into hex
+            log_obj = json.loads(w3.to_json(l))
+            topic = log_obj['topics'][0]
+            address = log_obj['address']
+
+            if topic in events_to_abi:
+                name = events_to_abi[topic]['name']
+                event_data = get_event_data(w3.codec, events_to_abi[topic]['event'], l)
+                found_events_by_name[name] = event_data
+
+        # print(found_events_by_name.keys())
+
+        # TODO: Should probably check signature IDs herea to avoid collisions
+        # print(found_events_by_name)
+
+        if 'LogCreateSafe' in found_events_by_name:
+            addr = found_events_by_name['LogCreateSafe']['args']['accountSafe']
+            safe_link = 'https://app.safe.global/home?safe=' + CHAIN_NAME + ':' + addr
+            message.text('Created account: ').link(safe_link, safe_link)
+            message.text("\n")
+
+        if 'ApproveHash' in found_events_by_name:
+            # print(found_events_by_name['ApproveHash'])
+            addr = found_events_by_name['ApproveHash']['address']
+            safe_link = 'https://app.safe.global/transactions/queue?safe=' + CHAIN_NAME + ':' + addr
+            message.text('Complete approval here: ').link(safe_link, safe_link)
+            message.text("\n")
+
+        if 'AddedOwner' in found_events_by_name:
+            owner = found_events_by_name['AddedOwner']['args']['owner']
+            owner_etherscan_uri = 'https://sepolia.etherscan.io/address/' + owner
+            message.text('Added owner ').link(owner, owner_etherscan_uri)
+            message.text("\n")
+
+        if 'LogPostMessage' in found_events_by_name:
+            bbs = found_events_by_name['LogPostMessage']['address']
+            bbs_etherscan_uri = 'https://sepolia.etherscan.io/address/' + bbs
+            message.text('Posted message to ').link(bbs, bbs_etherscan_uri)
+            message.text("\n")
+
+        message.text('Transaction: ').link(txid, etherscan_uri)
+
+    if 'x_reply' in item:
+        message.text(item['x_reply'])
 
     #print(bot_login[send_as_bot])
     print("\n")
