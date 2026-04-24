@@ -172,36 +172,86 @@ abstract contract AtprotoMSTProver {
             uint256 hint = hints[n];
             if (n == 0) {
                 (proveMe, rkey) = _verifyDataNode(nodes[n], hint, proveMe);
-            } else if (hint == 0) {
-                bool handled;
-                (handled, proveMe) = _tryFastLPointer(nodes[n], proveMe);
-                if (!handled) {
-                    proveMe = _verifyInnerNodeLField(nodes[n], proveMe);
-                }
             } else {
-                proveMe = _verifyInnerNodeTField(nodes[n], hint, proveMe);
+                proveMe = _verifyInnerNode(nodes[n], hint, proveMe);
             }
         }
         require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
         return proveMe;
     }
 
-    /// @notice Fast-path for inner nodes where the target hash is in the l field.
-    /// @dev Reads from the tail of the node to avoid looping through all entries.
-    ///      Saves ~176k gas vs. the slow path when asserts are enabled.
-    ///      Falls back to the slow path (returns false) when l is null, because null bytes could
-    ///      appear by coincidence inside a CID hash so we cannot safely check from the tail.
-    /// @return handled True if the l field was non-null and verified; false if l is null.
-    /// @return newProveMe sha256(node) when handled, unchanged proveMe otherwise.
-    function _tryFastLPointer(bytes calldata node, bytes32 proveMe) internal pure returns (bool, bytes32) {
-        uint256 lastByte = node.length;
-        if (bytes3(node[lastByte - 3:lastByte]) == bytes3(CBOR_HEADER_L_NULL_3B)) {
-            return (false, proveMe);
+    /// @notice Verify an inner node (n > 0).
+    /// @dev hint == 0: target is in the l field. Tries a fast path reading from the tail of the node
+    ///      to avoid looping through all entries; falls back to a full traversal when l is null,
+    ///      because null bytes could appear by coincidence inside a CID hash.
+    ///      hint > 0: target is in the t field of entry hint-1.
+    function _verifyInnerNode(bytes calldata node, uint256 hint, bytes32 proveMe)
+        internal
+        pure
+        returns (bytes32)
+    {
+        if (hint == 0) {
+            uint256 lastByte = node.length;
+            if (bytes3(node[lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3B)) {
+                require(bytes32(node[lastByte - 32:lastByte]) == proveMe, "l value mismatch");
+                require(bytes9(node[lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B), "Unexpected CID prefix");
+                require(bytes2(node[lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B, "l prefix mismatch");
+                return sha256(node);
+            }
         }
-        require(bytes32(node[lastByte - 32:lastByte]) == proveMe, "l value mismatch");
-        require(bytes9(node[lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B), "Unexpected CID prefix");
-        require(bytes2(node[lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B, "l prefix mismatch");
-        return (true, sha256(node));
+
+        uint256 extra;
+        uint256 cursor;
+
+        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
+        cursor = 1;
+        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
+        cursor = cursor + 2;
+
+        uint256 numEntries;
+        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+        require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
+
+        uint256 entriesToLoop = (hint > 0) ? hint : numEntries;
+        for (uint256 i = 0; i < entriesToLoop; i++) {
+            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
+            cursor = cursor + 1;
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
+            cursor = cursor + 2;
+            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+            cursor = cursor + extra;
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
+            cursor = cursor + 2;
+            (,, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
+            cursor = cursor + 2;
+            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
+                cursor = cursor + 1;
+            } else {
+                assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
+                cursor = cursor + 9;
+                if (hint > 0 && i == hint - 1) {
+                    require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Value does not match target");
+                    return sha256(node);
+                }
+                cursor = cursor + CID_HASH_LENGTH;
+            }
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
+            cursor = cursor + 2;
+            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
+            cursor = cursor + 9 + CID_HASH_LENGTH;
+        }
+
+        // hint == 0: looped through all entries to reach l, which is null (fast path handled non-null)
+        if (hint == 0) {
+            assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_L_2B);
+            cursor = cursor + 3; // header (2) + null byte (1)
+        }
+        return proveMe;
     }
 
     /// @notice Verify the data node (node 0): reconstruct the record key from k/p fields and verify
@@ -270,106 +320,4 @@ abstract contract AtprotoMSTProver {
         revert("Target entry not found in data node");
     }
 
-    /// @notice Verify an inner node (n > 0, hint > 0): verify proveMe appears in the t field of
-    ///         entry hint-1 (the t field points to a left subtree child node).
-    /// @return newProveMe sha256(node) when found, unchanged proveMe if the t field at hint-1 is null
-    function _verifyInnerNodeTField(bytes calldata node, uint256 hint, bytes32 proveMe)
-        internal
-        pure
-        returns (bytes32)
-    {
-        uint256 extra;
-        uint256 cursor;
-
-        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
-        cursor = 1;
-        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
-        cursor = cursor + 2;
-
-        uint256 numEntries;
-        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-        require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
-
-        for (uint256 i = 0; i < hint; i++) {
-            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
-            cursor = cursor + 1;
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
-            cursor = cursor + 2;
-            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-            cursor = cursor + extra;
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
-            cursor = cursor + 2;
-            (,, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
-            cursor = cursor + 2;
-            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
-                cursor = cursor + 1;
-            } else {
-                assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-                cursor = cursor + 9;
-                if (i == hint - 1) {
-                    require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Value does not match target");
-                    return sha256(node);
-                }
-                cursor = cursor + CID_HASH_LENGTH;
-            }
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
-            cursor = cursor + 2;
-            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-            cursor = cursor + 9 + CID_HASH_LENGTH;
-        }
-        return proveMe;
-    }
-
-    /// @notice Slow-path for inner nodes where l is null (only reached when _tryFastLPointer returns false).
-    ///         Walks all entries to reach the l field and validates its structure, then returns proveMe unchanged.
-    function _verifyInnerNodeLField(bytes calldata node, bytes32 proveMe) internal pure returns (bytes32) {
-        uint256 extra;
-        uint256 cursor;
-
-        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
-        cursor = 1;
-        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
-        cursor = cursor + 2;
-
-        uint256 numEntries;
-        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-
-        for (uint256 i = 0; i < numEntries; i++) {
-            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
-            cursor = cursor + 1;
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
-            cursor = cursor + 2;
-            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-            cursor = cursor + extra;
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
-            cursor = cursor + 2;
-            (,, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
-            cursor = cursor + 2;
-            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
-                cursor = cursor + 1;
-            } else {
-                cursor = cursor + 9 + CID_HASH_LENGTH;
-            }
-
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
-            cursor = cursor + 2;
-            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-            cursor = cursor + 9 + CID_HASH_LENGTH;
-        }
-
-        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_L_2B);
-        cursor = cursor + 2;
-        // l is null (guaranteed: _tryFastLPointer only returns false when it sees the null bytes)
-        cursor = cursor + 1;
-        return proveMe;
-    }
 }
