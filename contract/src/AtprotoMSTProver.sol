@@ -168,15 +168,11 @@ abstract contract AtprotoMSTProver {
         // hints: 0 means the target is in the l field; any other value n means it's in the v/t field of entry n (1-based).
         // We work up the chain. Each time we find proveMe we hash the current node and use that as the next proveMe.
         string memory rkey;
-        for (uint256 n = 0; n < nodes.length; n++) {
-            uint256 hint = hints[n];
-            if (n == 0) {
-                (proveMe, rkey) = _verifyDataNode(nodes[n], hint, proveMe);
-            } else {
-                proveMe = _verifyInnerNode(nodes[n], hint, proveMe);
-            }
-        }
+	(proveMe, rkey) = _verifyDataNode(nodes[0], hints[0], proveMe);
         require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
+        for (uint256 n = 1; n < nodes.length; n++) {
+            proveMe = _verifyInnerNode(nodes[n], hints[n], proveMe);
+        }
         return proveMe;
     }
 
