@@ -2,13 +2,34 @@
 
 ## Getting started
 
+### Install Foundry
+
+```
+curl -L https://foundry.paradigm.xyz | bash
+```
+
+Then open a new terminal (or `source ~/.bashrc`) and run:
+
+```
+foundryup
+```
+
+This installs `forge`, `cast`, `anvil`, and `chisel`. Submodule dependencies are fetched automatically on first `forge build`.
+
+### Build and test
+
+```
+forge build
+forge test
+```
+
+### Deploy
+
 Make a .env with `PRIVATE_KEY`, `SEPOLIA_RPC_URL` and (for deployments) `ETHERSCAN_API_KEY` then run:
 
 ```
-   source .env
+source .env
 ```
-
-Run `forge build`.
 
 ## Deployment
 
