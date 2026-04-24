@@ -165,179 +165,211 @@ abstract contract AtprotoMSTProver {
         pure
         returns (bytes32)
     {
+        // hints: 0 means the target is in the l field; any other value n means it's in the v/t field of entry n (1-based).
+        // We work up the chain. Each time we find proveMe we hash the current node and use that as the next proveMe.
+        string memory rkey;
+        for (uint256 n = 0; n < nodes.length; n++) {
+            uint256 hint = hints[n];
+            if (n == 0) {
+                (proveMe, rkey) = _verifyDataNode(nodes[n], hint, proveMe);
+            } else if (hint == 0) {
+                bool handled;
+                (handled, proveMe) = _tryFastLPointer(nodes[n], proveMe);
+                if (!handled) {
+                    proveMe = _verifyInnerNodeLField(nodes[n], proveMe);
+                }
+            } else {
+                proveMe = _verifyInnerNodeTField(nodes[n], hint, proveMe);
+            }
+        }
+        require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
+        return proveMe;
+    }
+
+    /// @notice Fast-path for inner nodes where the target hash is in the l field.
+    /// @dev Reads from the tail of the node to avoid looping through all entries.
+    ///      Saves ~176k gas vs. the slow path when asserts are enabled.
+    ///      Falls back to the slow path (returns false) when l is null, because null bytes could
+    ///      appear by coincidence inside a CID hash so we cannot safely check from the tail.
+    /// @return handled True if the l field was non-null and verified; false if l is null.
+    /// @return newProveMe sha256(node) when handled, unchanged proveMe otherwise.
+    function _tryFastLPointer(bytes calldata node, bytes32 proveMe) internal pure returns (bool, bytes32) {
+        uint256 lastByte = node.length;
+        if (bytes3(node[lastByte - 3:lastByte]) == bytes3(CBOR_HEADER_L_NULL_3B)) {
+            return (false, proveMe);
+        }
+        require(bytes32(node[lastByte - 32:lastByte]) == proveMe, "l value mismatch");
+        require(bytes9(node[lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B), "Unexpected CID prefix");
+        require(bytes2(node[lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B, "l prefix mismatch");
+        return (true, sha256(node));
+    }
+
+    /// @notice Verify the data node (node 0): reconstruct the record key from k/p fields and verify
+    ///         proveMe appears in the v field of the entry at hint (1-based index).
+    /// @return newProveMe sha256(node)
+    /// @return rkey The fully reconstructed ATProto record key up to and including the winning entry
+    function _verifyDataNode(bytes calldata node, uint256 hint, bytes32 proveMe)
+        internal
+        pure
+        returns (bytes32, string memory)
+    {
+        uint256 extra;
+        uint256 cursor;
         string memory rkey;
 
-        // We work up the chain towards the root, finding the "proveMe" hash in the appropriate place.
-        // Each time we find it we hash the current node and use it as the next "proveMe" value to check at the next level up.
+        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
+        cursor = 1;
+        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
+        cursor = cursor + 2;
 
-        // For the first node (node 0), we need to find the hash we want in the "v" field of one of the entries.
-        // However we also need to look at the preceding entries in the node to recover the rkey (see below).
-        // For subsequent nodes, we need to find the hash in either the "l" field or the "t" field of one of the entries.
+        uint256 numEntries;
+        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+        require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
-        for (uint256 n = 0; n < nodes.length; n++) {
-            // The hints are indexes telling us where we can look to find the data we need for verification.
-            // This avoids the need to read data from a lot of entries just to discover that they aren't what we're looking for.
-            // The hints could be malicious, but if they are wrong then we will simply not find the data and verification will fail.
-            // We use 0 to represent the "l" field of the node.
-            // Any other number represents the index of one of the entries, offset by 1.
-
-            uint256 hint = hints[n];
-
-            uint256 numEntries;
-
-            // parseCborHeader either tells us the length of the data, or tells us the data itself if it could fit in the header.
-            // It also advances the cursor to the end of the header.
-            // If there is a payload (ie the answer wasn't in the header)...
-            // ...we then read the data manually as a calldata slice and advance the cursor to the end of the payload.
-            uint256 extra;
-            uint256 cursor;
-
-            // mapping byte for 2 entries, k and e
-            assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
+        // Compression scheme: each entry's k/p pair extends the running rkey.
+        // p is the number of bytes to keep from the current rkey; k is the suffix to append.
+        for (uint256 i = 0; i < hint; i++) {
+            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
             cursor = cursor + 1;
 
-            // Optimization to avoid looping through entries advancing the cursor unnecessarily:
-            // For a left node, the field should be at the very end of the data.
-            // If it's there we can just check the l: <multihash etc><cid> we expect.
-            // The wrinkle is that it could be null.
-            // We can't check for null without knowing where the data starts because the bytes meaning null might randomly be part of our CID.
-            // So try the optimized way, but if we find the null bytes, fall back on cycling through all the nodes then reading l at the end.
-            // This saves an average of 176330 gas if we insist on sanity-checking everything in the loop with assert().
-            // If we run with the asserts() removed it only saves 12531 gas which may not be worth the complexity.
-            if (n > 0 && hint == 0) {
-                uint256 lastByte = nodes[n].length;
-                if (bytes3(nodes[n][lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3B)) {
-                    require(bytes32(nodes[n][lastByte - 32:lastByte]) == proveMe, "l value mismatch");
-                    require(
-                        bytes9(nodes[n][lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B),
-                        "Unexpected CID prefix"
-                    );
-                    require(
-                        bytes2(nodes[n][lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B,
-                        "l prefix mismatch"
-                    );
-                    proveMe = sha256(nodes[n]);
-                    continue;
-                }
-            }
-
-            assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_E_2B);
+            assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
             cursor = cursor + 2;
-            (, numEntries, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // e array header
+            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+            string memory kval = string(node[cursor:cursor + extra]);
+            cursor = cursor + extra;
 
-            // If the node is in an "e" entry, we only have to loop as far as the index of the entry we want
-            // If the node is in the "l", we'll have to go through them all to find where "l" starts
-            require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
-            if (hint > 0) {
-                numEntries = hint;
+            assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
+            cursor = cursor + 2;
+            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+            if (uint256(extra) == 0) {
+                rkey = kval;
+            } else {
+                rkey = string.concat(_substring(rkey, 0, uint256(extra)), kval);
             }
 
-            for (uint256 i = 0; i < numEntries; i++) {
-                // mapping byte for a mapping with 4 keys
-                assert(bytes1(nodes[n][cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
+            cursor = cursor + 2;
+            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
                 cursor = cursor + 1;
+            } else {
+                assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
+                cursor = cursor + 9 + CID_HASH_LENGTH;
+            }
 
-                // For the first node, which contains information about the skeet, we also need the record key (k) in the relevant entry.
-                // This uses a compression scheme where we have to construct it from the k and p of earlier entries.
-                // For all later nodes we can ignore the value but we still have to check the field lengths to know how far to advance the cursor.
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
+            cursor = cursor + 2;
+            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
+            cursor = cursor + 9;
 
-                if (n == 0) {
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2B);
-                    cursor = cursor + 2;
+            if (i == hint - 1) {
+                require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "e val does not match");
+                return (sha256(node), rkey);
+            }
+            cursor = cursor + CID_HASH_LENGTH;
+        }
+        revert("Target entry not found in data node");
+    }
 
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    string memory kval = string(nodes[n][cursor:cursor + extra]);
-                    cursor = cursor + extra;
+    /// @notice Verify an inner node (n > 0, hint > 0): verify proveMe appears in the t field of
+    ///         entry hint-1 (the t field points to a left subtree child node).
+    /// @return newProveMe sha256(node) when found, unchanged proveMe if the t field at hint-1 is null
+    function _verifyInnerNodeTField(bytes calldata node, uint256 hint, bytes32 proveMe)
+        internal
+        pure
+        returns (bytes32)
+    {
+        uint256 extra;
+        uint256 cursor;
 
-                    assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2B);
-                    cursor = cursor + 2;
-                    // p is an int so there is no payload and the "extra" denotes the value not the length,
-                    // Since there is no payload we don't advance the cursor beyond what parseCborHeader told us
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    uint256 pval = uint256(extra);
+        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
+        cursor = 1;
+        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
+        cursor = cursor + 2;
 
-                    // Compression scheme used by atproto:
-                    // Take the first bytes specified by the partial from the existing rkey
-                    // Then append the bytes found in the new k value
-                    if (pval == 0) {
-                        rkey = kval;
-                    } else {
-                        string memory oldr = _substring(rkey, 0, pval);
-                        rkey = string.concat(oldr, kval);
-                    }
-                } else {
-                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_K_2B);
-                    cursor = cursor + 2;
+        uint256 numEntries;
+        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+        require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
-                    // Variable-length string
-                    (, extra, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor);
-                    cursor = cursor + extra;
+        for (uint256 i = 0; i < hint; i++) {
+            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
+            cursor = cursor + 1;
 
-                    ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_P_2B);
-                    cursor = cursor + 2;
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
+            cursor = cursor + 2;
+            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+            cursor = cursor + extra;
 
-                    // For an int the val is in the header so we don't need to advance cursor beyond what parseCborHeader did
-                    (,, cursor) = DagCborNavigator.parseCborHeader(nodes[n], cursor); // val
-                }
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
+            cursor = cursor + 2;
+            (,, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
 
-                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_T_2B);
-                cursor = cursor + 2;
-
-                if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1B) {
-                    cursor = cursor + 1;
-                } else {
-                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-                    cursor = cursor + 9;
-
-                    // Our 32 bytes
-                    if (n > 0 && hint > 0 && i == hint - 1) {
-                        bytes32 val = bytes32(nodes[n][cursor:cursor + CID_HASH_LENGTH]);
-                        require(val == proveMe, "Value does not match target");
-                        proveMe = sha256(nodes[n]);
-                        continue;
-                    }
-
-                    cursor = cursor + CID_HASH_LENGTH;
-                }
-
-                // non-nullable v
-                ///assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_V_2B);
-                cursor = cursor + 2;
-
-                ///assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
+            cursor = cursor + 2;
+            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
+                cursor = cursor + 1;
+            } else {
+                assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
                 cursor = cursor + 9;
-
-                // 32 bytes that we only care about if it's the winning entry of the data node (node 0)
-                if (n == 0 && i == hint - 1) {
-                    // Our 32 bytes
-                    bytes32 val = bytes32(nodes[n][cursor:cursor + CID_HASH_LENGTH]);
-                    require(val == proveMe, "e val does not match");
-                    proveMe = sha256(nodes[0]);
+                if (i == hint - 1) {
+                    require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Value does not match target");
+                    return sha256(node);
                 }
                 cursor = cursor + CID_HASH_LENGTH;
             }
 
-            // The l field is at the end so we only care about it if we actually want to read it
-            if (hint == 0) {
-                require(n > 0, "You should not be reading an l value for the node at the tip");
-                assert(bytes2(nodes[n][cursor:cursor + 2]) == CBOR_HEADER_L_2B);
-                cursor = cursor + 2;
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
+            cursor = cursor + 2;
+            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
+            cursor = cursor + 9 + CID_HASH_LENGTH;
+        }
+        return proveMe;
+    }
 
-                if (bytes1(nodes[n][cursor:cursor + 1]) == CBOR_NULL_1B) {
-                    cursor = cursor + 1;
-                } else {
-                    assert(bytes9(nodes[n][cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-                    cursor = cursor + 9;
+    /// @notice Slow-path for inner nodes where l is null (only reached when _tryFastLPointer returns false).
+    ///         Walks all entries to reach the l field and validates its structure, then returns proveMe unchanged.
+    function _verifyInnerNodeLField(bytes calldata node, bytes32 proveMe) internal pure returns (bytes32) {
+        uint256 extra;
+        uint256 cursor;
 
-                    // Our 32 bytes
-                    bytes32 val = bytes32(nodes[n][cursor:cursor + CID_HASH_LENGTH]);
-                    require(val == proveMe, "l val does not match");
-                    proveMe = sha256(nodes[n]);
-                }
+        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
+        cursor = 1;
+        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
+        cursor = cursor + 2;
+
+        uint256 numEntries;
+        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+
+        for (uint256 i = 0; i < numEntries; i++) {
+            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
+            cursor = cursor + 1;
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
+            cursor = cursor + 2;
+            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+            cursor = cursor + extra;
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
+            cursor = cursor + 2;
+            (,, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
+            cursor = cursor + 2;
+            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
+                cursor = cursor + 1;
+            } else {
+                cursor = cursor + 9 + CID_HASH_LENGTH;
             }
+
+            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
+            cursor = cursor + 2;
+            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
+            cursor = cursor + 9 + CID_HASH_LENGTH;
         }
 
-        require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
-        return (proveMe);
+        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_L_2B);
+        cursor = cursor + 2;
+        // l is null (guaranteed: _tryFastLPointer only returns false when it sees the null bytes)
+        cursor = cursor + 1;
+        return proveMe;
     }
 }
