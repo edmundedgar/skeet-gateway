@@ -5,6 +5,8 @@ import {console} from "forge-std/console.sol";
 
 pragma solidity ^0.8.28;
 
+bytes9 constant CID_PREFIX_BYTES_9B = hex"d82a58250001711220";
+
 /// @notice This library provides functions to find data inside DAG-CBOR-encoded calldata
 /// @author Edmund Edgar
 library DagCborNavigator {
@@ -292,6 +294,75 @@ library DagCborNavigator {
         }
 
         return (maj, extra, byteIndex);
+    }
+
+    function ignoreCBORInteger(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+        (,, byteIndex) = parseCborHeader(cbor, byteIndex);
+        return byteIndex;
+    }
+
+    function extractCBORInteger(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256, uint256) {
+        uint64 extra;
+        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        return (uint256(extra), byteIndex);
+    }
+
+    function ignoreCBORString(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+        uint64 extra;
+        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        return byteIndex + extra;
+    }
+
+    function extractCBORString(bytes calldata cbor, uint256 byteIndex) internal pure returns (string memory, uint256) {
+        uint64 extra;
+        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        return (string(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
+    }
+
+    /// @notice Assert that the next byte is a CBOR mapping with exactly n entries, advance past it.
+    function expectCBORMapping(bytes calldata cbor, uint256 byteIndex, uint8 n) internal pure returns (uint256) {
+        assert(bytes1(cbor[byteIndex:byteIndex + 1]) == bytes1(uint8(0xa0) + n));
+        return byteIndex + 1;
+    }
+
+    /// @notice Assert the next bytes are a 1-char CBOR text field with the given name, advance past it.
+    function expectCBORTextField1(bytes calldata cbor, uint256 byteIndex, bytes1 name) internal pure returns (uint256) {
+        assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x61);
+        assert(cbor[byteIndex + 1] == name);
+        return byteIndex + 2;
+    }
+
+    /// @notice Assert the next bytes are a 3-char CBOR text field with the given name, advance past it.
+    function expectCBORTextField3(bytes calldata cbor, uint256 byteIndex, bytes3 name) internal pure returns (uint256) {
+        assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x63);
+        assert(bytes3(cbor[byteIndex + 1:byteIndex + 4]) == name);
+        return byteIndex + 4;
+    }
+
+    /// @notice Assert the next bytes are a 4-char CBOR text field with the given name, advance past it.
+    function expectCBORTextField4(bytes calldata cbor, uint256 byteIndex, bytes4 name) internal pure returns (uint256) {
+        assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x64);
+        assert(bytes4(cbor[byteIndex + 1:byteIndex + 5]) == name);
+        return byteIndex + 5;
+    }
+
+    /// @notice Assert that the next bytes are the DAG-CBOR CID tag prefix, advance past it.
+    function expectCBORCIDPrefix(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+        assert(bytes9(cbor[byteIndex:byteIndex + 9]) == CID_PREFIX_BYTES_9B);
+        return byteIndex + 9;
+    }
+
+    /// @notice Skip a full DAG-CBOR CID (9-byte prefix + 32-byte hash).
+    function ignoreCBORCID(bytes calldata, uint256 byteIndex) internal pure returns (uint256) {
+        return byteIndex + 41;
+    }
+
+    /// @notice Skip a nullable CID: advance 1 byte if null, or skip the full CID otherwise.
+    function ignoreCBORNullableCID(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+        if (bytes1(cbor[byteIndex:byteIndex + 1]) == bytes1(0xf6)) {
+            return byteIndex + 1;
+        }
+        return expectCBORCIDPrefix(cbor, byteIndex) + 32;
     }
 
     /// @notice Return end of the field (ie the end of the payload, not just the header)

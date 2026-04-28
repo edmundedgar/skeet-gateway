@@ -7,8 +7,7 @@ pragma solidity ^0.8.28;
 
 // The order of keys is fixed as per the DAG-CBOR spec.
 // Most data is encoded in mappings with a known, fixed-width name field followed by a field of known length.
-// When the lengths are known we can just read the bytes representing the value we need directly and skip the name field.
-// We will sometimes sanity-check the name field with assert() although this is not strictly necessary.
+// We use DagCborNavigator helpers to assert the name field and advance the cursor.
 // However there are some cases we encounter where data lengths vary:
 // - For nullable CIDs we need to check for null
 // - For strings and byte arrays we need to extract the length from the header
@@ -20,43 +19,26 @@ pragma solidity ^0.8.28;
 // - For strings and byte arrays it will return the number of bytes in the payload.
 // - For arrays it will return the number of entries in the array.
 
-import {DagCborNavigator} from "./DagCborNavigator.sol";
+import {DagCborNavigator, CID_PREFIX_BYTES_9B} from "./DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
 bytes1 constant CBOR_NULL_1B = hex"f6";
 
 // CBOR mappings are encoded with the following initial bytes, indicating the number of entries:
-bytes1 constant CBOR_MAPPING_2_ENTRIES_1B = hex"a2"; // tree node has 2 fields
-bytes1 constant CBOR_MAPPING_4_ENTRIES_1B = hex"a4"; // tree node entry field has 4 fields
-bytes1 constant CBOR_MAPPING_5_ENTRIES_1B = hex"a5"; // sig node has 5 fields when unsigned
-bytes1 constant CBOR_MAPPING_15_ENTRIES_1B = hex"af"; // data node has 4 to 5 fields but they might increase it
+bytes1 constant CBOR_MAPPING_2_ENTRIES_1B = hex"a2"; // used in range check for content mappings
+bytes1 constant CBOR_MAPPING_15_ENTRIES_1B = hex"af"; // used in range check for content mappings
 
-// For performance reasons we search for fieldnames by their encoded bytes starting with the CBOR header byte
-// eg "did" is encoded with 63 (CBOR for 3-byte text) followed by 646964 ("did" in UTF-8).
-
-// Tree nodes contain e and l
-bytes2 constant CBOR_HEADER_E_2B = bytes2(hex"6165");
+// Used only in the fast-path tail-read of the "l" field (reading backwards, helpers don't apply)
 bytes2 constant CBOR_HEADER_L_2B = bytes2(hex"616c");
 bytes3 constant CBOR_HEADER_L_NULL_3B = bytes3(hex"616cf6"); // l followed by a null
 
-// Each e entry contains k, p, t, v
-bytes2 constant CBOR_HEADER_K_2B = bytes2(hex"616b");
-bytes2 constant CBOR_HEADER_P_2B = bytes2(hex"6170");
-bytes2 constant CBOR_HEADER_T_2B = bytes2(hex"6174");
-bytes2 constant CBOR_HEADER_V_2B = bytes2(hex"6176");
-
-// Commit nodes contain did, rev, data, prev and version (which must be 3)
-bytes4 constant CBOR_HEADER_DID_4B = bytes4(hex"63646964"); // text, did
-bytes4 constant CBOR_HEADER_REV_4B = bytes4(hex"63726576"); // text, rev
-bytes5 constant CBOR_HEADER_DATA_5B = bytes5(hex"6464617461"); // text, data
-bytes5 constant CBOR_HEADER_PREV_5B = bytes5(hex"6470726576"); // text, prev
+// Combined field+value constant for the version=3 check (field name and value in one read)
 bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_3_9B = bytes9(hex"6776657273696f6e03"); // text, version, 3
 
 // content cbor contains text
 bytes5 constant CBOR_HEADER_TEXT_5B = bytes5(hex"6474657874"); // text, "text"
 
 // CID IDs are 32-byte hashes which we will find preceded by some special CBOR tag data then the multibyte prefix
-bytes9 constant CID_PREFIX_BYTES_9B = hex"d82a58250001711220"; // CBOR CID header stuff then the length (37)
 uint256 constant CID_HASH_LENGTH = 32;
 
 bytes18 constant APP_BSKY_FEED_POST = bytes18(bytes("app.bsky.feed.post"));
@@ -118,38 +100,25 @@ abstract contract AtprotoMSTProver {
 
         // The unsigned commit node has 5 entries.
         // A 6th entry, "sig", is added later by hashing the unsigned, 5-entry version.
-        assert(bytes1(commitNode[cursor:cursor + 1]) == CBOR_MAPPING_5_ENTRIES_1B);
-        cursor = 1;
+        cursor = DagCborNavigator.expectCBORMapping(commitNode, cursor, 5);
 
-        assert(bytes5(commitNode[cursor:cursor + 4]) == CBOR_HEADER_DID_4B);
-        cursor = cursor + 4;
+        cursor = DagCborNavigator.expectCBORTextField3(commitNode, cursor, "did");
         (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
         did = bytes32(commitNode[cursor:cursor + extra]);
         cursor = cursor + extra;
 
-        assert(bytes4(commitNode[cursor:cursor + 4]) == CBOR_HEADER_REV_4B);
-        cursor = cursor + 4;
-        (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
-        cursor = cursor + extra;
+        cursor = DagCborNavigator.expectCBORTextField3(commitNode, cursor, "rev");
+        cursor = DagCborNavigator.ignoreCBORString(commitNode, cursor);
 
-        assert(bytes8(commitNode[cursor:cursor + 5]) == CBOR_HEADER_DATA_5B);
-        cursor = cursor + 5;
-        assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-        cursor = cursor + 9;
+        cursor = DagCborNavigator.expectCBORTextField4(commitNode, cursor, "data");
+        cursor = DagCborNavigator.expectCBORCIDPrefix(commitNode, cursor);
         require(
             bytes32(commitNode[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Data field does not contain expected hash"
         );
         cursor = cursor + CID_HASH_LENGTH;
 
-        assert(bytes5(commitNode[cursor:cursor + 5]) == CBOR_HEADER_PREV_5B);
-        cursor = cursor + 5;
-        if (bytes1(commitNode[cursor:cursor + 1]) == CBOR_NULL_1B) {
-            cursor = cursor + 1;
-        } else {
-            assert(bytes9(commitNode[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-            cursor = cursor + 9;
-            cursor = cursor + CID_HASH_LENGTH; // cid we don't care about
-        }
+        cursor = DagCborNavigator.expectCBORTextField4(commitNode, cursor, "prev");
+        cursor = DagCborNavigator.ignoreCBORNullableCID(commitNode, cursor);
 
         require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_3_9B, "v3 field not found"); // text "version" 3
         return did;
@@ -196,13 +165,10 @@ abstract contract AtprotoMSTProver {
             }
         }
 
-        uint256 extra;
         uint256 cursor;
 
-        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
-        cursor = 1;
-        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
-        cursor = cursor + 2;
+        cursor = DagCborNavigator.expectCBORMapping(node, cursor, 2);
+        cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
 
         uint256 numEntries;
         (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
@@ -210,25 +176,19 @@ abstract contract AtprotoMSTProver {
 
         uint256 entriesToLoop = (hint > 0) ? hint : numEntries;
         for (uint256 i = 0; i < entriesToLoop; i++) {
-            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
-            cursor = cursor + 1;
+            cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
 
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
-            cursor = cursor + 2;
-            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-            cursor = cursor + extra;
+            cursor = cursor + 2; // "k" field name
+            cursor = DagCborNavigator.ignoreCBORString(node, cursor);
 
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
-            cursor = cursor + 2;
-            (,, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+            cursor = cursor + 2; // "p" field name
+            cursor = DagCborNavigator.ignoreCBORInteger(node, cursor);
 
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
-            cursor = cursor + 2;
+            cursor = cursor + 2; // "t" field name
             if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
                 cursor = cursor + 1;
             } else {
-                assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-                cursor = cursor + 9;
+                cursor = DagCborNavigator.expectCBORCIDPrefix(node, cursor);
                 if (hint > 0 && i == hint - 1) {
                     require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Value does not match target");
                     return sha256(node);
@@ -236,16 +196,14 @@ abstract contract AtprotoMSTProver {
                 cursor = cursor + CID_HASH_LENGTH;
             }
 
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
-            cursor = cursor + 2;
-            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-            cursor = cursor + 9 + CID_HASH_LENGTH;
+            cursor = cursor + 2; // "v" field name
+            cursor = DagCborNavigator.ignoreCBORCID(node, cursor);
         }
 
         // hint == 0: looped through all entries to reach l, which is null (fast path handled non-null)
         if (hint == 0) {
-            assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_L_2B);
-            cursor = cursor + 3; // header (2) + null byte (1)
+            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "l");
+            cursor = cursor + 1; // null byte
         }
         return proveMe;
     }
@@ -263,10 +221,8 @@ abstract contract AtprotoMSTProver {
         uint256 cursor;
         string memory rkey;
 
-        assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_2_ENTRIES_1B);
-        cursor = 1;
-        assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_E_2B);
-        cursor = cursor + 2;
+        cursor = DagCborNavigator.expectCBORMapping(node, cursor, 2);
+        cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
 
         uint256 numEntries;
         (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
@@ -275,37 +231,25 @@ abstract contract AtprotoMSTProver {
         // Compression scheme: each entry's k/p pair extends the running rkey.
         // p is the number of bytes to keep from the current rkey; k is the suffix to append.
         for (uint256 i = 0; i < hint; i++) {
-            assert(bytes1(node[cursor:cursor + 1]) == CBOR_MAPPING_4_ENTRIES_1B);
-            cursor = cursor + 1;
+            cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
 
-            assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_K_2B);
-            cursor = cursor + 2;
-            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-            string memory kval = string(node[cursor:cursor + extra]);
-            cursor = cursor + extra;
+            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "k");
+            string memory kval;
+            (kval, cursor) = DagCborNavigator.extractCBORString(node, cursor);
 
-            assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_P_2B);
-            cursor = cursor + 2;
-            (, extra, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
-            if (uint256(extra) == 0) {
+            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "p");
+            (extra, cursor) = DagCborNavigator.extractCBORInteger(node, cursor);
+            if (extra == 0) {
                 rkey = kval;
             } else {
                 rkey = string.concat(_substring(rkey, 0, uint256(extra)), kval);
             }
 
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_T_2B);
-            cursor = cursor + 2;
-            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
-                cursor = cursor + 1;
-            } else {
-                assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-                cursor = cursor + 9 + CID_HASH_LENGTH;
-            }
+            cursor = cursor + 2; // "t" field name
+            cursor = DagCborNavigator.ignoreCBORNullableCID(node, cursor);
 
-            ///assert(bytes2(node[cursor:cursor + 2]) == CBOR_HEADER_V_2B);
-            cursor = cursor + 2;
-            ///assert(bytes9(node[cursor:cursor + 9]) == CID_PREFIX_BYTES_9B);
-            cursor = cursor + 9;
+            cursor = cursor + 2; // "v" field name
+            cursor = cursor + 9; // CID prefix
 
             if (i == hint - 1) {
                 require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "e val does not match");
