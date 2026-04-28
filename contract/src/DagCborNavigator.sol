@@ -351,16 +351,25 @@ library DagCborNavigator {
         return (string(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
     }
 
+    /// @dev No major-type check: accepts any CBOR type. Truncates silently to 32 bytes if extra > 32.
     function extractCBORBytes32(bytes calldata cbor, uint256 byteIndex) internal pure returns (bytes32, uint256) {
         uint64 extra;
         (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
         return (bytes32(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
     }
 
-    /// @notice Assert that the next byte is a CBOR mapping with exactly n entries, advance past it.
-    function expectCBORMapping(bytes calldata cbor, uint256 byteIndex, uint8 n) internal pure returns (uint256) {
-        assert(bytes1(cbor[byteIndex:byteIndex + 1]) == bytes1(uint8(0xa0) + n));
-        return byteIndex + 1;
+    /// @notice Assert that the next bytes are a CBOR mapping with exactly n entries, advance past it.
+    function expectCBORMapping(bytes calldata cbor, uint256 byteIndex, uint256 n) internal pure returns (uint256) {
+        if (n < 24) {
+            assert(bytes1(cbor[byteIndex:byteIndex + 1]) == bytes1(uint8(0xa0 + n)));
+            return byteIndex + 1;
+        }
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 5);
+        assert(uint256(extra) == n);
+        return byteIndex;
     }
 
     // Note: cursor = cursor + 2 saves ~24 gas per call vs this function; --via-ir does not inline it.
@@ -400,7 +409,7 @@ library DagCborNavigator {
         return (bytes32(cbor[byteIndex:byteIndex + 32]), byteIndex + 32);
     }
 
-    /// @notice Skip a full DAG-CBOR CID (9-byte prefix + 32-byte hash).
+    /// @notice Skip a full DAG-CBOR CID (9-byte prefix + 32-byte hash). No validation performed.
     function ignoreCBORCID(bytes calldata, uint256 byteIndex) internal pure returns (uint256) {
         return byteIndex + 41;
     }
