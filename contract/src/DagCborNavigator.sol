@@ -307,6 +307,12 @@ library DagCborNavigator {
         return (uint256(extra), byteIndex);
     }
 
+    function extractCBORArrayLength(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256, uint256) {
+        uint64 extra;
+        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        return (uint256(extra), byteIndex);
+    }
+
     function ignoreCBORString(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
         uint64 extra;
         (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
@@ -319,13 +325,23 @@ library DagCborNavigator {
         return (string(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
     }
 
+    function extractCBORBytes32(bytes calldata cbor, uint256 byteIndex) internal pure returns (bytes32, uint256) {
+        uint64 extra;
+        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        return (bytes32(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
+    }
+
     /// @notice Assert that the next byte is a CBOR mapping with exactly n entries, advance past it.
     function expectCBORMapping(bytes calldata cbor, uint256 byteIndex, uint8 n) internal pure returns (uint256) {
         assert(bytes1(cbor[byteIndex:byteIndex + 1]) == bytes1(uint8(0xa0) + n));
         return byteIndex + 1;
     }
 
-    /// @notice Assert the next bytes are a 1-char CBOR text field with the given name, advance past it.
+    // Note: cursor = cursor + 2 saves ~24 gas per call vs this function; --via-ir does not inline it.
+    function ignoreCBORTextField1(uint256 byteIndex) internal pure returns (uint256) {
+        return byteIndex + 2;
+    }
+
     function expectCBORTextField1(bytes calldata cbor, uint256 byteIndex, bytes1 name) internal pure returns (uint256) {
         assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x61);
         assert(cbor[byteIndex + 1] == name);
@@ -350,6 +366,12 @@ library DagCborNavigator {
     function expectCBORCIDPrefix(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
         assert(bytes9(cbor[byteIndex:byteIndex + 9]) == CID_PREFIX_BYTES_9B);
         return byteIndex + 9;
+    }
+
+    /// @notice Assert the CID prefix and extract the 32-byte hash, advancing past both.
+    function extractCBORCID(bytes calldata cbor, uint256 byteIndex) internal pure returns (bytes32, uint256) {
+        byteIndex = expectCBORCIDPrefix(cbor, byteIndex);
+        return (bytes32(cbor[byteIndex:byteIndex + 32]), byteIndex + 32);
     }
 
     /// @notice Skip a full DAG-CBOR CID (9-byte prefix + 32-byte hash).

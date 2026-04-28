@@ -38,8 +38,6 @@ bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_3_9B = bytes9(hex"6776657273696f6e
 // content cbor contains text
 bytes5 constant CBOR_HEADER_TEXT_5B = bytes5(hex"6474657874"); // text, "text"
 
-// CID IDs are 32-byte hashes which we will find preceded by some special CBOR tag data then the multibyte prefix
-uint256 constant CID_HASH_LENGTH = 32;
 
 bytes18 constant APP_BSKY_FEED_POST = bytes18(bytes("app.bsky.feed.post"));
 
@@ -94,8 +92,6 @@ abstract contract AtprotoMSTProver {
     /// @return did a bytes32 representing the DID the signer claims to have (they may be lying)
     function processCommitNode(bytes32 proveMe, bytes calldata commitNode) public pure returns (bytes32) {
         uint256 cursor;
-        uint256 extra;
-
         bytes32 did;
 
         // The unsigned commit node has 5 entries.
@@ -103,19 +99,15 @@ abstract contract AtprotoMSTProver {
         cursor = DagCborNavigator.expectCBORMapping(commitNode, cursor, 5);
 
         cursor = DagCborNavigator.expectCBORTextField3(commitNode, cursor, "did");
-        (, extra, cursor) = DagCborNavigator.parseCborHeader(commitNode, cursor);
-        did = bytes32(commitNode[cursor:cursor + extra]);
-        cursor = cursor + extra;
+        (did, cursor) = DagCborNavigator.extractCBORBytes32(commitNode, cursor);
 
         cursor = DagCborNavigator.expectCBORTextField3(commitNode, cursor, "rev");
         cursor = DagCborNavigator.ignoreCBORString(commitNode, cursor);
 
         cursor = DagCborNavigator.expectCBORTextField4(commitNode, cursor, "data");
-        cursor = DagCborNavigator.expectCBORCIDPrefix(commitNode, cursor);
-        require(
-            bytes32(commitNode[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Data field does not contain expected hash"
-        );
-        cursor = cursor + CID_HASH_LENGTH;
+        bytes32 foundCid;
+        (foundCid, cursor) = DagCborNavigator.extractCBORCID(commitNode, cursor);
+        require(foundCid == proveMe, "Data field does not contain expected hash");
 
         cursor = DagCborNavigator.expectCBORTextField4(commitNode, cursor, "prev");
         cursor = DagCborNavigator.ignoreCBORNullableCID(commitNode, cursor);
@@ -171,32 +163,29 @@ abstract contract AtprotoMSTProver {
         cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
 
         uint256 numEntries;
-        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+        (numEntries, cursor) = DagCborNavigator.extractCBORArrayLength(node, cursor);
         require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
         uint256 entriesToLoop = (hint > 0) ? hint : numEntries;
         for (uint256 i = 0; i < entriesToLoop; i++) {
             cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
 
-            cursor = cursor + 2; // "k" field name
+            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "k"
             cursor = DagCborNavigator.ignoreCBORString(node, cursor);
 
-            cursor = cursor + 2; // "p" field name
+            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "p"
             cursor = DagCborNavigator.ignoreCBORInteger(node, cursor);
 
-            cursor = cursor + 2; // "t" field name
-            if (bytes1(node[cursor:cursor + 1]) == CBOR_NULL_1B) {
-                cursor = cursor + 1;
-            } else {
-                cursor = DagCborNavigator.expectCBORCIDPrefix(node, cursor);
-                if (hint > 0 && i == hint - 1) {
-                    require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "Value does not match target");
-                    return sha256(node);
-                }
-                cursor = cursor + CID_HASH_LENGTH;
+            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "t"
+            if (hint > 0 && i == hint - 1) {
+                bytes32 foundCid;
+                (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
+                require(foundCid == proveMe, "Value does not match target");
+                return sha256(node);
             }
+            cursor = DagCborNavigator.ignoreCBORNullableCID(node, cursor);
 
-            cursor = cursor + 2; // "v" field name
+            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "v"
             cursor = DagCborNavigator.ignoreCBORCID(node, cursor);
         }
 
@@ -225,7 +214,7 @@ abstract contract AtprotoMSTProver {
         cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
 
         uint256 numEntries;
-        (, numEntries, cursor) = DagCborNavigator.parseCborHeader(node, cursor);
+        (numEntries, cursor) = DagCborNavigator.extractCBORArrayLength(node, cursor);
         require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
         // Compression scheme: each entry's k/p pair extends the running rkey.
@@ -245,17 +234,16 @@ abstract contract AtprotoMSTProver {
                 rkey = string.concat(_substring(rkey, 0, uint256(extra)), kval);
             }
 
-            cursor = cursor + 2; // "t" field name
+            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "t"
             cursor = DagCborNavigator.ignoreCBORNullableCID(node, cursor);
 
-            cursor = cursor + 2; // "v" field name
-            cursor = cursor + 9; // CID prefix
-
+            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "v"
+            cursor = cursor + 9; // CID prefix (unchecked)
             if (i == hint - 1) {
-                require(bytes32(node[cursor:cursor + CID_HASH_LENGTH]) == proveMe, "e val does not match");
+                require(bytes32(node[cursor:cursor + 32]) == proveMe, "e val does not match");
                 return (sha256(node), rkey);
             }
-            cursor = cursor + CID_HASH_LENGTH;
+            cursor = cursor + 32;
         }
         revert("Target entry not found in data node");
     }
