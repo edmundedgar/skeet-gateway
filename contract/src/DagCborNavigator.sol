@@ -297,31 +297,57 @@ library DagCborNavigator {
     }
 
     function ignoreCBORInteger(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
-        (,, byteIndex) = parseCborHeader(cbor, byteIndex);
+        uint8 maj;
+        (maj,, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 0);
         return byteIndex;
     }
 
     function extractCBORInteger(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256, uint256) {
+        uint8 maj;
         uint64 extra;
-        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 0);
         return (uint256(extra), byteIndex);
     }
 
     function extractCBORArrayLength(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256, uint256) {
+        uint8 maj;
         uint64 extra;
-        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 4);
         return (uint256(extra), byteIndex);
     }
 
-    function ignoreCBORString(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+    function ignoreCBORBytes(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+        uint8 maj;
         uint64 extra;
-        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 2);
         return byteIndex + extra;
     }
 
-    function extractCBORString(bytes calldata cbor, uint256 byteIndex) internal pure returns (string memory, uint256) {
+    function ignoreCBORString(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256) {
+        uint8 maj;
         uint64 extra;
-        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 3);
+        return byteIndex + extra;
+    }
+
+    function extractCBORBytes(bytes calldata cbor, uint256 byteIndex) internal pure returns (string memory, uint256) {
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 2);
+        return (string(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
+    }
+
+    function extractCBORString(bytes calldata cbor, uint256 byteIndex) internal pure returns (string memory, uint256) {
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 3);
         return (string(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
     }
 

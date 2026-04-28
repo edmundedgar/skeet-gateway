@@ -171,7 +171,7 @@ abstract contract AtprotoMSTProver {
             cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
 
             cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "k"
-            cursor = DagCborNavigator.ignoreCBORString(node, cursor);
+            cursor = DagCborNavigator.ignoreCBORBytes(node, cursor);
 
             cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "p"
             cursor = DagCborNavigator.ignoreCBORInteger(node, cursor);
@@ -224,7 +224,7 @@ abstract contract AtprotoMSTProver {
 
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "k");
             string memory kval;
-            (kval, cursor) = DagCborNavigator.extractCBORString(node, cursor);
+            (kval, cursor) = DagCborNavigator.extractCBORBytes(node, cursor);
 
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "p");
             (extra, cursor) = DagCborNavigator.extractCBORInteger(node, cursor);
