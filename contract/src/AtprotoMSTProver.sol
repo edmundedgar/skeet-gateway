@@ -198,7 +198,7 @@ abstract contract AtprotoMSTProver {
             if (bytesReused == 0) {
                 rkey = kval;
             } else {
-                rkey = string.concat(_substring(rkey, 0, uint256(bytesReused)), kval);
+                rkey = string.concat(_substring(rkey, 0, bytesReused), kval);
             }
 
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "t");
