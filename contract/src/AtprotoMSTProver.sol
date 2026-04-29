@@ -154,8 +154,7 @@ abstract contract AtprotoMSTProver {
         (numEntries, cursor) = DagCborNavigator.extractCBORArrayLength(node, cursor);
         require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
-        uint256 entriesToLoop = (hint > 0) ? hint : numEntries;
-        for (uint256 i = 0; i < entriesToLoop; i++) {
+        for (uint256 i = 0; i < numEntries; i++) {
             cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
 
             cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "k"
@@ -177,15 +176,12 @@ abstract contract AtprotoMSTProver {
             cursor = DagCborNavigator.ignoreCBORCID(node, cursor);
         }
 
-        // hint == 0: looped through all entries to reach l, which is null (fast path handled non-null)
-        if (hint == 0) {
-            bytes32 foundCid;
-            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "l");
-            (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
-            require(foundCid == proveMe, "Value does not match target");
-            return sha256(node);
-        }
-        revert("Target CID not found in data node");
+        // looped through all entries to reach l (hint 0)
+        bytes32 foundCid;
+        cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "l");
+        (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
+        require(foundCid == proveMe, "Value does not match target");
+        return sha256(node);
     }
 
     /// @notice Verify the data node (node 0): reconstruct the record key from k/p fields and verify
