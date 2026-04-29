@@ -383,6 +383,12 @@ library DagCborNavigator {
         return byteIndex + 2;
     }
 
+    function expectCBORTextField2(bytes calldata cbor, uint256 byteIndex, bytes2 name) internal pure returns (uint256) {
+        assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x62);
+        assert(bytes2(cbor[byteIndex + 1:byteIndex + 3]) == name);
+        return byteIndex + 3;
+    }
+
     /// @notice Assert the next bytes are a 3-char CBOR text field with the given name, advance past it.
     function expectCBORTextField3(bytes calldata cbor, uint256 byteIndex, bytes3 name) internal pure returns (uint256) {
         assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x63);
