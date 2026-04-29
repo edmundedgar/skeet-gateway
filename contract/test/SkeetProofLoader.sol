@@ -25,4 +25,12 @@ abstract contract SkeetProofLoader is Test {
         SkeetProof memory proof = abi.decode(data, (SkeetProof));
         return proof;
     }
+
+    function _treeNodes(SkeetProof memory proof) internal pure returns (bytes[] memory) {
+        bytes[] memory result = new bytes[](proof.nodes.length - 1);
+        for (uint256 i = 0; i < result.length; i++) {
+            result[i] = proof.nodes[i + 1];
+        }
+        return result;
+    }
 }

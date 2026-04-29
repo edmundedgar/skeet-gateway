@@ -110,18 +110,17 @@ abstract contract AtprotoMSTProver {
         return did;
     }
 
-    /// @notice Verify the path from the hash of the node provided (index 0) up towards the root, to the final node provided.
-    /// @dev The final node is intended to be the root node of the MST tree, but you must verify this by checking the signed commit node
-    /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
-    /// @param nodes An array of CBOR-encoded tree nodes, each containing an entry for the hash of an earlier one
-    /// @return rootNode The final node of the series, intended (but not verified) to be the root node
-    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes)
+    /// @notice Walk up the inner tree nodes from a known hash, returning the root hash.
+    /// @param proveMe The hash to locate in the first tree node (typically sha256 of the data node)
+    /// @param treeNodes Inner MST nodes from the data node's parent up to and including the root
+    /// @return The hash of the final tree node, expected to appear in the signed commit node
+    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata treeNodes)
         public
         pure
         returns (bytes32)
     {
-        for (uint256 n = 1; n < nodes.length; n++) {
-            proveMe = _verifyTreeNode(nodes[n], proveMe);
+        for (uint256 n = 0; n < treeNodes.length; n++) {
+            proveMe = _verifyTreeNode(treeNodes[n], proveMe);
         }
         return proveMe;
     }
