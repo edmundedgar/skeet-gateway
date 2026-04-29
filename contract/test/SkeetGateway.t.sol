@@ -70,7 +70,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
         SkeetProof memory proof = _loadProofFixture("bbs_address_is_this_thing_on.json");
 
         // Check the value is in the node at the tip and recover the rkey
-        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
+        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes);
         bytes32 expectedRootHash = 0x20b90507550beb6a0c2d031c2ffca2ce1c1702933a47070ddcdaf3cc1879a954;
         //string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(rootHash, expectedRootHash);
@@ -79,7 +79,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
     function _testProvingFunctions(string memory fixtureName) internal {
         SkeetProof memory proof = _loadProofFixture(fixtureName);
 
-        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes, proof.nodeHints);
+        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.content[0]), proof.nodes);
         gateway.callVerifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
     }
 
@@ -155,7 +155,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
         assertEq(address(gateway.accountSafeForId(expectedAccount, 0)), address(0), "Safe not created yet");
 
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.commitNode, proof.sig
         );
         address createdSafe = address(gateway.accountSafeForId(expectedAccount, 0));
         assertNotEq(createdSafe, address(0), "Safe now created");
@@ -188,7 +188,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
         );
         address expectedAddress1 = gateway.predictSignerAddressFromSig(sha256(proof.commitNode), proof.sig);
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.commitNode, proof.sig
         );
 
         DidProof memory didProof1 = _loadDidProofFixture("did:plc:jcekkwbdkwpe7v5shsp72oum.premigrate.json");
@@ -235,18 +235,18 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
 
         SkeetProof memory proof2 = _loadProofFixture("migrationtest_bbs_after.json");
         gateway.handleSkeet(
-            proof2.content, proof2.botNameLength, proof2.nodes, proof2.nodeHints, proof2.commitNode, proof2.sig
+            proof2.content, proof2.botNameLength, proof2.nodes, proof2.commitNode, proof2.sig
         );
     }
 
     function testReplayProtection() public {
         SkeetProof memory proof = _loadProofFixture("bbs_blah_example_com.json");
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.commitNode, proof.sig
         );
         vm.expectRevert();
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.commitNode, proof.sig
         );
     }
 

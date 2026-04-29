@@ -229,19 +229,17 @@ contract SkeetGateway is AtprotoMSTProver {
     /// @param content A content node containing a skeet, with an optional extra one containing reply context
     /// @param botNameLength The length in bytes of the name of the bot, mentioned at the start of the message
     /// @param nodes An array of CBOR-encoded tree nodes, ending in the root node for the MST
-    /// @param nodeHints An array of indexes to help the verifier find the relevant data in the tree nodes
     /// @param commitNode The commit node at the top of the tree, CBOR-encoded with the signature removed
     /// @param sig The signature in Gnosis Safe style (r+s+v)
     function handleSkeet(
         bytes[] calldata content,
         uint8 botNameLength,
         bytes[] calldata nodes,
-        uint256[] calldata nodeHints,
         bytes calldata commitNode,
         bytes calldata sig
     ) external {
         bytes32 contentHash = sha256(abi.encodePacked(content[0]));
-        bytes32 rootHash = merkleProvenRootHash(contentHash, nodes, nodeHints);
+        bytes32 rootHash = merkleProvenRootHash(contentHash, nodes);
         bytes32 account = _verifyAndRecoverAccount(rootHash, commitNode, sig);
         _executePayload(account, content, botNameLength);
     }

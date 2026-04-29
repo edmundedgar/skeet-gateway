@@ -46,7 +46,7 @@ contract PayMessageParserTest is Test, SkeetProofLoader {
         assertEq(address(0xB6aaa1DAd9D09d689dc6111dcc6EA2A0d641b406).balance, 0);
 
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.commitNode, proof.sig
         );
 
         assertEq(address(0xB6aaa1DAd9D09d689dc6111dcc6EA2A0d641b406).balance, 12300000000000000);

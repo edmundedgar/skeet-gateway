@@ -438,6 +438,15 @@ library DagCborNavigator {
         return expectCBORCIDPrefix(cbor, byteIndex) + 32;
     }
 
+    /// @notice Extract a nullable CID: returns bytes32(0) if null, otherwise the 32-byte hash.
+    function extractCBORNullableCID(bytes calldata cbor, uint256 byteIndex) internal pure returns (bytes32, uint256) {
+        if (bytes1(cbor[byteIndex:byteIndex + 1]) == bytes1(0xf6)) {
+            return (bytes32(0), byteIndex + 1);
+        }
+        byteIndex = expectCBORCIDPrefix(cbor, byteIndex);
+        return (bytes32(cbor[byteIndex:byteIndex + 32]), byteIndex + 32);
+    }
+
     /// @notice Return end of the field (ie the end of the payload, not just the header)
     /// @param cbor cbor encoded bytes to parse from
     /// @param byteIndex index of the start of the header

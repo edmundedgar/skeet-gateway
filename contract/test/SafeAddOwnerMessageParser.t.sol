@@ -36,7 +36,7 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader {
         );
 
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.commitNode, proof.sig
         );
 
         address[] memory owners = new address[](2);
@@ -63,7 +63,7 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader {
         );
 
         gateway.handleSkeet(
-            proof.content, proof.botNameLength, proof.nodes, proof.nodeHints, proof.commitNode, proof.sig
+            proof.content, proof.botNameLength, proof.nodes, proof.commitNode, proof.sig
         );
 
         // Pretend the second owner increased the threshold
@@ -114,7 +114,7 @@ contract SafeAddOwneMessageParserTest is Test, SkeetProofLoader {
 
         vm.recordLogs();
         gateway.handleSkeet(
-            proof2.content, proof2.botNameLength, proof2.nodes, proof2.nodeHints, proof2.commitNode, proof2.sig
+            proof2.content, proof2.botNameLength, proof2.nodes, proof2.commitNode, proof2.sig
         );
 
         Vm.Log[] memory entries = vm.getRecordedLogs();

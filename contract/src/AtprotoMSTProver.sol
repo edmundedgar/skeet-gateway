@@ -118,26 +118,21 @@ abstract contract AtprotoMSTProver {
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param nodes An array of CBOR-encoded tree nodes, each containing an entry for the hash of an earlier one
     /// @return rootNode The final node of the series, intended (but not verified) to be the root node
-    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes, uint256[] calldata hints)
+    function merkleProvenRootHash(bytes32 proveMe, bytes[] calldata nodes)
         public
         pure
         returns (bytes32)
     {
-        // hints: 0 means the target is in the l field; any other value n means it's in the v/t field of entry n (1-based).
-        // We work up the chain. Each time we find proveMe we hash the current node and use that as the next proveMe.
         string memory rkey;
-	(proveMe, rkey) = _verifyDataNode(nodes[0], hints[0], proveMe);
+        (proveMe, rkey) = _verifyDataNode(nodes[0], proveMe);
         require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
         for (uint256 n = 1; n < nodes.length; n++) {
-            proveMe = _verifyTreeNode(nodes[n], hints[n], proveMe);
+            proveMe = _verifyTreeNode(nodes[n], proveMe);
         }
         return proveMe;
     }
 
-    /// @notice Verify a tree node
-    /// @dev hint == 0: target is in the l field.
-    ///      hint > 0: target is in the t field of entry hint-1.
-    function _verifyTreeNode(bytes calldata node, uint256 hint, bytes32 proveMe)
+    function _verifyTreeNode(bytes calldata node, bytes32 proveMe)
         internal
         pure
         returns (bytes32)
@@ -145,11 +140,10 @@ abstract contract AtprotoMSTProver {
         uint256 cursor;
 
         cursor = DagCborNavigator.expectCBORMapping(node, cursor, 2);
+        cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
 
         uint256 numEntries;
-        cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
         (numEntries, cursor) = DagCborNavigator.extractCBORArrayLength(node, cursor);
-        require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
         for (uint256 i = 0; i < numEntries; i++) {
             cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
@@ -161,19 +155,16 @@ abstract contract AtprotoMSTProver {
             cursor = DagCborNavigator.ignoreCBORInteger(node, cursor);
 
             cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "t"
-            if (hint > 0 && i == hint - 1) {
-                bytes32 foundCid;
-                (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
-                require(foundCid == proveMe, "Value does not match target");
+            bytes32 tCid;
+            (tCid, cursor) = DagCborNavigator.extractCBORNullableCID(node, cursor);
+            if (tCid == proveMe) {
                 return sha256(node);
             }
-            cursor = DagCborNavigator.ignoreCBORNullableCID(node, cursor);
 
             cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "v"
             cursor = DagCborNavigator.ignoreCBORCID(node, cursor);
         }
 
-        // looped through all entries to reach l (hint 0)
         bytes32 foundCid;
         cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "l");
         (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
@@ -182,10 +173,10 @@ abstract contract AtprotoMSTProver {
     }
 
     /// @notice Verify the data node (node 0): reconstruct the record key from k/p fields and verify
-    ///         proveMe appears in the v field of the entry at hint (1-based index).
+    ///         proveMe appears in some v field.
     /// @return newProveMe sha256(node)
-    /// @return rkey The fully reconstructed ATProto record key up to and including the winning entry
-    function _verifyDataNode(bytes calldata node, uint256 hint, bytes32 proveMe)
+    /// @return rkey The fully reconstructed ATProto record key of the matching entry
+    function _verifyDataNode(bytes calldata node, bytes32 proveMe)
         internal
         pure
         returns (bytes32, string memory)
@@ -198,11 +189,10 @@ abstract contract AtprotoMSTProver {
 
         uint256 numEntries;
         (numEntries, cursor) = DagCborNavigator.extractCBORArrayLength(node, cursor);
-        require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
         // Compression scheme: each entry's k/p pair extends the running rkey.
         // p is the number of bytes to keep from the current rkey; k is the suffix to append.
-        for (uint256 i = 0; i < hint; i++) {
+        for (uint256 i = 0; i < numEntries; i++) {
             cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
 
             string memory kval;
@@ -219,21 +209,14 @@ abstract contract AtprotoMSTProver {
             }
 
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "t");
-            // cursor = cursor + 2;
-
             cursor = DagCborNavigator.ignoreCBORNullableCID(node, cursor);
 
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "v");
-            // cursor = cursor + 2;
-
-            if (i == hint - 1) {
-                bytes32 foundCid;
-                (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
-                require(foundCid == proveMe, "e val does not match");
+            bytes32 foundCid;
+            (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
+            if (foundCid == proveMe) {
                 return (sha256(node), rkey);
             }
-            cursor = DagCborNavigator.ignoreCBORCID(node, cursor);
-            // cursor = cursor + 41;
         }
         revert("Target entry not found in data node");
     }
