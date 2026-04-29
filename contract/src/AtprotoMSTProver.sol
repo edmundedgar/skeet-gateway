@@ -225,16 +225,22 @@ abstract contract AtprotoMSTProver {
                 rkey = string.concat(_substring(rkey, 0, uint256(extra)), kval);
             }
 
-            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "t"
+            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "t");
+            // cursor = cursor + 2;
+
             cursor = DagCborNavigator.ignoreCBORNullableCID(node, cursor);
 
-            cursor = DagCborNavigator.ignoreCBORTextField1(cursor); // "v"
-            cursor = cursor + 9; // CID prefix (unchecked)
+            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "v");
+            // cursor = cursor + 2;
+
             if (i == hint - 1) {
-                require(bytes32(node[cursor:cursor + 32]) == proveMe, "e val does not match");
+                bytes32 foundCid;
+                (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
+                require(foundCid == proveMe, "e val does not match");
                 return (sha256(node), rkey);
             }
-            cursor = cursor + 32;
+            cursor = DagCborNavigator.ignoreCBORCID(node, cursor);
+            // cursor = cursor + 41;
         }
         revert("Target entry not found in data node");
     }
