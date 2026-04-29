@@ -22,15 +22,9 @@ pragma solidity ^0.8.28;
 import {DagCborNavigator, CID_PREFIX_BYTES_9B} from "./DagCborNavigator.sol";
 import {console} from "forge-std/console.sol";
 
-bytes1 constant CBOR_NULL_1B = hex"f6";
-
 // CBOR mappings are encoded with the following initial bytes, indicating the number of entries:
 bytes1 constant CBOR_MAPPING_2_ENTRIES_1B = hex"a2"; // used in range check for content mappings
 bytes1 constant CBOR_MAPPING_15_ENTRIES_1B = hex"af"; // used in range check for content mappings
-
-// Used only in the fast-path tail-read of the "l" field (reading backwards, helpers don't apply)
-bytes2 constant CBOR_HEADER_L_2B = bytes2(hex"616c");
-bytes3 constant CBOR_HEADER_L_NULL_3B = bytes3(hex"616cf6"); // l followed by a null
 
 // Combined field+value constant for the version=3 check (field name and value in one read)
 bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_3_9B = bytes9(hex"6776657273696f6e03"); // text, version, 3
