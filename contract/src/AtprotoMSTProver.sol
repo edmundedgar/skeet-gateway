@@ -98,8 +98,8 @@ abstract contract AtprotoMSTProver {
         cursor = DagCborNavigator.expectCBORTextField3(commitNode, cursor, "rev");
         cursor = DagCborNavigator.ignoreCBORString(commitNode, cursor);
 
-        cursor = DagCborNavigator.expectCBORTextField4(commitNode, cursor, "data");
         bytes32 foundCid;
+        cursor = DagCborNavigator.expectCBORTextField4(commitNode, cursor, "data");
         (foundCid, cursor) = DagCborNavigator.extractCBORCID(commitNode, cursor);
         require(foundCid == proveMe, "Data field does not contain expected hash");
 
@@ -129,15 +129,15 @@ abstract contract AtprotoMSTProver {
 	(proveMe, rkey) = _verifyDataNode(nodes[0], hints[0], proveMe);
         require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
         for (uint256 n = 1; n < nodes.length; n++) {
-            proveMe = _verifyInnerNode(nodes[n], hints[n], proveMe);
+            proveMe = _verifyTreeNode(nodes[n], hints[n], proveMe);
         }
         return proveMe;
     }
 
-    /// @notice Verify an inner node (n > 0).
+    /// @notice Verify a tree node
     /// @dev hint == 0: target is in the l field.
     ///      hint > 0: target is in the t field of entry hint-1.
-    function _verifyInnerNode(bytes calldata node, uint256 hint, bytes32 proveMe)
+    function _verifyTreeNode(bytes calldata node, uint256 hint, bytes32 proveMe)
         internal
         pure
         returns (bytes32)
@@ -145,9 +145,9 @@ abstract contract AtprotoMSTProver {
         uint256 cursor;
 
         cursor = DagCborNavigator.expectCBORMapping(node, cursor, 2);
-        cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
 
         uint256 numEntries;
+        cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "e");
         (numEntries, cursor) = DagCborNavigator.extractCBORArrayLength(node, cursor);
         require(hint <= numEntries, "Hint is for an index beyond the end of the entries");
 
@@ -190,7 +190,6 @@ abstract contract AtprotoMSTProver {
         pure
         returns (bytes32, string memory)
     {
-        uint256 extra;
         uint256 cursor;
         string memory rkey;
 
@@ -206,16 +205,17 @@ abstract contract AtprotoMSTProver {
         for (uint256 i = 0; i < hint; i++) {
             cursor = DagCborNavigator.expectCBORMapping(node, cursor, 4);
 
-            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "k");
             string memory kval;
+            cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "k");
             (kval, cursor) = DagCborNavigator.extractCBORBytes(node, cursor);
 
+            uint256 bytesReused;
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "p");
-            (extra, cursor) = DagCborNavigator.extractCBORInteger(node, cursor);
-            if (extra == 0) {
+            (bytesReused, cursor) = DagCborNavigator.extractCBORInteger(node, cursor);
+            if (bytesReused == 0) {
                 rkey = kval;
             } else {
-                rkey = string.concat(_substring(rkey, 0, uint256(extra)), kval);
+                rkey = string.concat(_substring(rkey, 0, uint256(bytesReused)), kval);
             }
 
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "t");
