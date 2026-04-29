@@ -138,25 +138,13 @@ abstract contract AtprotoMSTProver {
     }
 
     /// @notice Verify an inner node (n > 0).
-    /// @dev hint == 0: target is in the l field. Tries a fast path reading from the tail of the node
-    ///      to avoid looping through all entries; falls back to a full traversal when l is null,
-    ///      because null bytes could appear by coincidence inside a CID hash.
+    /// @dev hint == 0: target is in the l field.
     ///      hint > 0: target is in the t field of entry hint-1.
     function _verifyInnerNode(bytes calldata node, uint256 hint, bytes32 proveMe)
         internal
         pure
         returns (bytes32)
     {
-        if (hint == 0) {
-            uint256 lastByte = node.length;
-            if (bytes3(node[lastByte - 3:lastByte]) != bytes3(CBOR_HEADER_L_NULL_3B)) {
-                require(bytes32(node[lastByte - 32:lastByte]) == proveMe, "l value mismatch");
-                require(bytes9(node[lastByte - 32 - 9:lastByte - 32]) == bytes9(CID_PREFIX_BYTES_9B), "Unexpected CID prefix");
-                require(bytes2(node[lastByte - 32 - 9 - 2:lastByte - 32 - 9]) == CBOR_HEADER_L_2B, "l prefix mismatch");
-                return sha256(node);
-            }
-        }
-
         uint256 cursor;
 
         cursor = DagCborNavigator.expectCBORMapping(node, cursor, 2);
