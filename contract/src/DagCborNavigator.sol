@@ -360,12 +360,6 @@ library DagCborNavigator {
         return (string(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
     }
 
-    /// @dev No major-type check: accepts any CBOR type. Truncates silently to 32 bytes if extra > 32.
-    function extractCBORBytes32(bytes calldata cbor, uint256 byteIndex) internal pure returns (bytes32, uint256) {
-        uint64 extra;
-        (, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
-        return (bytes32(cbor[byteIndex:byteIndex + extra]), byteIndex + extra);
-    }
 
     /// @notice Assert that the next bytes are a CBOR mapping with exactly n entries, advance past it.
     function expectCBORMapping(bytes calldata cbor, uint256 byteIndex, uint256 n) internal pure returns (uint256) {

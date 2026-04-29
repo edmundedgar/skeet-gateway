@@ -73,7 +73,7 @@ contract SkeetGateway is AtprotoMSTProver {
 
     event LogChangeOwner(address indexed owner);
 
-    event LogHandleAccount(bytes32 indexed account, bytes32 indexed did, address indexed signer);
+    event LogHandleAccount(bytes32 indexed account, string indexed did, address indexed signer);
 
     address[] initialSafeOwners;
 
@@ -219,7 +219,7 @@ contract SkeetGateway is AtprotoMSTProver {
 
         // This is the DID the signer is claiming to be speaking for in their signed commit node
         // They may or may not be the legitimate signer per the PLC directory / signed DID updates
-        bytes32 did = processCommitNode(rootHash, commitNode);
+        string memory did = processCommitNode(rootHash, commitNode);
         bytes32 account = keccak256(abi.encodePacked(did, signer));
         emit LogHandleAccount(account, did, signer);
         return account;

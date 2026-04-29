@@ -84,16 +84,16 @@ abstract contract AtprotoMSTProver {
     /// @param proveMe The hash of the MST root node which is signed by the commit node supplied
     /// @param commitNode The CBOR-encoded commit node
     /// @return did a bytes32 representing the DID the signer claims to have (they may be lying)
-    function processCommitNode(bytes32 proveMe, bytes calldata commitNode) public pure returns (bytes32) {
+    function processCommitNode(bytes32 proveMe, bytes calldata commitNode) public pure returns (string memory) {
         uint256 cursor;
-        bytes32 did;
+        string memory did;
 
         // The unsigned commit node has 5 entries.
         // A 6th entry, "sig", is added later by hashing the unsigned, 5-entry version.
         cursor = DagCborNavigator.expectCBORMapping(commitNode, cursor, 5);
 
         cursor = DagCborNavigator.expectCBORTextField3(commitNode, cursor, "did");
-        (did, cursor) = DagCborNavigator.extractCBORBytes32(commitNode, cursor);
+        (did, cursor) = DagCborNavigator.extractCBORString(commitNode, cursor);
 
         cursor = DagCborNavigator.expectCBORTextField3(commitNode, cursor, "rev");
         cursor = DagCborNavigator.ignoreCBORString(commitNode, cursor);

@@ -165,7 +165,7 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
         assertEq(entries.length, 6);
 
         assertEq(entries[0].topics[1], expectedAccount, "topic 1 should be account");
-        assertEq(entries[0].topics[2], bytes32(bytes(proof.did)), "topic 2 should be did");
+        assertEq(entries[0].topics[2], keccak256(bytes(proof.did)), "topic 2 should be did");
         assertEq(entries[0].topics[3], bytes32(uint256(uint160(expectedSigner))), "topic 3 should be signer");
 
         assertEq(entries[2].topics[1], expectedAccount, "topic 1 should be account");
