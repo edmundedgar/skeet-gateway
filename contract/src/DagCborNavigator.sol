@@ -311,6 +311,15 @@ library DagCborNavigator {
         return (uint256(extra), byteIndex);
     }
 
+    function expectCBORInteger(bytes calldata cbor, uint256 byteIndex, uint256 n) internal pure returns (uint256) {
+        uint8 maj;
+        uint64 extra;
+        (maj, extra, byteIndex) = parseCborHeader(cbor, byteIndex);
+        assert(maj == 0);
+        assert(extra == n);
+        return byteIndex;
+    }
+
     function extractCBORArrayLength(bytes calldata cbor, uint256 byteIndex) internal pure returns (uint256, uint256) {
         uint8 maj;
         uint64 extra;
@@ -401,6 +410,13 @@ library DagCborNavigator {
         assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x64);
         assert(bytes4(cbor[byteIndex + 1:byteIndex + 5]) == name);
         return byteIndex + 5;
+    }
+
+    /// @notice Assert the next bytes are a 7-char CBOR text field with the given name, advance past it.
+    function expectCBORTextField7(bytes calldata cbor, uint256 byteIndex, bytes7 name) internal pure returns (uint256) {
+        assert(bytes1(cbor[byteIndex:byteIndex + 1]) == 0x67);
+        assert(bytes7(cbor[byteIndex + 1:byteIndex + 8]) == name);
+        return byteIndex + 8;
     }
 
     /// @notice Assert that the next bytes are the DAG-CBOR CID tag prefix, advance past it.

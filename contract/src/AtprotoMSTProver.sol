@@ -112,7 +112,10 @@ abstract contract AtprotoMSTProver {
         cursor = DagCborNavigator.expectCBORTextField4(commitNode, cursor, "prev");
         cursor = DagCborNavigator.ignoreCBORNullableCID(commitNode, cursor);
 
-        require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_3_9B, "v3 field not found"); // text "version" 3
+        cursor = DagCborNavigator.expectCBORTextField7(commitNode, cursor, "version");
+        cursor = DagCborNavigator.expectCBORInteger(commitNode, cursor, 3);
+        //require(bytes9(commitNode[cursor:cursor + 9]) == CBOR_HEADER_AND_VALUE_VERSION_3_9B, "v3 field not found"); // text "version" 3
+
         return did;
     }
 
