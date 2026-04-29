@@ -191,8 +191,11 @@ abstract contract AtprotoMSTProver {
 
         // hint == 0: looped through all entries to reach l, which is null (fast path handled non-null)
         if (hint == 0) {
+            bytes32 foundCid;
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "l");
-            cursor = cursor + 1; // null byte
+            (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
+            require(foundCid == proveMe, "Value does not match target");
+            return sha256(node);
         }
         return proveMe;
     }
