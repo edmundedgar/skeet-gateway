@@ -242,12 +242,10 @@ contract SkeetGateway is AtprotoMSTProver {
         bytes calldata sig
     ) external {
         bytes32 contentHash = sha256(abi.encodePacked(content[0]));
-        string memory rkey;
-        bytes32 dataHash;
-        (dataHash, rkey) = verifyDataNode(nodes[0], contentHash);
+        string memory rkey = verifyDataNode(nodes[0], contentHash);
         require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
 
-        bytes32 rootHash = merkleProvenRootHash(dataHash, nodes);
+        bytes32 rootHash = merkleProvenRootHash(sha256(nodes[0]), nodes);
         bytes32 account = _verifyAndRecoverAccount(rootHash, commitNode, sig);
         _executePayload(account, content, botNameLength);
     }

@@ -70,10 +70,8 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
         SkeetProof memory proof = _loadProofFixture("bbs_address_is_this_thing_on.json");
 
         // Check the value is in the node at the tip and recover the rkey
-        string memory rkey;
-        bytes32 dataHash;
-        (dataHash, rkey) = gateway.verifyDataNode(proof.nodes[0], sha256(proof.content[0]));
-        bytes32 rootHash = gateway.merkleProvenRootHash(dataHash, proof.nodes);
+        string memory rkey = gateway.verifyDataNode(proof.nodes[0], sha256(proof.content[0]));
+        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.nodes[0]), proof.nodes);
         bytes32 expectedRootHash = 0x20b90507550beb6a0c2d031c2ffca2ce1c1702933a47070ddcdaf3cc1879a954;
         //string memory full_key = string.concat("app.bsky.feed.post/", proof.rkey);
         assertEq(rootHash, expectedRootHash);
@@ -82,10 +80,8 @@ contract SkeetGatewayTest is Test, SkeetProofLoader, DidProofLoader {
     function _testProvingFunctions(string memory fixtureName) internal {
         SkeetProof memory proof = _loadProofFixture(fixtureName);
 
-        string memory rkey;
-        bytes32 dataHash;
-        (dataHash, rkey) = gateway.verifyDataNode(proof.nodes[0], sha256(proof.content[0]));
-        bytes32 rootHash = gateway.merkleProvenRootHash(dataHash, proof.nodes);
+        string memory rkey = gateway.verifyDataNode(proof.nodes[0], sha256(proof.content[0]));
+        bytes32 rootHash = gateway.merkleProvenRootHash(sha256(proof.nodes[0]), proof.nodes);
         gateway.callVerifyAndRecoverAccount(rootHash, proof.commitNode, proof.sig);
     }
 

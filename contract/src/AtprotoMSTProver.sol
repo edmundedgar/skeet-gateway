@@ -167,13 +167,12 @@ abstract contract AtprotoMSTProver {
     }
 
     /// @notice Verify the data node (node 0): reconstruct the record key from k/p fields and verify
-    ///         proveMe appears in some v field.
-    /// @return newProveMe sha256(node)
+    ///         contentHash appears in some v field.
     /// @return rkey The fully reconstructed ATProto record key of the matching entry
-    function verifyDataNode(bytes calldata node, bytes32 proveMe)
+    function verifyDataNode(bytes calldata node, bytes32 contentHash)
         public
         pure
-        returns (bytes32, string memory)
+        returns (string memory)
     {
         uint256 cursor;
         string memory rkey;
@@ -208,8 +207,8 @@ abstract contract AtprotoMSTProver {
             cursor = DagCborNavigator.expectCBORTextField1(node, cursor, "v");
             bytes32 foundCid;
             (foundCid, cursor) = DagCborNavigator.extractCBORCID(node, cursor);
-            if (foundCid == proveMe) {
-                return (sha256(node), rkey);
+            if (foundCid == contentHash) {
+                return (rkey);
             }
         }
         revert("Target entry not found in data node");
