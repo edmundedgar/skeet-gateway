@@ -185,7 +185,7 @@ abstract contract AtprotoMSTProver {
             require(foundCid == proveMe, "Value does not match target");
             return sha256(node);
         }
-        return proveMe;
+        revert("Target CID not found in data node");
     }
 
     /// @notice Verify the data node (node 0): reconstruct the record key from k/p fields and verify
