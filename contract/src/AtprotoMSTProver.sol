@@ -32,9 +32,6 @@ bytes9 constant CBOR_HEADER_AND_VALUE_VERSION_3_9B = bytes9(hex"6776657273696f6e
 // content cbor contains text
 bytes5 constant CBOR_HEADER_TEXT_5B = bytes5(hex"6474657874"); // text, "text"
 
-
-bytes18 constant APP_BSKY_FEED_POST = bytes18(bytes("app.bsky.feed.post"));
-
 abstract contract AtprotoMSTProver {
     /// @notice Return a substring of a string
     /// @param str The string
@@ -123,9 +120,6 @@ abstract contract AtprotoMSTProver {
         pure
         returns (bytes32)
     {
-        string memory rkey;
-        (proveMe, rkey) = _verifyDataNode(nodes[0], proveMe);
-        require(bytes18(bytes(rkey)) == APP_BSKY_FEED_POST, "record key did not show a post");
         for (uint256 n = 1; n < nodes.length; n++) {
             proveMe = _verifyTreeNode(nodes[n], proveMe);
         }
@@ -176,8 +170,8 @@ abstract contract AtprotoMSTProver {
     ///         proveMe appears in some v field.
     /// @return newProveMe sha256(node)
     /// @return rkey The fully reconstructed ATProto record key of the matching entry
-    function _verifyDataNode(bytes calldata node, bytes32 proveMe)
-        internal
+    function verifyDataNode(bytes calldata node, bytes32 proveMe)
+        public
         pure
         returns (bytes32, string memory)
     {
